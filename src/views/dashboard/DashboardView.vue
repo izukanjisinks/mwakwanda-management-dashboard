@@ -1,65 +1,72 @@
 <script setup lang="ts">
 import { useAuthStore } from '@/stores/auth'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Hotel, CalendarDays, ReceiptText, LayoutDashboard } from 'lucide-vue-next'
+import { CalendarCheck, LogIn, LogOut, DollarSign } from 'lucide-vue-next'
+import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
+import StatCard from '@/components/dashboard/StatCard.vue'
+import RoomAvailability from '@/components/dashboard/RoomAvailability.vue'
+import RevenueChart from '@/components/dashboard/RevenueChart.vue'
+import ReservationsChart from '@/components/dashboard/ReservationsChart.vue'
+import BookingPlatformChart from '@/components/dashboard/BookingPlatformChart.vue'
+import BookingTable from '@/components/dashboard/BookingTable.vue'
+import OverallRating from '@/components/dashboard/OverallRating.vue'
+import TaskList from '@/components/dashboard/TaskList.vue'
+import ActivityFeed from '@/components/dashboard/ActivityFeed.vue'
 
 const authStore = useAuthStore()
+
+const roomData = { occupied: 286, reserved: 87, available: 32, notReady: 13 }
 </script>
 
 <template>
-  <div class="flex flex-col gap-6 p-6 max-w-5xl mx-auto">
-    <div>
-      <h1 class="text-2xl font-semibold flex items-center gap-2">
-        <LayoutDashboard class="size-6" />
-        Dashboard
-      </h1>
-      <p class="text-muted-foreground">
-        Welcome back, {{ authStore.user?.full_name || authStore.user?.email }}
-      </p>
+  <!-- Admin Dashboard -->
+  <template v-if="authStore.userRole === 'admin'">
+    <DashboardHeader title="Dashboard" />
+
+    <div class="flex flex-1 gap-6 p-6">
+      <!-- Main content -->
+      <div class="flex flex-1 flex-col gap-6 min-w-0">
+        <!-- Stat cards -->
+        <div class="grid gap-4 sm:grid-cols-3">
+          <StatCard title="New Bookings" :value="840" :change="8.7" :icon="CalendarCheck" />
+          <StatCard title="Check-In" :value="231" :change="3.56" :icon="LogIn" icon-color="bg-accent/10 text-accent" />
+          <StatCard title="Check-Out" :value="124" :change="-1.06" :icon="LogOut" icon-color="bg-chart-3/10 text-chart-3" />
+          <!-- <StatCard title="Total Revenue" value="$123,980" :change="5.7" :icon="DollarSign" icon-color="bg-chart-4/10 text-chart-4" /> -->
+        </div>
+
+        <!-- Charts row 1 -->
+        <div class="grid gap-6 lg:grid-cols-2">
+          <RoomAvailability v-bind="roomData" />
+          <RevenueChart />
+        </div>
+
+        <!-- Charts row 2 -->
+        <div class="grid gap-6">
+          <ReservationsChart />
+          <!-- <BookingPlatformChart /> -->
+        </div>
+
+        <!-- Booking table -->
+        <BookingTable />
+      </div>
+
+      <!-- Right sidebar -->
+      <aside class="hidden w-80 shrink-0 flex-col gap-6 xl:flex self-stretch">
+        <OverallRating />
+        <!-- <TaskList /> -->
+        <ActivityFeed />
+      </aside>
     </div>
+  </template>
 
-    <div class="grid gap-4 sm:grid-cols-3">
-      <Card>
-        <CardHeader class="pb-2">
-          <div class="flex items-center gap-3">
-            <div class="size-9 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Hotel class="size-5 text-primary" />
-            </div>
-            <CardTitle class="text-base">Rooms</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <CardDescription>Room management coming in Phase 2.</CardDescription>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader class="pb-2">
-          <div class="flex items-center gap-3">
-            <div class="size-9 rounded-lg bg-primary/10 flex items-center justify-center">
-              <CalendarDays class="size-5 text-primary" />
-            </div>
-            <CardTitle class="text-base">Bookings</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <CardDescription>Booking flow coming in Phase 4.</CardDescription>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader class="pb-2">
-          <div class="flex items-center gap-3">
-            <div class="size-9 rounded-lg bg-primary/10 flex items-center justify-center">
-              <ReceiptText class="size-5 text-primary" />
-            </div>
-            <CardTitle class="text-base">Invoices</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <CardDescription>Invoice module coming in Phase 6.</CardDescription>
-        </CardContent>
-      </Card>
+  <!-- Client Dashboard -->
+  <template v-else>
+    <DashboardHeader title="My Dashboard" />
+    <div class="flex flex-col gap-6 p-6 max-w-3xl">
+      <div class="grid gap-4 sm:grid-cols-3">
+        <StatCard title="Active Bookings" :value="2" :icon="CalendarCheck" />
+        <StatCard title="Check-In" :value="1" :icon="LogIn" icon-color="bg-accent/10 text-accent" />
+        <StatCard title="Invoices Due" :value="1" :icon="DollarSign" icon-color="bg-chart-4/10 text-chart-4" />
+      </div>
     </div>
-  </div>
+  </template>
 </template>
