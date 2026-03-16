@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { useRoomsStore } from '@/stores/rooms'
 import { CalendarCheck, LogIn, LogOut, DollarSign } from 'lucide-vue-next'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import StatCard from '@/components/dashboard/StatCard.vue'
@@ -13,8 +15,20 @@ import TaskList from '@/components/dashboard/TaskList.vue'
 import ActivityFeed from '@/components/dashboard/ActivityFeed.vue'
 
 const authStore = useAuthStore()
+const roomsStore = useRoomsStore()
 
-const roomData = { occupied: 286, reserved: 87, available: 32, notReady: 13 }
+onMounted(() => {
+  if (authStore.userRole === 'admin') {
+    roomsStore.fetchRooms()
+  }
+})
+
+const roomData = computed(() => ({
+  occupied: roomsStore.summary.occupied,
+  reserved: roomsStore.summary.reserved,
+  available: roomsStore.summary.available,
+  notReady: roomsStore.summary.not_ready,
+}))
 </script>
 
 <template>
