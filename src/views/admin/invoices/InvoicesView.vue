@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { Search, Eye, Trash2 } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
 import { useInvoicesStore } from '@/stores/invoices'
 import type { Invoice, InvoiceStatus } from '@/types/invoice'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
@@ -81,8 +82,12 @@ function confirmDelete(invoice: Invoice) {
 async function handleDelete() {
   if (!invoiceToDelete.value) return
   deleting.value = true
+  const num = invoiceToDelete.value.invoice_number
   try {
     await store.deleteInvoice(invoiceToDelete.value.id)
+    toast.success(`${num} deleted.`)
+  } catch {
+    toast.error('Failed to delete invoice.')
   } finally {
     deleting.value = false
     deleteDialogOpen.value = false
@@ -96,7 +101,10 @@ async function handleStatusChange(status: InvoiceStatus) {
   try {
     const updated = await store.updateStatus(selectedInvoice.value.id, status, paidDate)
     selectedInvoice.value = updated
-  } catch {}
+    toast.success(`Invoice marked as ${statusConfig[status].label}.`)
+  } catch {
+    toast.error('Failed to update invoice status.')
+  }
 }
 
 // Summary counts

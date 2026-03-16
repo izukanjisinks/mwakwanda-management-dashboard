@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { Plus, Pencil, Trash2, Search } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
 import { useCorporateClientsStore } from '@/stores/clients'
 import type { CorporateClient } from '@/types/client'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
@@ -65,8 +66,12 @@ function confirmDelete(client: CorporateClient) {
 async function handleDelete() {
   if (!clientToDelete.value) return
   deleting.value = true
+  const name = clientToDelete.value.company_name
   try {
     await store.deleteClient(clientToDelete.value.id)
+    toast.success(`${name} deleted.`)
+  } catch {
+    toast.error('Failed to delete client.')
   } finally {
     deleting.value = false
     deleteDialogOpen.value = false

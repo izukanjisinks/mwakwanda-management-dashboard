@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Loader2, RefreshCw, Eye, EyeOff, Copy, Check } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
 import { useUsersStore } from '@/stores/users'
 import type { SystemUser, SystemUserRole, SystemUserStatus } from '@/types/user'
 
@@ -62,6 +63,7 @@ async function copyPassword() {
   if (!form.value.password) return
   await navigator.clipboard.writeText(form.value.password)
   copied.value = true
+  toast.success('Password copied to clipboard.')
   setTimeout(() => { copied.value = false }, 2000)
 }
 
@@ -112,10 +114,12 @@ async function handleSave() {
     } else {
       saved = await store.createUser(payload)
     }
+    toast.success(isEdit.value ? 'User updated successfully.' : 'User created successfully.')
     emit('saved', saved)
     emit('update:open', false)
   } catch (err: any) {
     error.value = err?.error?.message ?? 'Failed to save user.'
+    toast.error(error.value)
   } finally {
     saving.value = false
   }

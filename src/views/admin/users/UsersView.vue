@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { Plus, Pencil, Trash2, Search } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
 import { useUsersStore } from '@/stores/users'
 import { useAuthStore } from '@/stores/auth'
 import type { SystemUser, SystemUserRole } from '@/types/user'
@@ -77,8 +78,12 @@ function confirmDelete(user: SystemUser) {
 async function handleDelete() {
   if (!userToDelete.value) return
   deleting.value = true
+  const name = userToDelete.value.full_name
   try {
     await store.deleteUser(userToDelete.value.id)
+    toast.success(`${name} removed from the system.`)
+  } catch {
+    toast.error('Failed to delete user.')
   } finally {
     deleting.value = false
     deleteDialogOpen.value = false

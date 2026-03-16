@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { Plus, Pencil, Trash2, Search } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
 import { useBookingsStore } from '@/stores/bookings'
 import type { Booking, BookingStatus } from '@/types/booking'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
@@ -92,8 +93,12 @@ function confirmDelete(booking: Booking) {
 async function handleDelete() {
   if (!bookingToDelete.value) return
   deleting.value = true
+  const name = bookingToDelete.value.client_name
   try {
     await store.deleteBooking(bookingToDelete.value.id)
+    toast.success(`Booking for ${name} deleted.`)
+  } catch {
+    toast.error('Failed to delete booking.')
   } finally {
     deleting.value = false
     deleteDialogOpen.value = false
@@ -104,7 +109,10 @@ async function handleDelete() {
 async function handleStatusChange(booking: Booking, status: BookingStatus) {
   try {
     await store.updateStatus(booking.id, status)
-  } catch {}
+    toast.success(`Booking status updated to ${statusConfig[status].label}.`)
+  } catch {
+    toast.error('Failed to update booking status.')
+  }
 }
 </script>
 

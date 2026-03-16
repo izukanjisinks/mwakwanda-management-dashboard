@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Loader2, X, Plus } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
 import { useRoomsStore } from '@/stores/rooms'
 import type { Room, RoomType, RoomStatus } from '@/types/room'
 
@@ -110,10 +111,12 @@ async function handleSave() {
     } else {
       saved = await store.createRoom(form.value)
     }
+    toast.success(isEdit.value ? 'Room updated successfully.' : 'Room added successfully.')
     emit('saved', saved)
     emit('update:open', false)
   } catch (err: any) {
     error.value = err?.error?.message ?? 'Failed to save room.'
+    toast.error(error.value)
   } finally {
     saving.value = false
   }

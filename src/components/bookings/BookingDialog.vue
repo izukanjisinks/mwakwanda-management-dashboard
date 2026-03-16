@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Loader2 } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
 import { useBookingsStore } from '@/stores/bookings'
 import { useRoomsStore } from '@/stores/rooms'
 import { useIndividualClientsStore } from '@/stores/clients'
@@ -145,10 +146,12 @@ async function handleSave() {
     } else {
       saved = await bookingsStore.createBooking(payload)
     }
+    toast.success(isEdit.value ? 'Booking updated successfully.' : 'Booking created successfully.')
     emit('saved', saved)
     emit('update:open', false)
   } catch (err: any) {
     error.value = err?.error?.message ?? 'Failed to save booking.'
+    toast.error(error.value)
   } finally {
     saving.value = false
   }

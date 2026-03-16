@@ -26,7 +26,8 @@
     "reka-ui": "^2.8.2",
     "tailwind-merge": "^3.5.0",
     "vue": "beta",
-    "vue-router": "^4.6.4"
+    "vue-router": "^4.6.4",
+    "vue-sonner": "^2.0.9"
   },
   "devDependencies": {
     "@ceereals/vue-pdf": "^0.2.1",

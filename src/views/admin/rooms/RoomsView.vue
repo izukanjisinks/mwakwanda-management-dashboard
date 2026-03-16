@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { Plus, Pencil, Trash2, Search } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
 import { useRoomsStore } from '@/stores/rooms'
 import type { Room } from '@/types/room'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
@@ -67,8 +68,12 @@ function confirmDelete(room: Room) {
 async function handleDelete() {
   if (!roomToDelete.value) return
   deleting.value = true
+  const name = roomToDelete.value.name
   try {
     await store.deleteRoom(roomToDelete.value.id)
+    toast.success(`${name} deleted.`)
+  } catch {
+    toast.error('Failed to delete room.')
   } finally {
     deleting.value = false
     deleteDialogOpen.value = false

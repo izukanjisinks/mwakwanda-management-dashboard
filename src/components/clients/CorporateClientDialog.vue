@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Loader2 } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
 import { useCorporateClientsStore } from '@/stores/clients'
 import type { CorporateClient, ClientStatus } from '@/types/client'
 
@@ -94,10 +95,12 @@ async function handleSave() {
     } else {
       saved = await store.createClient(payload)
     }
+    toast.success(isEdit.value ? 'Corporate client updated successfully.' : 'Corporate client added successfully.')
     emit('saved', saved)
     emit('update:open', false)
   } catch (err: any) {
     error.value = err?.error?.message ?? 'Failed to save client.'
+    toast.error(error.value)
   } finally {
     saving.value = false
   }

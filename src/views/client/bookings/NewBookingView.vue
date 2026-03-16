@@ -10,7 +10,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Loader2, Wifi, Wind, Tv, Coffee, CheckCircle2 } from 'lucide-vue-next'
+import { Loader2, CheckCircle2 } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
 
 const router = useRouter()
 const bookingsStore = useBookingsStore()
@@ -83,8 +84,10 @@ async function handleSubmit() {
       special_requests: form.value.special_requests || undefined,
     })
     done.value = true
+    toast.success('Booking request submitted successfully.')
   } catch (err: any) {
     error.value = err?.error?.message ?? 'Failed to submit booking request.'
+    toast.error(error.value)
     step.value = 2
   } finally {
     saving.value = false
