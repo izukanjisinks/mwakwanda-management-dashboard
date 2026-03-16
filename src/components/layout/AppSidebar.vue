@@ -1,9 +1,20 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import {
   LayoutDashboard,
+  Hotel,
+  CalendarDays,
+  UtensilsCrossed,
+  ReceiptText,
+  Users,
+  Building2,
+  BarChart3,
+  ShieldCheck,
   LogOut,
   ChevronUp,
   User2,
+  BookOpen,
+  FileText,
 } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -30,14 +41,68 @@ import {
 const router = useRouter()
 const authStore = useAuthStore()
 
-const navGroups = [
+const adminNav = [
   {
     label: 'Overview',
     items: [
       { title: 'Dashboard', icon: LayoutDashboard, routeName: 'dashboard' },
     ],
   },
+  {
+    label: 'Management',
+    items: [
+      { title: 'Rooms', icon: Hotel, routeName: 'rooms' },
+      { title: 'Bookings', icon: CalendarDays, routeName: 'admin-bookings' },
+      { title: 'Meals', icon: UtensilsCrossed, routeName: 'meals' },
+      { title: 'Invoices', icon: ReceiptText, routeName: 'admin-invoices' },
+    ],
+  },
+  {
+    label: 'Clients',
+    items: [
+      { title: 'Individual Clients', icon: Users, routeName: 'clients-individual' },
+      { title: 'Corporate Clients', icon: Building2, routeName: 'clients-corporate' },
+    ],
+  },
+  {
+    label: 'Reports',
+    items: [
+      { title: 'Reports', icon: BarChart3, routeName: 'reports' },
+    ],
+  },
+  {
+    label: 'System',
+    items: [
+      { title: 'Users', icon: ShieldCheck, routeName: 'users' },
+    ],
+  },
 ]
+
+const clientNav = [
+  {
+    label: 'Overview',
+    items: [
+      { title: 'Dashboard', icon: LayoutDashboard, routeName: 'dashboard' },
+    ],
+  },
+  {
+    label: 'Bookings',
+    items: [
+      { title: 'Book a Room', icon: BookOpen, routeName: 'book' },
+      { title: 'My Bookings', icon: CalendarDays, routeName: 'my-bookings' },
+    ],
+  },
+  {
+    label: 'Billing',
+    items: [
+      { title: 'My Invoices', icon: FileText, routeName: 'my-invoices' },
+    ],
+  },
+]
+
+const navGroups = computed(() =>
+  authStore.userRole === 'admin' ? adminNav : clientNav
+)
 
 async function handleLogout() {
   await authStore.logout()
@@ -57,7 +122,7 @@ async function handleLogout() {
               </div>
               <div class="flex flex-col gap-0.5 leading-none">
                 <span class="font-semibold">Lodge Management</span>
-                <span class="text-xs text-muted-foreground capitalize">{{ authStore.roleLabel }}</span>
+                <span class="text-xs text-muted-foreground">{{ authStore.roleLabel }}</span>
               </div>
             </RouterLink>
           </SidebarMenuButton>
@@ -91,8 +156,8 @@ async function handleLogout() {
               <SidebarMenuButton size="lg">
                 <User2 class="size-4" />
                 <div class="flex flex-col gap-0.5 leading-none text-left overflow-hidden">
-                  <span class="truncate font-medium text-sm">{{ authStore.user?.email }}</span>
-                  <span class="truncate text-xs text-muted-foreground capitalize">{{ authStore.roleLabel }}</span>
+                  <span class="truncate font-medium text-sm">{{ authStore.user?.full_name || authStore.user?.email }}</span>
+                  <span class="truncate text-xs text-muted-foreground">{{ authStore.roleLabel }}</span>
                 </div>
                 <ChevronUp class="ml-auto" />
               </SidebarMenuButton>
@@ -102,7 +167,10 @@ async function handleLogout() {
                 <User2 class="size-4" />
                 Profile
               </DropdownMenuItem>
-              <DropdownMenuItem @click="handleLogout" class="text-destructive focus:text-destructive cursor-pointer">
+              <DropdownMenuItem
+                @click="handleLogout"
+                class="text-destructive focus:text-destructive cursor-pointer"
+              >
                 <LogOut class="size-4" />
                 Sign out
               </DropdownMenuItem>

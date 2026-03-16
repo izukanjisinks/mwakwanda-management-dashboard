@@ -169,17 +169,8 @@ function handlePasswordChanged() {
             </p>
             <footer class="text-white/70">
               <p class="text-sm font-medium">Pine Ridge Lodge</p>
-              <p class="text-xs">Established 1952</p>
             </footer>
           </blockquote>
-        </div>
-      </div>
-
-      <!-- System online badge -->
-      <div class="absolute right-8 top-8">
-        <div class="flex items-center gap-3 rounded-full bg-white/10 px-4 py-2 backdrop-blur-md">
-          <div class="h-2 w-2 animate-pulse rounded-full bg-green-400" />
-          <span class="text-sm font-medium text-white/90">System Online</span>
         </div>
       </div>
     </div>
