@@ -1,29 +1,12 @@
 <script setup lang="ts">
 import {
   LayoutDashboard,
-  Users,
-  Building2,
-  Briefcase,
-  CalendarDays,
-  ClockAlert,
-  CalendarOff,
-  DollarSign,
-  FileText,
-  UserSearch,
-  TrendingUp,
-  GitBranch,
-  CheckSquare,
-  ShieldCheck,
   LogOut,
   ChevronUp,
   User2,
-  RotateCcw,
-  Mail,
-  UserCog2Icon,
 } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import hrLogo from '@/assets/logo/hr-logo-sm.jpg'
 import {
   Sidebar,
   SidebarContent,
@@ -54,60 +37,6 @@ const navGroups = [
       { title: 'Dashboard', icon: LayoutDashboard, routeName: 'dashboard' },
     ],
   },
-  {
-    label: 'People',
-    items: [
-      { title: 'Employees', icon: Users, routeName: 'employees' },
-      { title: 'Departments', icon: Building2, routeName: 'departments' },
-      { title: 'Positions', icon: Briefcase, routeName: 'positions' },
-    ],
-  },
-  {
-    label: 'Leave Requests & Approvals',
-    items: [
-      { title: 'Leave Requests', icon: CalendarDays, routeName: 'leave' },
-      { title: 'Leave Approvals', icon: CheckSquare, routeName: 'approvals' },
-      // { title: 'Attendance', icon: ClockAlert, routeName: 'attendance' },
-      // { title: 'Holidays', icon: CalendarOff, routeName: 'holidays' },
-    ],
-  },
-  {
-    label: 'Payroll',
-    items: [
-       { title: 'Payroll Runs', icon: DollarSign, routeName: 'payroll' },
-      { title: 'Payslips', icon: FileText, routeName: 'payslips' },
-    ],
-  },
-  // {
-  //   label: 'Recruitment',
-  //   items: [
-  //     { title: 'Recruitment', icon: UserSearch, routeName: 'recruitment' },
-  //   ],
-  // },
-  // {
-  //   label: 'Performance',
-  //   items: [
-  //     { title: 'Performance', icon: TrendingUp, routeName: 'performance' },
-  //   ],
-  // },
-  // {
-  //   label: 'Password Management',
-  //   items: [
-      
-  //     { title: 'Password Reset Requests', icon: RotateCcw, routeName: 'password-reset-requests' },
-  //     { title: 'Password Policy', icon: ShieldCheck, routeName: 'password-policy' },
-  //   ],
-  // },
-  {
-    label: 'System Configuration',
-    items: [
-      { title: 'Workflows', icon: GitBranch, routeName: 'workflows' },
-      { title: 'Password Policy', icon: ShieldCheck, routeName: 'password-policy' },
-      { title: 'System Users', icon: UserCog2Icon, routeName: 'system-users' },
-      // { title: 'Smtp', icon: Mail, routeName: 'workflows' },
-    ],
-  },
-  
 ]
 
 async function handleLogout() {
@@ -124,10 +53,10 @@ async function handleLogout() {
           <SidebarMenuButton size="lg" as-child>
             <RouterLink :to="{ name: 'dashboard' }">
               <div class="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-sm">
-                HR
+                LM
               </div>
               <div class="flex flex-col gap-0.5 leading-none">
-                <span class="font-semibold">HR System</span>
+                <span class="font-semibold">Lodge Management</span>
                 <span class="text-xs text-muted-foreground capitalize">{{ authStore.roleLabel }}</span>
               </div>
             </RouterLink>

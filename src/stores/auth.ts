@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authApi } from '@/services/api/auth'
-import type { AuthUser, AuthRole, LoginCredentials, ApiError, UserRole } from '@/types/auth'
+import type { AuthUser, AuthRole, LoginCredentials, ApiError } from '@/types/auth'
 
 function extractRole(role: UserRole | AuthRole | undefined): UserRole | null {
   if (!role) return null
@@ -9,7 +9,7 @@ function extractRole(role: UserRole | AuthRole | undefined): UserRole | null {
   return role.name
 }
 
-const TOKEN_KEY = 'hr_token'
+const TOKEN_KEY = 'lodge_token'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<AuthUser | null>(null)
@@ -19,7 +19,14 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAuthenticated = computed(() => !!token.value && !!user.value)
   const userRole = computed(() => extractRole(user.value?.role))
-  const roleLabel = computed(() => userRole.value?.replace(/_/g, ' ') ?? '')
+  const roleLabel = computed(() => {
+    switch (userRole.value) {
+      case 'admin': return 'Administrator'
+      case 'client_individual': return 'Individual Client'
+      case 'client_corporate': return 'Corporate Client'
+      default: return ''
+    }
+  })
 
   function setToken(newToken: string) {
     token.value = newToken

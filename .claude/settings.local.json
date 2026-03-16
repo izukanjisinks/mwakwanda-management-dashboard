@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find \"c:\\\\development\\\\New folder \\(3\\)/src\" -type f \\\\\\( -name \"*.vue\" -o -name \"*.ts\" -o -name \"*.js\" \\\\\\))",
+      "Bash(find \"c:\\\\development\\\\New folder \\(3\\)/src\" -type f -name \"*.vue\")",
+      "Bash(find \"c:\\\\development\\\\New folder \\(3\\)/src\" -type f \\\\\\( -name \"*.ts\" -o -name \"*.js\" \\\\\\))",
+      "Bash(wc -l \"c:\\\\development\\\\New folder \\(3\\)/docs/Lodge_Administration_VueJS_Guide.md\")",
+      "Bash(head -200 \"c:\\\\development\\\\New folder \\(3\\)/docs/Lodge_Administration_VueJS_Guide.md\")",
+      "Bash(ls -1 \"c:\\\\development\\\\New folder \\(3\\)/src/views/auth\")",
+      "Bash(find \"c:\\\\development\\\\New folder \\(3\\)/src\" -name \"*.ts\" -o -name \"*.js\")"
+    ]
+  }
+}

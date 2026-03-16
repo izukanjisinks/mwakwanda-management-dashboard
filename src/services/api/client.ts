@@ -23,7 +23,7 @@ async function request<T>(
   }
 
   if (requiresAuth) {
-    const token = localStorage.getItem('hr_token')
+    const token = localStorage.getItem('lodge_token')
     if (token) {
       headers['Authorization'] = `Bearer ${token}`
     }

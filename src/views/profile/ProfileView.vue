@@ -18,8 +18,6 @@ import {
   Shield,
   Calendar,
   Key,
-  Briefcase,
-  Building2,
   UserCircle,
   AlertCircle,
   CheckCircle,
@@ -42,7 +40,7 @@ const passwordSuccess = ref(false)
 const userDetails = computed(() => ({
   email: authStore.user?.email || '',
   role: authStore.roleLabel || '',
-  employeeId: authStore.user?.employee_id || 'N/A',
+  fullName: authStore.user?.full_name || 'N/A',
   createdAt: authStore.user?.created_at ? new Date(authStore.user.created_at).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',
@@ -159,8 +157,8 @@ function resetPasswordForm() {
               <User class="size-4 text-muted-foreground" />
             </div>
             <div class="flex-1 min-w-0">
-              <p class="text-sm text-muted-foreground">Employee ID</p>
-              <p class="font-medium">{{ userDetails.employeeId }}</p>
+              <p class="text-sm text-muted-foreground">Full Name</p>
+              <p class="font-medium">{{ userDetails.fullName }}</p>
             </div>
           </div>
 

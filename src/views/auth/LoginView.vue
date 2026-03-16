@@ -7,7 +7,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import ChangePasswordDialog from '@/components/auth/ChangePasswordDialog.vue'
-import hrLogo from '@/assets/logo/hr-logo-sm.jpg'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -40,10 +39,12 @@ function handlePasswordChanged() {
         <form class="flex flex-col gap-6" @submit.prevent="handleSubmit">
           <!-- Header -->
           <div class="flex flex-col items-center gap-2 text-center">
-            <img :src="hrLogo" alt="HR System" class="h-16 w-auto" />
+            <div class="flex aspect-square size-14 items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold text-xl">
+              LM
+            </div>
             <h1 class="text-3xl font-bold tracking-tight">Welcome Back</h1>
             <p class="text-muted-foreground text-balance">
-              Sign in to your account
+              Sign in to Lodge Management
             </p>
           </div>
 

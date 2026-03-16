@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Loader2, AlertCircle, Lock } from 'lucide-vue-next'
-import { passwordApi, type ChangePasswordPayload } from '@/services/api/password'
+import { apiClient } from '@/services/api/client'
 
 const props = defineProps<{
   open: boolean
@@ -32,7 +32,6 @@ const formData = ref({
   confirm_password: '',
 })
 
-// Watch for dialog open to reset form
 watch(() => props.open, (isOpen) => {
   if (isOpen) {
     formData.value.new_password = ''
@@ -44,13 +43,11 @@ watch(() => props.open, (isOpen) => {
 async function handleChangePassword() {
   errorMessage.value = ''
 
-  // Validate passwords match
   if (formData.value.new_password !== formData.value.confirm_password) {
     errorMessage.value = 'New passwords do not match'
     return
   }
 
-  // Validate password strength
   if (formData.value.new_password.length < 8) {
     errorMessage.value = 'New password must be at least 8 characters long'
     return
@@ -58,16 +55,13 @@ async function handleChangePassword() {
 
   saving.value = true
   try {
-    const payload: ChangePasswordPayload = {
+    await apiClient.post('/auth/change-password', {
       old_password: props.currentPassword,
       new_password: formData.value.new_password,
-    }
-
-    await passwordApi.changePassword(payload)
+    })
     emit('success')
     emit('update:open', false)
   } catch (err: any) {
-    console.error('Failed to change password:', err)
     errorMessage.value =
       err?.error?.message ||
       err?.response?.data?.error?.message ||
@@ -91,7 +85,6 @@ async function handleChangePassword() {
         </DialogDescription>
       </DialogHeader>
 
-      <!-- Error Message -->
       <div v-if="errorMessage" class="bg-destructive/10 border border-destructive/20 rounded-lg p-4 flex items-start gap-3">
         <AlertCircle class="w-5 h-5 text-destructive shrink-0 mt-0.5" />
         <div class="flex-1">
@@ -111,9 +104,7 @@ async function handleChangePassword() {
             required
             autocomplete="new-password"
           />
-          <p class="text-xs text-muted-foreground">
-            Must be at least 8 characters long
-          </p>
+          <p class="text-xs text-muted-foreground">Must be at least 8 characters long</p>
         </div>
 
         <div class="grid gap-2">
