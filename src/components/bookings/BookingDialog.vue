@@ -22,8 +22,8 @@ import { Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { useBookingsStore } from '@/stores/bookings'
 import { useRoomsStore } from '@/stores/rooms'
-import { useIndividualClientsStore } from '@/stores/clients'
-import { useCorporateClientsStore } from '@/stores/clients'
+import { useIndividualClientsStore, useCorporateClientsStore } from '@/stores/clients'
+import { useMealsStore } from '@/stores/meals'
 import type { Booking, BookingPayload, ClientType } from '@/types/booking'
 
 const props = defineProps<{
@@ -40,6 +40,7 @@ const bookingsStore = useBookingsStore()
 const roomsStore = useRoomsStore()
 const individualStore = useIndividualClientsStore()
 const corporateStore = useCorporateClientsStore()
+const mealsStore = useMealsStore()
 
 const saving = ref(false)
 const error = ref('')
@@ -54,6 +55,7 @@ const form = ref({
   check_out: '',
   guests: 1,
   special_requests: '',
+  meal_plan_id: null as number | null,
 })
 
 const clientOptions = computed(() => {
@@ -75,10 +77,21 @@ const nights = computed(() => {
 
 const selectedRoom = computed(() => roomsStore.rooms.find(r => r.id === form.value.room_id))
 
-const estimatedTotal = computed(() => {
+const roomCost = computed(() => {
   if (!selectedRoom.value || nights.value === 0) return 0
   return selectedRoom.value.price_per_night * nights.value
 })
+
+const selectedMealPlan = computed(() =>
+  mealsStore.activePlans.find(p => p.id === form.value.meal_plan_id) ?? null
+)
+
+const mealCost = computed(() => {
+  if (!selectedMealPlan.value || nights.value === 0) return 0
+  return selectedMealPlan.value.price_per_person_per_night * form.value.guests * nights.value
+})
+
+const estimatedTotal = computed(() => roomCost.value + mealCost.value)
 
 watch(() => props.open, (open) => {
   if (!open) return
@@ -88,6 +101,7 @@ watch(() => props.open, (open) => {
   if (roomsStore.rooms.length === 0) roomsStore.fetchRooms()
   if (individualStore.clients.length === 0) individualStore.fetchClients()
   if (corporateStore.clients.length === 0) corporateStore.fetchClients()
+  if (mealsStore.plans.length === 0) mealsStore.fetchPlans()
 
   if (props.booking) {
     form.value = {
@@ -98,6 +112,7 @@ watch(() => props.open, (open) => {
       check_out: props.booking.check_out,
       guests: props.booking.guests,
       special_requests: props.booking.special_requests ?? '',
+      meal_plan_id: props.booking.meal_plan_id ?? null,
     }
   } else {
     form.value = {
@@ -108,6 +123,7 @@ watch(() => props.open, (open) => {
       check_out: '',
       guests: 1,
       special_requests: '',
+      meal_plan_id: null,
     }
   }
 })
@@ -138,6 +154,7 @@ async function handleSave() {
       check_out: form.value.check_out,
       guests: form.value.guests,
       special_requests: form.value.special_requests || undefined,
+      meal_plan_id: form.value.meal_plan_id,
     }
 
     let saved: Booking
@@ -262,10 +279,39 @@ async function handleSave() {
           </p>
         </div>
 
-        <!-- Estimated total -->
-        <div v-if="estimatedTotal > 0" class="rounded-lg bg-muted/50 border px-4 py-3 flex items-center justify-between text-sm">
-          <span class="text-muted-foreground">{{ nights }} night{{ nights === 1 ? '' : 's' }} × ZMW {{ selectedRoom?.price_per_night.toLocaleString() }}</span>
-          <span class="font-semibold">ZMW {{ estimatedTotal.toLocaleString() }}</span>
+        <!-- Meal Plan -->
+        <div class="grid gap-2">
+          <Label>Meal Plan</Label>
+          <Select :model-value="form.meal_plan_id === null ? '__none__' : String(form.meal_plan_id)" @update:model-value="(v) => form.meal_plan_id = v === '__none__' ? null : Number(v)">
+            <SelectTrigger>
+              <SelectValue placeholder="No meal plan" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">No meal plan (Room Only)</SelectItem>
+              <SelectItem v-for="plan in mealsStore.activePlans" :key="plan.id" :value="String(plan.id)">
+                {{ plan.name }} — ZMW {{ plan.price_per_person_per_night.toLocaleString() }} / person / night
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <p v-if="selectedMealPlan?.includes.length" class="text-xs text-muted-foreground">
+            Includes: {{ selectedMealPlan.includes.join(', ') }}
+          </p>
+        </div>
+
+        <!-- Cost breakdown -->
+        <div v-if="roomCost > 0" class="rounded-lg bg-muted/50 border divide-y text-sm overflow-hidden">
+          <div class="flex items-center justify-between px-4 py-2.5">
+            <span class="text-muted-foreground">{{ nights }} night{{ nights === 1 ? '' : 's' }} × ZMW {{ selectedRoom?.price_per_night.toLocaleString() }}</span>
+            <span>ZMW {{ roomCost.toLocaleString() }}</span>
+          </div>
+          <div v-if="mealCost > 0" class="flex items-center justify-between px-4 py-2.5">
+            <span class="text-muted-foreground">{{ selectedMealPlan?.name }} × {{ form.guests }} guest{{ form.guests === 1 ? '' : 's' }} × {{ nights }} night{{ nights === 1 ? '' : 's' }}</span>
+            <span>ZMW {{ mealCost.toLocaleString() }}</span>
+          </div>
+          <div class="flex items-center justify-between px-4 py-2.5 font-semibold bg-background">
+            <span>Estimated Total</span>
+            <span>ZMW {{ estimatedTotal.toLocaleString() }}</span>
+          </div>
         </div>
 
         <!-- Special Requests -->

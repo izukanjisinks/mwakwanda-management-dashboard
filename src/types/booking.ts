@@ -14,6 +14,10 @@ export interface Booking {
   guests: number
   status: BookingStatus
   special_requests?: string
+  meal_plan_id?: number | null
+  meal_plan_name?: string | null
+  meal_cost: number  // pre-calculated: price_per_person_per_night × guests × nights
+  room_cost: number
   total_amount: number
   created_at: string
 }
@@ -26,6 +30,7 @@ export interface BookingPayload {
   check_out: string
   guests: number
   special_requests?: string
+  meal_plan_id?: number | null
 }
 
 export interface BookingStatusUpdate {

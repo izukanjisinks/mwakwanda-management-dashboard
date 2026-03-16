@@ -60,7 +60,8 @@ const DEV_MOCK_BOOKINGS: Booking[] = [
     check_in: '2026-03-18', check_out: '2026-03-21',
     guests: 2, status: 'confirmed',
     special_requests: 'Late check-in after 10 PM',
-    total_amount: 7500,
+    meal_plan_id: 2, meal_plan_name: 'Half Board',
+    meal_cost: 2100, room_cost: 7500, total_amount: 9600,
     created_at: '2026-03-10T09:00:00Z',
   },
   {
@@ -69,7 +70,8 @@ const DEV_MOCK_BOOKINGS: Booking[] = [
     client_id: 3, client_name: 'David Banda', client_type: 'individual',
     check_in: '2026-03-17', check_out: '2026-03-19',
     guests: 1, status: 'checked_in',
-    total_amount: 1700,
+    meal_plan_id: 1, meal_plan_name: 'Bed & Breakfast',
+    meal_cost: 300, room_cost: 1700, total_amount: 2000,
     created_at: '2026-03-12T11:30:00Z',
   },
   {
@@ -79,7 +81,8 @@ const DEV_MOCK_BOOKINGS: Booking[] = [
     check_in: '2026-03-20', check_out: '2026-03-21',
     guests: 15, status: 'confirmed',
     special_requests: 'Projector setup and catering for 15 people',
-    total_amount: 5000,
+    meal_plan_id: 3, meal_plan_name: 'Full Board',
+    meal_cost: 8250, room_cost: 5000, total_amount: 13250,
     created_at: '2026-03-14T08:00:00Z',
   },
   {
@@ -88,7 +91,8 @@ const DEV_MOCK_BOOKINGS: Booking[] = [
     client_id: 6, client_name: 'Pierre Dubois', client_type: 'individual',
     check_in: '2026-03-25', check_out: '2026-03-30',
     guests: 4, status: 'pending',
-    total_amount: 16000,
+    meal_plan_id: null, meal_plan_name: null,
+    meal_cost: 0, room_cost: 16000, total_amount: 16000,
     created_at: '2026-03-15T14:00:00Z',
   },
   {
@@ -97,7 +101,8 @@ const DEV_MOCK_BOOKINGS: Booking[] = [
     client_id: 2, client_name: 'Sarah Johnson', client_type: 'individual',
     check_in: '2026-03-10', check_out: '2026-03-14',
     guests: 2, status: 'checked_out',
-    total_amount: 4800,
+    meal_plan_id: 1, meal_plan_name: 'Bed & Breakfast',
+    meal_cost: 1200, room_cost: 4800, total_amount: 6000,
     created_at: '2026-03-05T10:00:00Z',
   },
   {
@@ -106,7 +111,8 @@ const DEV_MOCK_BOOKINGS: Booking[] = [
     client_id: 3, client_name: 'Safari Tours International', client_type: 'corporate',
     check_in: '2026-04-01', check_out: '2026-04-03',
     guests: 3, status: 'confirmed',
-    total_amount: 5600,
+    meal_plan_id: 2, meal_plan_name: 'Half Board',
+    meal_cost: 2100, room_cost: 5600, total_amount: 7700,
     created_at: '2026-03-16T09:30:00Z',
   },
   {
@@ -115,7 +121,8 @@ const DEV_MOCK_BOOKINGS: Booking[] = [
     client_id: 5, client_name: 'Mutale Chanda', client_type: 'individual',
     check_in: '2026-03-15', check_out: '2026-03-16',
     guests: 1, status: 'cancelled',
-    total_amount: 850,
+    meal_plan_id: null, meal_plan_name: null,
+    meal_cost: 0, room_cost: 850, total_amount: 850,
     created_at: '2026-03-13T16:00:00Z',
   },
 ]
