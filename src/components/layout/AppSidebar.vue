@@ -73,7 +73,7 @@ const adminNav = [
   {
     label: 'System',
     items: [
-      { title: 'Users', icon: ShieldCheck, routeName: 'users' },
+      { title: 'System Users', icon: ShieldCheck, routeName: 'users' },
     ],
   },
 ]
