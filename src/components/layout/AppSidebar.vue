@@ -15,6 +15,8 @@ import {
   User2,
   BookOpen,
   FileText,
+  GitBranch,
+  Inbox,
 } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -68,6 +70,13 @@ const adminNav = [
     label: 'Reports',
     items: [
       { title: 'Reports', icon: BarChart3, routeName: 'reports' },
+    ],
+  },
+  {
+    label: 'Workflow',
+    items: [
+      { title: 'Workflow Editor', icon: GitBranch, routeName: 'workflow' },
+      { title: 'Task Inbox', icon: Inbox, routeName: 'workflow-tasks' },
     ],
   },
   {

@@ -89,6 +89,18 @@ const router = createRouter({
           component: () => import('@/views/admin/users/UsersView.vue'),
           meta: { roles: ['admin'] },
         },
+        {
+          path: 'workflow',
+          name: 'workflow',
+          component: () => import('@/views/admin/workflow/WorkflowView.vue'),
+          meta: { roles: ['admin'] },
+        },
+        {
+          path: 'workflow/tasks',
+          name: 'workflow-tasks',
+          component: () => import('@/views/admin/workflow/TasksView.vue'),
+          meta: { roles: ['admin'] },
+        },
 
         // --- Client routes ---
         {
