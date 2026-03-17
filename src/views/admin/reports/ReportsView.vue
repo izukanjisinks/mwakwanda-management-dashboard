@@ -7,7 +7,7 @@ import { useIndividualClientsStore, useCorporateClientsStore } from '@/stores/cl
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { VisSingleContainer, VisDonut, VisXYContainer, VisStackedBar, VisAxis, VisTooltip } from '@unovis/vue'
+import { VisSingleContainer, VisDonut, VisXYContainer, VisGroupedBar, VisAxis, VisTooltip } from '@unovis/vue'
 
 const bookingsStore = useBookingsStore()
 const invoicesStore = useInvoicesStore()
@@ -204,9 +204,29 @@ const tickFormat = (_: number, i: number) => {
       </CardHeader>
       <CardContent>
         <VisXYContainer :data="roomTypeRevenue" :height="220">
-          <VisStackedBar :x="barX" :y="[barY]" :color="barColors" :bar-padding="0.3" />
-          <VisAxis type="x" :tick-format="tickFormat" />
-          <VisAxis type="y" />
+          <VisGroupedBar
+            :x="barX"
+            :y="[barY]"
+            :color="barColors"
+            :rounded-corners="4"
+            :bar-padding="0.3"
+            :group-padding="0"
+          />
+          <VisAxis
+            type="x"
+            :x="barX"
+            :tick-format="tickFormat"
+            :tick-values="roomTypeRevenue.map((_, i) => i)"
+            :tick-line="false"
+            :domain-line="false"
+            :grid-line="false"
+          />
+          <VisAxis
+            type="y"
+            :num-ticks="4"
+            :tick-line="false"
+            :domain-line="false"
+          />
           <VisTooltip :template="barTooltip" />
         </VisXYContainer>
       </CardContent>
