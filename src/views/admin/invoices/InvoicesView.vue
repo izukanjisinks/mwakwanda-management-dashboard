@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { Search, Eye, Trash2, ChevronLeft, ChevronRight } from 'lucide-vue-next'
+import { Search, Eye, Trash2, ChevronLeft, ChevronRight, FileText } from 'lucide-vue-next'
 import { usePagination } from '@/composables/usePagination'
 import { toast } from 'vue-sonner'
 import { useInvoicesStore } from '@/stores/invoices'
 import type { Invoice, InvoiceStatus } from '@/types/invoice'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import InvoiceDetailDialog from '@/components/invoices/InvoiceDetailDialog.vue'
+import InvoicePdfSheet from '@/components/invoices/InvoicePdfSheet.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -38,6 +39,8 @@ const store = useInvoicesStore()
 
 const detailOpen = ref(false)
 const selectedInvoice = ref<Invoice | null>(null)
+const pdfSheetOpen = ref(false)
+const pdfInvoice = ref<Invoice | null>(null)
 const deleteDialogOpen = ref(false)
 const invoiceToDelete = ref<Invoice | null>(null)
 const search = ref('')
@@ -222,6 +225,9 @@ const summary = computed(() => ({
               </TableCell>
               <TableCell class="text-right" @click.stop>
                 <div class="flex justify-end gap-1">
+                  <Button variant="ghost" size="icon" class="size-8 text-muted-foreground hover:text-foreground" title="View PDF" @click="pdfInvoice = invoice; pdfSheetOpen = true">
+                    <FileText class="size-4" />
+                  </Button>
                   <Button variant="ghost" size="icon" class="size-8" @click="openDetail(invoice)">
                     <Eye class="size-4" />
                   </Button>
@@ -249,6 +255,11 @@ const summary = computed(() => ({
       </div>
     </div>
   </div>
+
+  <InvoicePdfSheet
+    v-model:open="pdfSheetOpen"
+    :invoice="pdfInvoice"
+  />
 
   <InvoiceDetailDialog
     v-model:open="detailOpen"
