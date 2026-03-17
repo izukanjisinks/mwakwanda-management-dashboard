@@ -1,4 +1,4 @@
-export type SystemUserRole = 'admin' | 'receptionist' | 'manager'
+export type SystemUserRole = 'admin' | 'manager' | 'receptionist' | 'cleaner'
 
 export type SystemUserStatus = 'active' | 'inactive'
 

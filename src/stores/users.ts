@@ -45,9 +45,14 @@ export const useUsersStore = defineStore('users', () => {
 })
 
 const DEV_MOCK_USERS: SystemUser[] = [
-  { id: '1', full_name: 'Admin User', email: 'admin@lodge.dev', role: 'admin', status: 'active', last_login: '2026-03-17T08:00:00Z', created_at: '2025-01-01T00:00:00Z' },
-  { id: '2', full_name: 'Grace Mwila', email: 'grace@lodge.dev', role: 'manager', status: 'active', last_login: '2026-03-16T14:30:00Z', created_at: '2025-02-01T00:00:00Z' },
-  { id: '3', full_name: 'Peter Zulu', email: 'peter@lodge.dev', role: 'receptionist', status: 'active', last_login: '2026-03-17T07:45:00Z', created_at: '2025-03-01T00:00:00Z' },
-  { id: '4', full_name: 'Agnes Tembo', email: 'agnes@lodge.dev', role: 'receptionist', status: 'active', last_login: '2026-03-15T09:00:00Z', created_at: '2025-04-01T00:00:00Z' },
-  { id: '5', full_name: 'Bwalya Chanda', email: 'bwalya@lodge.dev', role: 'receptionist', status: 'inactive', created_at: '2025-06-01T00:00:00Z' },
+  { id: '1', full_name: 'Admin User',     email: 'admin@lodge.dev',   role: 'admin',        status: 'active',   last_login: '2026-03-17T08:00:00Z', created_at: '2025-01-01T00:00:00Z' },
+  { id: '2', full_name: 'Grace Mwila',    email: 'grace@lodge.dev',   role: 'manager',      status: 'active',   last_login: '2026-03-16T14:30:00Z', created_at: '2025-02-01T00:00:00Z' },
+  { id: '3', full_name: 'Peter Zulu',     email: 'peter@lodge.dev',   role: 'receptionist', status: 'active',   last_login: '2026-03-17T07:45:00Z', created_at: '2025-03-01T00:00:00Z' },
+  { id: '4', full_name: 'Agnes Tembo',    email: 'agnes@lodge.dev',   role: 'receptionist', status: 'active',   last_login: '2026-03-15T09:00:00Z', created_at: '2025-04-01T00:00:00Z' },
+  { id: '5', full_name: 'Bwalya Chanda',  email: 'bwalya@lodge.dev',  role: 'receptionist', status: 'inactive',                                     created_at: '2025-06-01T00:00:00Z' },
+  { id: '6', full_name: 'Joseph Banda',   email: 'joseph@lodge.dev',  role: 'cleaner',      status: 'active',   last_login: '2026-03-17T06:30:00Z', created_at: '2025-05-01T00:00:00Z' },
+  { id: '7', full_name: 'Faith Phiri',    email: 'faith@lodge.dev',   role: 'cleaner',      status: 'active',   last_login: '2026-03-16T07:00:00Z', created_at: '2025-05-01T00:00:00Z' },
+  { id: '8', full_name: 'Richard Mwale',  email: 'richard@lodge.dev', role: 'cleaner',      status: 'active',   last_login: '2026-03-15T06:45:00Z', created_at: '2025-07-01T00:00:00Z' },
+  { id: '9', full_name: 'Monica Zulu',    email: 'monica@lodge.dev',  role: 'cleaner',      status: 'active',                                       created_at: '2025-08-01T00:00:00Z' },
+  { id: '10', full_name: 'Daniel Phiri',  email: 'daniel@lodge.dev',  role: 'cleaner',      status: 'inactive',                                     created_at: '2025-09-01T00:00:00Z' },
 ]

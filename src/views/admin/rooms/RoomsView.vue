@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { Plus, Pencil, Trash2, Search } from 'lucide-vue-next'
+import { Plus, Pencil, Trash2, Search, ChevronLeft, ChevronRight, Sparkles } from 'lucide-vue-next'
+import { usePagination } from '@/composables/usePagination'
 import { toast } from 'vue-sonner'
 import { useRoomsStore } from '@/stores/rooms'
 import type { Room } from '@/types/room'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import RoomDialog from '@/components/rooms/RoomDialog.vue'
+import RoomCleaningSheet from '@/components/rooms/RoomCleaningSheet.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -30,6 +32,8 @@ const store = useRoomsStore()
 
 const dialogOpen = ref(false)
 const selectedRoom = ref<Room | null>(null)
+const cleaningSheetOpen = ref(false)
+const cleaningRoom = ref<Room | null>(null)
 const deleteDialogOpen = ref(false)
 const roomToDelete = ref<Room | null>(null)
 const search = ref('')
@@ -49,6 +53,8 @@ const filtered = computed(() => {
       r.status.toLowerCase().includes(q),
   )
 })
+
+const { page, totalPages, paginated, prev, next, goTo, pageNumbers } = usePagination(filtered)
 
 function openCreate() {
   selectedRoom.value = null
@@ -152,7 +158,7 @@ const typeLabel: Record<string, string> = {
           </template>
 
           <template v-else>
-            <TableRow v-for="room in filtered" :key="room.id">
+            <TableRow v-for="room in paginated" :key="room.id">
               <TableCell class="font-medium">{{ room.name }}</TableCell>
               <TableCell>{{ typeLabel[room.type] ?? room.type }}</TableCell>
               <TableCell>{{ room.capacity }} guest{{ room.capacity === 1 ? '' : 's' }}</TableCell>
@@ -179,6 +185,9 @@ const typeLabel: Record<string, string> = {
               </TableCell>
               <TableCell class="text-right">
                 <div class="flex justify-end gap-1">
+                  <Button variant="ghost" size="icon" class="size-8 text-muted-foreground hover:text-foreground" title="Cleaning assignments" @click="cleaningRoom = room; cleaningSheetOpen = true">
+                    <Sparkles class="size-4" />
+                  </Button>
                   <Button variant="ghost" size="icon" class="size-8" @click="openEdit(room)">
                     <Pencil class="size-4" />
                   </Button>
@@ -191,8 +200,38 @@ const typeLabel: Record<string, string> = {
           </template>
         </TableBody>
       </Table>
+
+      <!-- Pagination -->
+      <div v-if="totalPages > 1" class="flex items-center justify-between px-10 py-3 border-t text-sm">
+        <p class="text-muted-foreground">Page {{ page }} of {{ totalPages }}</p>
+        <div class="flex items-center gap-1">
+          <button
+            class="size-8 flex items-center justify-center rounded-md border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
+            :disabled="page === 1"
+            @click="prev"
+          ><ChevronLeft class="size-4" /></button>
+          <template v-for="p in pageNumbers" :key="p">
+            <span v-if="p === '...'" class="px-1 text-muted-foreground">…</span>
+            <button
+              v-else
+              :class="['size-8 flex items-center justify-center rounded-md border text-sm', p === page ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted']"
+              @click="goTo(p as number)"
+            >{{ p }}</button>
+          </template>
+          <button
+            class="size-8 flex items-center justify-center rounded-md border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
+            :disabled="page === totalPages"
+            @click="next"
+          ><ChevronRight class="size-4" /></button>
+        </div>
+      </div>
     </div>
   </div>
+
+  <RoomCleaningSheet
+    v-model:open="cleaningSheetOpen"
+    :room="cleaningRoom"
+  />
 
   <!-- Create / Edit dialog -->
   <RoomDialog

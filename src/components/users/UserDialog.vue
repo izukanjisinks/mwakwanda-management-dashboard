@@ -162,6 +162,7 @@ async function handleSave() {
                 <SelectItem value="admin">Admin</SelectItem>
                 <SelectItem value="manager">Manager</SelectItem>
                 <SelectItem value="receptionist">Receptionist</SelectItem>
+                <SelectItem value="cleaner">Cleaner</SelectItem>
               </SelectContent>
             </Select>
           </div>

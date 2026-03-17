@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { Plus, Pencil, Trash2, Search } from 'lucide-vue-next'
+import { Plus, Pencil, Trash2, Search, ChevronLeft, ChevronRight } from 'lucide-vue-next'
+import { usePagination } from '@/composables/usePagination'
 import { toast } from 'vue-sonner'
 import { useUsersStore } from '@/stores/users'
 import { useAuthStore } from '@/stores/auth'
@@ -49,10 +50,13 @@ const filtered = computed(() => {
   )
 })
 
+const { page, totalPages, paginated, prev, next, goTo, pageNumbers } = usePagination(filtered)
+
 const roleConfig: Record<SystemUserRole, { label: string; variant: 'default' | 'secondary' | 'outline' }> = {
   admin:        { label: 'Admin',        variant: 'default' },
   manager:      { label: 'Manager',      variant: 'secondary' },
   receptionist: { label: 'Receptionist', variant: 'outline' },
+  cleaner:      { label: 'Cleaner',      variant: 'outline' },
 }
 
 function formatDate(d?: string) {
@@ -142,7 +146,7 @@ const currentUserEmail = computed(() => authStore.user?.email)
           </template>
 
           <template v-else>
-            <TableRow v-for="user in filtered" :key="user.id">
+            <TableRow v-for="user in paginated" :key="user.id">
               <TableCell>
                 <div class="font-medium">{{ user.full_name }}</div>
                 <div v-if="user.email === currentUserEmail" class="text-xs text-muted-foreground">You</div>
@@ -178,6 +182,19 @@ const currentUserEmail = computed(() => authStore.user?.email)
           </template>
         </TableBody>
       </Table>
+
+      <!-- Pagination -->
+      <div v-if="totalPages > 1" class="flex items-center justify-between px-10 py-3 border-t text-sm">
+        <p class="text-muted-foreground">Page {{ page }} of {{ totalPages }}</p>
+        <div class="flex items-center gap-1">
+          <button class="size-8 flex items-center justify-center rounded-md border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed" :disabled="page === 1" @click="prev"><ChevronLeft class="size-4" /></button>
+          <template v-for="p in pageNumbers" :key="p">
+            <span v-if="p === '...'" class="px-1 text-muted-foreground">…</span>
+            <button v-else :class="['size-8 flex items-center justify-center rounded-md border text-sm', p === page ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted']" @click="goTo(p as number)">{{ p }}</button>
+          </template>
+          <button class="size-8 flex items-center justify-center rounded-md border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed" :disabled="page === totalPages" @click="next"><ChevronRight class="size-4" /></button>
+        </div>
+      </div>
     </div>
   </div>
 

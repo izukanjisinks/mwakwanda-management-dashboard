@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { Plus, Pencil, Trash2, Search } from 'lucide-vue-next'
+import { Plus, Pencil, Trash2, Search, ChevronLeft, ChevronRight } from 'lucide-vue-next'
+import { usePagination } from '@/composables/usePagination'
 import { toast } from 'vue-sonner'
 import { useCorporateClientsStore } from '@/stores/clients'
 import type { CorporateClient } from '@/types/client'
@@ -47,6 +48,8 @@ const filtered = computed(() => {
     c.industry.toLowerCase().includes(q),
   )
 })
+
+const { page, totalPages, paginated, prev, next, goTo, pageNumbers } = usePagination(filtered)
 
 function openCreate() {
   selectedClient.value = null
@@ -129,7 +132,7 @@ async function handleDelete() {
           </template>
 
           <template v-else>
-            <TableRow v-for="client in filtered" :key="client.id">
+            <TableRow v-for="client in paginated" :key="client.id">
               <TableCell class="font-medium">{{ client.company_name }}</TableCell>
               <TableCell>{{ client.contact_person }}</TableCell>
               <TableCell class="text-muted-foreground">{{ client.email }}</TableCell>
@@ -155,6 +158,19 @@ async function handleDelete() {
           </template>
         </TableBody>
       </Table>
+
+      <!-- Pagination -->
+      <div v-if="totalPages > 1" class="flex items-center justify-between px-10 py-3 border-t text-sm">
+        <p class="text-muted-foreground">Page {{ page }} of {{ totalPages }}</p>
+        <div class="flex items-center gap-1">
+          <button class="size-8 flex items-center justify-center rounded-md border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed" :disabled="page === 1" @click="prev"><ChevronLeft class="size-4" /></button>
+          <template v-for="p in pageNumbers" :key="p">
+            <span v-if="p === '...'" class="px-1 text-muted-foreground">…</span>
+            <button v-else :class="['size-8 flex items-center justify-center rounded-md border text-sm', p === page ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted']" @click="goTo(p as number)">{{ p }}</button>
+          </template>
+          <button class="size-8 flex items-center justify-center rounded-md border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed" :disabled="page === totalPages" @click="next"><ChevronRight class="size-4" /></button>
+        </div>
+      </div>
     </div>
   </div>
 
