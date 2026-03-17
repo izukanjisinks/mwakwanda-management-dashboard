@@ -40,6 +40,13 @@ const router = createRouter({
           component: () => import('@/views/profile/ProfileView.vue'),
         },
 
+        // Cleaner dashboard
+        {
+          path: 'cleaner',
+          name: 'cleaner-dashboard',
+          component: () => import('@/views/cleaner/CleanerDashboardView.vue'),
+        },
+
         // --- Admin / Staff routes ---
         {
           path: 'rooms',

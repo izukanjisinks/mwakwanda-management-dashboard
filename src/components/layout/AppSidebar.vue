@@ -125,9 +125,26 @@ const clientNav = [
 
 const STAFF_ROLES = ['admin', 'manager', 'receptionist', 'cleaner']
 
-const navGroups = computed(() =>
-  STAFF_ROLES.includes(authStore.userRole ?? '') ? adminNav : clientNav
-)
+const cleanerNav = [
+  {
+    label: 'Overview',
+    items: [
+      { title: 'My Dashboard', icon: LayoutDashboard, routeName: 'cleaner-dashboard' },
+    ],
+  },
+  {
+    label: 'Rooms',
+    items: [
+      { title: 'Rooms', icon: Hotel, routeName: 'rooms' },
+    ],
+  },
+]
+
+const navGroups = computed(() => {
+  if (authStore.userRole === 'cleaner') return cleanerNav
+  if (STAFF_ROLES.includes(authStore.userRole ?? '')) return adminNav
+  return clientNav
+})
 
 async function handleLogout() {
   await authStore.logout()

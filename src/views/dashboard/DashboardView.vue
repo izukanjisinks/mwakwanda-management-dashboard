@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useRoomsStore } from '@/stores/rooms'
 import { CalendarCheck, LogIn, LogOut, DollarSign } from 'lucide-vue-next'
@@ -16,10 +17,15 @@ import ActivityFeed from '@/components/dashboard/ActivityFeed.vue'
 
 const authStore = useAuthStore()
 const roomsStore = useRoomsStore()
+const router = useRouter()
 
-const STAFF_ROLES = ['admin', 'manager', 'receptionist', 'cleaner']
+const STAFF_ROLES = ['admin', 'manager', 'receptionist']
 
 onMounted(() => {
+  if (authStore.userRole === 'cleaner') {
+    router.replace({ name: 'cleaner-dashboard' })
+    return
+  }
   if (STAFF_ROLES.includes(authStore.userRole ?? '')) {
     roomsStore.fetchRooms()
   }

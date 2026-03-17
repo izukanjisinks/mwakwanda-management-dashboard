@@ -12,7 +12,7 @@ Last updated: 2026-03-17
 | **Admin** | Full system access. Manages users, configuration, and all data. |
 | **Manager** | Oversees operations. Can approve bookings, view reports, and manage rooms. |
 | **Receptionist** | Front-desk staff. Handles bookings, clients, and invoices. Read-only on rooms. |
-| **Cleaner** | Housekeeping staff. Can only view rooms and their cleaning assignments. |
+| **Cleaner** | Housekeeping staff. Has a dedicated simplified dashboard showing only their assigned rooms and cleaning schedule. |
 
 ---
 
@@ -20,8 +20,9 @@ Last updated: 2026-03-17
 
 | Page | Admin | Manager | Receptionist | Cleaner |
 |---|:---:|:---:|:---:|:---:|
-| Dashboard | ✅ | ✅ | ✅ | ✅ |
-| Rooms | ✅ | ✅ | ✅ | ✅ |
+| Dashboard (staff) | ✅ | ✅ | ✅ | ❌ |
+| Dashboard (cleaner) | ❌ | ❌ | ❌ | ✅ |
+| Rooms | ✅ | ✅ | ✅ | ✅ (read-only) |
 | Bookings | ✅ | ✅ | ✅ | ❌ |
 | Meals | ✅ | ✅ | ✅ | ❌ |
 | Invoices | ✅ | ✅ | ✅ | ❌ |

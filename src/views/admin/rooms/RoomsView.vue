@@ -4,6 +4,7 @@ import { Plus, Pencil, Trash2, Search, ChevronLeft, ChevronRight, Sparkles } fro
 import { usePagination } from '@/composables/usePagination'
 import { toast } from 'vue-sonner'
 import { useRoomsStore } from '@/stores/rooms'
+import { useAuthStore } from '@/stores/auth'
 import type { Room } from '@/types/room'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import RoomDialog from '@/components/rooms/RoomDialog.vue'
@@ -29,6 +30,9 @@ import {
 } from '@/components/ui/dialog'
 
 const store = useRoomsStore()
+const authStore = useAuthStore()
+
+const isReadOnly = computed(() => authStore.userRole === 'cleaner')
 
 const dialogOpen = ref(false)
 const selectedRoom = ref<Room | null>(null)
@@ -120,7 +124,7 @@ const typeLabel: Record<string, string> = {
         <Search class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
         <Input v-model="search" placeholder="Search rooms..." class="pl-9" />
       </div>
-      <Button @click="openCreate">
+      <Button v-if="!isReadOnly" @click="openCreate">
         <Plus class="size-4 mr-2" />
         Add Room
       </Button>
@@ -188,12 +192,14 @@ const typeLabel: Record<string, string> = {
                   <Button variant="ghost" size="icon" class="size-8 text-muted-foreground hover:text-foreground" title="Cleaning assignments" @click="cleaningRoom = room; cleaningSheetOpen = true">
                     <Sparkles class="size-4" />
                   </Button>
-                  <Button variant="ghost" size="icon" class="size-8" @click="openEdit(room)">
-                    <Pencil class="size-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" class="size-8 text-destructive hover:text-destructive" @click="confirmDelete(room)">
-                    <Trash2 class="size-4" />
-                  </Button>
+                  <template v-if="!isReadOnly">
+                    <Button variant="ghost" size="icon" class="size-8" @click="openEdit(room)">
+                      <Pencil class="size-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" class="size-8 text-destructive hover:text-destructive" @click="confirmDelete(room)">
+                      <Trash2 class="size-4" />
+                    </Button>
+                  </template>
                 </div>
               </TableCell>
             </TableRow>
