@@ -40,66 +40,56 @@ const router = createRouter({
           component: () => import('@/views/profile/ProfileView.vue'),
         },
 
-        // --- Admin routes ---
+        // --- Admin / Staff routes ---
         {
           path: 'rooms',
           name: 'rooms',
           component: () => import('@/views/admin/rooms/RoomsView.vue'),
-          meta: { roles: ['admin'] },
         },
         {
           path: 'bookings',
           name: 'admin-bookings',
           component: () => import('@/views/admin/bookings/BookingsView.vue'),
-          meta: { roles: ['admin'] },
         },
         {
           path: 'meals',
           name: 'meals',
           component: () => import('@/views/admin/meals/MealsView.vue'),
-          meta: { roles: ['admin'] },
         },
         {
           path: 'invoices',
           name: 'admin-invoices',
           component: () => import('@/views/admin/invoices/InvoicesView.vue'),
-          meta: { roles: ['admin'] },
         },
         {
           path: 'clients/individual',
           name: 'clients-individual',
           component: () => import('@/views/admin/clients/IndividualClientsView.vue'),
-          meta: { roles: ['admin'] },
         },
         {
           path: 'clients/corporate',
           name: 'clients-corporate',
           component: () => import('@/views/admin/clients/CorporateClientsView.vue'),
-          meta: { roles: ['admin'] },
         },
         {
           path: 'reports',
           name: 'reports',
           component: () => import('@/views/admin/reports/ReportsView.vue'),
-          meta: { roles: ['admin'] },
         },
         {
           path: 'users',
           name: 'users',
           component: () => import('@/views/admin/users/UsersView.vue'),
-          meta: { roles: ['admin'] },
         },
         {
           path: 'workflow',
           name: 'workflow',
           component: () => import('@/views/admin/workflow/WorkflowView.vue'),
-          meta: { roles: ['admin'] },
         },
         {
           path: 'workflow/tasks',
           name: 'workflow-tasks',
           component: () => import('@/views/admin/workflow/TasksView.vue'),
-          meta: { roles: ['admin'] },
         },
 
         // --- Client routes ---

@@ -23,6 +23,36 @@ const DEV_MOCK_USERS: Record<string, AuthUser & { password: string }> = {
     change_password: false,
     is_active: true,
   },
+  'manager@lodge.dev': {
+    password: 'manager123',
+    id: '2',
+    email: 'manager@lodge.dev',
+    full_name: 'Grace Mwila',
+    role: 'manager',
+    created_at: new Date().toISOString(),
+    change_password: false,
+    is_active: true,
+  },
+  'receptionist@lodge.dev': {
+    password: 'reception123',
+    id: '3',
+    email: 'receptionist@lodge.dev',
+    full_name: 'Peter Zulu',
+    role: 'receptionist',
+    created_at: new Date().toISOString(),
+    change_password: false,
+    is_active: true,
+  },
+  'cleaner@lodge.dev': {
+    password: 'cleaner123',
+    id: '6',
+    email: 'cleaner@lodge.dev',
+    full_name: 'Joseph Banda',
+    role: 'cleaner',
+    created_at: new Date().toISOString(),
+    change_password: false,
+    is_active: true,
+  },
   'individual@lodge.dev': {
     password: 'client123',
     id: '2',
@@ -58,6 +88,9 @@ export const useAuthStore = defineStore('auth', () => {
   const roleLabel = computed(() => {
     switch (userRole.value) {
       case 'admin': return 'Administrator'
+      case 'manager': return 'Manager'
+      case 'receptionist': return 'Receptionist'
+      case 'cleaner': return 'Cleaner'
       case 'client_individual': return 'Individual Client'
       case 'client_corporate': return 'Corporate Client'
       default: return ''

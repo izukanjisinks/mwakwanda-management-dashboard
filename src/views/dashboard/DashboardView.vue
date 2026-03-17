@@ -17,8 +17,10 @@ import ActivityFeed from '@/components/dashboard/ActivityFeed.vue'
 const authStore = useAuthStore()
 const roomsStore = useRoomsStore()
 
+const STAFF_ROLES = ['admin', 'manager', 'receptionist', 'cleaner']
+
 onMounted(() => {
-  if (authStore.userRole === 'admin') {
+  if (STAFF_ROLES.includes(authStore.userRole ?? '')) {
     roomsStore.fetchRooms()
   }
 })
@@ -32,8 +34,8 @@ const roomData = computed(() => ({
 </script>
 
 <template>
-  <!-- Admin Dashboard -->
-  <template v-if="authStore.userRole === 'admin'">
+  <!-- Staff Dashboard -->
+  <template v-if="STAFF_ROLES.includes(authStore.userRole ?? '')">
     <DashboardHeader title="Dashboard" />
 
     <div class="flex flex-1 gap-6 p-6">

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import {
   LayoutDashboard,
   Hotel,
@@ -18,8 +18,10 @@ import {
   GitBranch,
   Inbox,
 } from 'lucide-vue-next'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { usePermissions } from '@/composables/usePermissions'
+import AccessDeniedDialog from '@/components/layout/AccessDeniedDialog.vue'
 import {
   Sidebar,
   SidebarContent,
@@ -41,7 +43,19 @@ import {
 } from '@/components/ui/dropdown-menu'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
+const { canAccess } = usePermissions()
+
+const accessDeniedOpen = ref(false)
+
+function navigate(routeName: string) {
+  if (!canAccess(routeName)) {
+    accessDeniedOpen.value = true
+    return
+  }
+  router.push({ name: routeName })
+}
 
 const adminNav = [
   {
@@ -109,8 +123,10 @@ const clientNav = [
   },
 ]
 
+const STAFF_ROLES = ['admin', 'manager', 'receptionist', 'cleaner']
+
 const navGroups = computed(() =>
-  authStore.userRole === 'admin' ? adminNav : clientNav
+  STAFF_ROLES.includes(authStore.userRole ?? '') ? adminNav : clientNav
 )
 
 async function handleLogout() {
@@ -145,11 +161,9 @@ async function handleLogout() {
         <SidebarGroupContent>
           <SidebarMenu>
             <SidebarMenuItem v-for="item in group.items" :key="item.title">
-              <SidebarMenuButton as-child :tooltip="item.title">
-                <RouterLink :to="{ name: item.routeName }">
-                  <component :is="item.icon" />
-                  <span>{{ item.title }}</span>
-                </RouterLink>
+              <SidebarMenuButton :tooltip="item.title" :is-active="route.name === item.routeName" @click="navigate(item.routeName)">
+                <component :is="item.icon" />
+                <span>{{ item.title }}</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
@@ -191,4 +205,6 @@ async function handleLogout() {
 
     <SidebarRail />
   </Sidebar>
+
+  <AccessDeniedDialog v-model:open="accessDeniedOpen" />
 </template>
