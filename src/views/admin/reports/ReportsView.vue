@@ -49,6 +49,8 @@ const bookingSegments = computed<Seg[]>(() => {
   ].filter(s => s.value > 0)
 })
 
+const totalBookings = computed(() => bookingSegments.value.reduce((s, x) => s + x.value, 0))
+
 // ── Invoice status breakdown ──────────────────────────────────────────────────
 const invoiceSegments = computed<Seg[]>(() => {
   const inv = invoicesStore.invoices
@@ -60,6 +62,8 @@ const invoiceSegments = computed<Seg[]>(() => {
     { label: 'Cancelled', value: inv.filter(x => x.status === 'cancelled').length, color: 'var(--color-chart-3)' },
   ].filter(s => s.value > 0)
 })
+
+const totalInvoices = computed(() => invoiceSegments.value.reduce((s, x) => s + x.value, 0))
 
 // ── Room type revenue ─────────────────────────────────────────────────────────
 const roomTypeRevenue = computed(() => {
@@ -149,22 +153,25 @@ const tickFormat = (_: number, i: number) => {
         <CardHeader class="pb-2">
           <CardTitle class="text-base font-medium">Booking Status Breakdown</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div class="flex items-center gap-6">
-            <div class="shrink-0">
-              <VisSingleContainer :data="bookingSegments" :height="180" :width="180">
-                <VisDonut :value="segValue" :color="segColor" :arc-width="36" />
-                <VisTooltip :template="segTooltip" />
-              </VisSingleContainer>
-            </div>
-            <div class="flex flex-col gap-2 flex-1">
-              <div v-for="seg in bookingSegments" :key="seg.label" class="flex items-center justify-between gap-2">
-                <div class="flex items-center gap-2">
-                  <div class="size-3 rounded-sm shrink-0" :style="{ backgroundColor: seg.color }" />
-                  <span class="text-sm text-muted-foreground">{{ seg.label }}</span>
-                </div>
-                <span class="text-sm font-semibold">{{ seg.value }}</span>
+        <CardContent class="flex flex-col items-center gap-6">
+          <div :style="{
+            '--vis-donut-central-label-font-size': '1.5rem',
+            '--vis-donut-central-label-font-weight': '700',
+            '--vis-donut-central-label-text-color': 'var(--foreground)',
+            '--vis-donut-central-sub-label-text-color': 'var(--muted-foreground)',
+          }">
+            <VisSingleContainer :data="bookingSegments" :height="200" :width="200">
+              <VisDonut :value="segValue" :color="segColor" :arc-width="36" :central-label="String(totalBookings)" central-sub-label="Bookings" />
+              <VisTooltip :template="segTooltip" />
+            </VisSingleContainer>
+          </div>
+          <div class="grid grid-cols-2 gap-x-8 gap-y-2 w-full">
+            <div v-for="seg in bookingSegments" :key="seg.label" class="flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <div class="size-2.5 rounded-sm shrink-0" :style="{ backgroundColor: seg.color }" />
+                <span class="text-sm text-muted-foreground">{{ seg.label }}</span>
               </div>
+              <span class="text-sm font-semibold">{{ seg.value }}</span>
             </div>
           </div>
         </CardContent>
@@ -175,22 +182,25 @@ const tickFormat = (_: number, i: number) => {
         <CardHeader class="pb-2">
           <CardTitle class="text-base font-medium">Invoice Status Breakdown</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div class="flex items-center gap-6">
-            <div class="shrink-0">
-              <VisSingleContainer :data="invoiceSegments" :height="180" :width="180">
-                <VisDonut :value="segValue" :color="segColor" :arc-width="36" />
-                <VisTooltip :template="segTooltip" />
-              </VisSingleContainer>
-            </div>
-            <div class="flex flex-col gap-2 flex-1">
-              <div v-for="seg in invoiceSegments" :key="seg.label" class="flex items-center justify-between gap-2">
-                <div class="flex items-center gap-2">
-                  <div class="size-3 rounded-sm shrink-0" :style="{ backgroundColor: seg.color }" />
-                  <span class="text-sm text-muted-foreground">{{ seg.label }}</span>
-                </div>
-                <span class="text-sm font-semibold">{{ seg.value }}</span>
+        <CardContent class="flex flex-col items-center gap-6">
+          <div :style="{
+            '--vis-donut-central-label-font-size': '1.5rem',
+            '--vis-donut-central-label-font-weight': '700',
+            '--vis-donut-central-label-text-color': 'var(--foreground)',
+            '--vis-donut-central-sub-label-text-color': 'var(--muted-foreground)',
+          }">
+            <VisSingleContainer :data="invoiceSegments" :height="200" :width="200">
+              <VisDonut :value="segValue" :color="segColor" :arc-width="36" :central-label="String(totalInvoices)" central-sub-label="Invoices" />
+              <VisTooltip :template="segTooltip" />
+            </VisSingleContainer>
+          </div>
+          <div class="grid grid-cols-2 gap-x-8 gap-y-2 w-full">
+            <div v-for="seg in invoiceSegments" :key="seg.label" class="flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <div class="size-2.5 rounded-sm shrink-0" :style="{ backgroundColor: seg.color }" />
+                <span class="text-sm text-muted-foreground">{{ seg.label }}</span>
               </div>
+              <span class="text-sm font-semibold">{{ seg.value }}</span>
             </div>
           </div>
         </CardContent>

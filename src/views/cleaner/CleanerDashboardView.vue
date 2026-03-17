@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { Sparkles, BedDouble, CheckCircle2, Clock, AlertCircle, CalendarClock } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { useCleaningStore } from '@/stores/cleaning'
@@ -11,10 +11,25 @@ const authStore = useAuthStore()
 const cleaningStore = useCleaningStore()
 const roomsStore = useRoomsStore()
 
+// Live clock
+const now = ref(new Date())
+let clockTimer: ReturnType<typeof setInterval>
+
 onMounted(() => {
   cleaningStore.init()
   roomsStore.fetchRooms()
+  clockTimer = setInterval(() => { now.value = new Date() }, 1000)
 })
+
+onUnmounted(() => clearInterval(clockTimer))
+
+const currentTime = computed(() =>
+  now.value.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+)
+
+const currentDate = computed(() =>
+  now.value.toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
+)
 
 // Derive a greeting based on current hour
 const greeting = computed(() => {
@@ -65,27 +80,30 @@ const typeLabel: Record<string, string> = {
 </script>
 
 <template>
-  <DashboardHeader :title="`${greeting}, ${authStore.user?.full_name?.split(' ')[0] ?? 'there'} 👋`" />
+  <DashboardHeader :title="`${greeting}, ${authStore.user?.full_name?.split(' ')[0] ?? 'there'}`" />
 
   <div class="flex flex-col items-center gap-8 p-6 pb-12">
-    <div class="w-full max-w-2xl flex flex-col gap-6">
+    <div class="w-full max-w-3xl flex flex-col gap-6">
+
+      <!-- Live clock -->
+      <div class="flex flex-col items-center py-4">
+        <p class="text-5xl font-bold tracking-tight tabular-nums">{{ currentTime }}</p>
+        <p class="text-sm text-muted-foreground mt-1">{{ currentDate }}</p>
+      </div>
 
       <!-- Stat cards -->
-      <div class="grid grid-cols-3 gap-4">
-        <div class="rounded-2xl border bg-card px-5 py-5 flex flex-col gap-1">
-          <p class="text-xs text-muted-foreground font-medium uppercase tracking-wide">Total Assigned</p>
-          <p class="text-3xl font-bold">{{ myRooms.length }}</p>
-          <p class="text-xs text-muted-foreground">rooms</p>
+      <div class="grid grid-cols-3 gap-5">
+        <div class="rounded-xl border bg-card px-5 py-4">
+          <p class="text-xs text-muted-foreground">Total Assigned</p>
+          <p class="text-2xl font-semibold mt-1">{{ myRooms.length }}</p>
         </div>
-        <div class="rounded-2xl border bg-rose-50 border-rose-200 px-5 py-5 flex flex-col gap-1">
-          <p class="text-xs text-rose-600 font-medium uppercase tracking-wide">Urgent</p>
-          <p class="text-3xl font-bold text-rose-600">{{ urgent.length }}</p>
-          <p class="text-xs text-rose-500">needs cleaning now</p>
+        <div class="rounded-xl border bg-card px-5 py-4">
+          <p class="text-xs text-muted-foreground">Needs Cleaning</p>
+          <p class="text-2xl font-semibold mt-1 text-rose-600">{{ urgent.length }}</p>
         </div>
-        <div class="rounded-2xl border bg-emerald-50 border-emerald-200 px-5 py-5 flex flex-col gap-1">
-          <p class="text-xs text-emerald-600 font-medium uppercase tracking-wide">All Clear</p>
-          <p class="text-3xl font-bold text-emerald-600">{{ myRooms.length - urgent.length }}</p>
-          <p class="text-xs text-emerald-600">up to date</p>
+        <div class="rounded-xl border bg-card px-5 py-4">
+          <p class="text-xs text-muted-foreground">All Clear</p>
+          <p class="text-2xl font-semibold mt-1 text-emerald-600">{{ myRooms.length - urgent.length }}</p>
         </div>
       </div>
 

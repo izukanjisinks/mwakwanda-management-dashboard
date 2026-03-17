@@ -24,22 +24,22 @@ function getInitials(name: string | undefined | null) {
 
     <div class="ml-auto flex items-center gap-4">
       <!-- Search -->
-      <div class="relative hidden md:block">
+      <!-- <div class="relative hidden md:block">
         <Search class="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           type="search"
           placeholder="Search room, guest, booking..."
           class="w-64 pl-8"
         />
-      </div>
+      </div> -->
 
       <!-- Notifications -->
-      <Button variant="ghost" size="icon" class="relative">
+      <!-- <Button variant="ghost" size="icon" class="relative">
         <Bell class="size-5" />
         <span class="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground">
           3
         </span>
-      </Button>
+      </Button> -->
 
       <!-- User avatar -->
       <div class="flex items-center gap-3">
