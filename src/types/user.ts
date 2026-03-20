@@ -8,8 +8,10 @@ export interface SystemUser {
   email: string
   role: SystemUserRole
   status: SystemUserStatus
+  is_locked?: boolean
   last_login?: string
   created_at: string
+  updated_at: string
 }
 
 export interface SystemUserPayload {
@@ -18,4 +20,11 @@ export interface SystemUserPayload {
   role: SystemUserRole
   status: SystemUserStatus
   password?: string
+}
+
+export interface PaginatedUsers {
+  data: SystemUser[]
+  page: number
+  page_size: number
+  total: number
 }
