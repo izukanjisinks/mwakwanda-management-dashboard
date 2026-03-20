@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { Search, Eye, Trash2, ChevronLeft, ChevronRight, FileText } from 'lucide-vue-next'
+import { Search, Eye, ChevronLeft, ChevronRight, FileText } from 'lucide-vue-next'
 import { usePagination } from '@/composables/usePagination'
 import { toast } from 'vue-sonner'
 import { useInvoicesStore } from '@/stores/invoices'
@@ -26,14 +26,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 
 const store = useInvoicesStore()
 
@@ -41,11 +33,8 @@ const detailOpen = ref(false)
 const selectedInvoice = ref<Invoice | null>(null)
 const pdfSheetOpen = ref(false)
 const pdfInvoice = ref<Invoice | null>(null)
-const deleteDialogOpen = ref(false)
-const invoiceToDelete = ref<Invoice | null>(null)
 const search = ref('')
 const statusFilter = ref<InvoiceStatus | 'all'>('all')
-const deleting = ref(false)
 
 onMounted(() => store.fetchInvoices())
 
@@ -80,26 +69,6 @@ function openDetail(invoice: Invoice) {
   detailOpen.value = true
 }
 
-function confirmDelete(invoice: Invoice) {
-  invoiceToDelete.value = invoice
-  deleteDialogOpen.value = true
-}
-
-async function handleDelete() {
-  if (!invoiceToDelete.value) return
-  deleting.value = true
-  const num = invoiceToDelete.value.invoice_number
-  try {
-    await store.deleteInvoice(invoiceToDelete.value.id)
-    toast.success(`${num} deleted.`)
-  } catch {
-    toast.error('Failed to delete invoice.')
-  } finally {
-    deleting.value = false
-    deleteDialogOpen.value = false
-    invoiceToDelete.value = null
-  }
-}
 
 async function handleStatusChange(status: InvoiceStatus) {
   if (!selectedInvoice.value) return
@@ -231,9 +200,6 @@ const summary = computed(() => ({
                   <Button variant="ghost" size="icon" class="size-8" @click="openDetail(invoice)">
                     <Eye class="size-4" />
                   </Button>
-                  <Button variant="ghost" size="icon" class="size-8 text-destructive hover:text-destructive" @click="confirmDelete(invoice)">
-                    <Trash2 class="size-4" />
-                  </Button>
                 </div>
               </TableCell>
             </TableRow>
@@ -267,19 +233,4 @@ const summary = computed(() => ({
     @status-change="handleStatusChange"
   />
 
-  <Dialog v-model:open="deleteDialogOpen">
-    <DialogContent class="max-w-sm">
-      <DialogHeader>
-        <DialogTitle>Delete Invoice</DialogTitle>
-        <DialogDescription>
-          Are you sure you want to delete <strong>{{ invoiceToDelete?.invoice_number }}</strong>?
-          This action cannot be undone.
-        </DialogDescription>
-      </DialogHeader>
-      <DialogFooter class="gap-2">
-        <Button variant="outline" :disabled="deleting" @click="deleteDialogOpen = false">Cancel</Button>
-        <Button variant="destructive" :disabled="deleting" @click="handleDelete">Delete</Button>
-      </DialogFooter>
-    </DialogContent>
-  </Dialog>
 </template>

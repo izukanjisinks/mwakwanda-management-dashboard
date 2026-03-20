@@ -67,7 +67,7 @@ const clientOptions = computed(() => {
 })
 
 const availableRooms = computed(() =>
-  roomsStore.rooms.filter(r => r.status === 'available' || (isEdit.value && String(r.id) === props.booking?.room_id))
+  roomsStore.rooms.filter(r => r.is_available || (isEdit.value && r.id === props.booking?.room_id))
 )
 
 const nights = computed(() => {
@@ -76,7 +76,7 @@ const nights = computed(() => {
   return Math.max(0, Math.round(diff / (1000 * 60 * 60 * 24)))
 })
 
-const selectedRoom = computed(() => roomsStore.rooms.find(r => String(r.id) === form.value.room_id))
+const selectedRoom = computed(() => roomsStore.rooms.find(r => r.id === form.value.room_id))
 
 const roomCost = computed(() => {
   if (!selectedRoom.value || nights.value === 0) return 0
@@ -202,11 +202,11 @@ async function handleSave() {
         <div class="grid gap-2">
           <Label>Room *</Label>
           <Select v-model="form.room_id">
-            <SelectTrigger>
+            <SelectTrigger class="w-full">
               <SelectValue placeholder="Select a room" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem v-for="room in availableRooms" :key="room.id" :value="String(room.id)">
+              <SelectItem v-for="room in availableRooms" :key="room.id" :value="room.id">
                 {{ room.name }} — {{ room.type }} · ZMW {{ room.price_per_night.toLocaleString() }}/night
               </SelectItem>
             </SelectContent>
@@ -247,7 +247,7 @@ async function handleSave() {
         <div class="grid gap-2">
           <Label>{{ form.client_type === 'individual' ? 'Client' : 'Company' }} *</Label>
           <Select v-model="form.client_id">
-            <SelectTrigger>
+            <SelectTrigger class="w-full">
               <SelectValue :placeholder="form.client_type === 'individual' ? 'Select client' : 'Select company'" />
             </SelectTrigger>
             <SelectContent>
@@ -290,7 +290,7 @@ async function handleSave() {
         <div class="grid gap-2">
           <Label>Meal Plan</Label>
           <Select :model-value="form.meal_plan_id ?? '__none__'" @update:model-value="(v) => form.meal_plan_id = v === '__none__' ? null : String(v)">
-            <SelectTrigger>
+            <SelectTrigger class="w-full">
               <SelectValue placeholder="No meal plan" />
             </SelectTrigger>
             <SelectContent>
