@@ -24,7 +24,8 @@ import { useBookingsStore } from '@/stores/bookings'
 import { useRoomsStore } from '@/stores/rooms'
 import { useIndividualClientsStore, useCorporateClientsStore } from '@/stores/clients'
 import { useMealsStore } from '@/stores/meals'
-import type { Booking, BookingPayload, ClientType } from '@/types/booking'
+import type { Booking, BookingPayload, BookingUpdatePayload, ClientType } from '@/types/booking'
+// BookingUpdatePayload used in handleSave for edit path
 
 const props = defineProps<{
   open: boolean
@@ -48,14 +49,14 @@ const error = ref('')
 const isEdit = computed(() => !!props.booking)
 
 const form = ref({
-  room_id: '' as number | '',
+  room_id: '' as string | '',
   client_type: 'individual' as ClientType,
-  client_id: '' as number | '',
+  client_id: '' as string | '',
   check_in: '',
   check_out: '',
   guests: 1,
   special_requests: '',
-  meal_plan_id: null as number | null,
+  meal_plan_id: null as string | null,
 })
 
 const clientOptions = computed(() => {
@@ -66,7 +67,7 @@ const clientOptions = computed(() => {
 })
 
 const availableRooms = computed(() =>
-  roomsStore.rooms.filter(r => r.status === 'available' || (isEdit.value && r.id === props.booking?.room_id))
+  roomsStore.rooms.filter(r => r.status === 'available' || (isEdit.value && String(r.id) === props.booking?.room_id))
 )
 
 const nights = computed(() => {
@@ -75,7 +76,7 @@ const nights = computed(() => {
   return Math.max(0, Math.round(diff / (1000 * 60 * 60 * 24)))
 })
 
-const selectedRoom = computed(() => roomsStore.rooms.find(r => r.id === form.value.room_id))
+const selectedRoom = computed(() => roomsStore.rooms.find(r => String(r.id) === form.value.room_id))
 
 const roomCost = computed(() => {
   if (!selectedRoom.value || nights.value === 0) return 0
@@ -83,7 +84,7 @@ const roomCost = computed(() => {
 })
 
 const selectedMealPlan = computed(() =>
-  mealsStore.activePlans.find(p => p.id === form.value.meal_plan_id) ?? null
+  mealsStore.activePlans.find(p => String(p.id) === form.value.meal_plan_id) ?? null
 )
 
 const mealCost = computed(() => {
@@ -108,8 +109,8 @@ watch(() => props.open, (open) => {
       room_id: props.booking.room_id,
       client_type: props.booking.client_type,
       client_id: props.booking.client_id,
-      check_in: props.booking.check_in,
-      check_out: props.booking.check_out,
+      check_in: props.booking.check_in.slice(0, 10),
+      check_out: props.booking.check_out.slice(0, 10),
       guests: props.booking.guests,
       special_requests: props.booking.special_requests ?? '',
       meal_plan_id: props.booking.meal_plan_id ?? null,
@@ -146,21 +147,27 @@ async function handleSave() {
 
   saving.value = true
   try {
-    const payload: BookingPayload = {
-      room_id: form.value.room_id as number,
-      client_id: form.value.client_id as number,
-      client_type: form.value.client_type,
-      check_in: form.value.check_in,
-      check_out: form.value.check_out,
-      guests: form.value.guests,
-      special_requests: form.value.special_requests || undefined,
-      meal_plan_id: form.value.meal_plan_id,
-    }
-
     let saved: Booking
     if (isEdit.value && props.booking) {
+      const payload: BookingUpdatePayload = {
+        check_in: form.value.check_in,
+        check_out: form.value.check_out,
+        guests: form.value.guests,
+        special_requests: form.value.special_requests || undefined,
+        meal_plan_id: form.value.meal_plan_id,
+      }
       saved = await bookingsStore.updateBooking(props.booking.id, payload)
     } else {
+      const payload: BookingPayload = {
+        room_id: form.value.room_id as string,
+        client_id: form.value.client_id as string,
+        client_type: form.value.client_type,
+        check_in: new Date(form.value.check_in).toISOString(),
+        check_out: new Date(form.value.check_out).toISOString(),
+        guests: form.value.guests,
+        special_requests: form.value.special_requests || undefined,
+        meal_plan_id: form.value.meal_plan_id,
+      }
       saved = await bookingsStore.createBooking(payload)
     }
     toast.success(isEdit.value ? 'Booking updated successfully.' : 'Booking created successfully.')
@@ -199,7 +206,7 @@ async function handleSave() {
               <SelectValue placeholder="Select a room" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem v-for="room in availableRooms" :key="room.id" :value="room.id">
+              <SelectItem v-for="room in availableRooms" :key="room.id" :value="String(room.id)">
                 {{ room.name }} — {{ room.type }} · ZMW {{ room.price_per_night.toLocaleString() }}/night
               </SelectItem>
             </SelectContent>
@@ -282,7 +289,7 @@ async function handleSave() {
         <!-- Meal Plan -->
         <div class="grid gap-2">
           <Label>Meal Plan</Label>
-          <Select :model-value="form.meal_plan_id === null ? '__none__' : String(form.meal_plan_id)" @update:model-value="(v) => form.meal_plan_id = v === '__none__' ? null : Number(v)">
+          <Select :model-value="form.meal_plan_id ?? '__none__'" @update:model-value="(v) => form.meal_plan_id = v === '__none__' ? null : String(v)">
             <SelectTrigger>
               <SelectValue placeholder="No meal plan" />
             </SelectTrigger>

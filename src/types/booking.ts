@@ -3,36 +3,54 @@ export type BookingStatus = 'pending' | 'confirmed' | 'checked_in' | 'checked_ou
 export type ClientType = 'individual' | 'corporate'
 
 export interface Booking {
-  id: number
-  room_id: number
+  id: string
+  user_id: string
+  room_id: string
   room_name: string
-  client_id: number
+  client_id: string
   client_name: string
   client_type: ClientType
-  check_in: string   // ISO date string YYYY-MM-DD
-  check_out: string  // ISO date string YYYY-MM-DD
-  guests: number
-  status: BookingStatus
-  special_requests?: string
-  meal_plan_id?: number | null
+  meal_plan_id?: string | null
   meal_plan_name?: string | null
-  meal_cost: number  // pre-calculated: price_per_person_per_night × guests × nights
-  room_cost: number
-  total_amount: number
-  created_at: string
-}
-
-export interface BookingPayload {
-  room_id: number
-  client_id: number
-  client_type: ClientType
   check_in: string
   check_out: string
   guests: number
+  nights: number
+  room_cost: number
+  meal_cost: number
+  total_amount: number
+  status: BookingStatus
   special_requests?: string
-  meal_plan_id?: number | null
+  created_at: string
+  updated_at: string
+}
+
+export interface BookingPayload {
+  room_id: string
+  client_id: string
+  client_type: ClientType
+  meal_plan_id?: string | null
+  check_in: string   // ISO timestamp
+  check_out: string  // ISO timestamp
+  guests: number
+  special_requests?: string
+}
+
+export interface BookingUpdatePayload {
+  check_in?: string
+  check_out?: string
+  guests?: number
+  meal_plan_id?: string | null
+  special_requests?: string
 }
 
 export interface BookingStatusUpdate {
   status: BookingStatus
+}
+
+export interface PaginatedBookings {
+  data: Booking[]
+  page: number
+  page_size: number
+  total: number
 }
