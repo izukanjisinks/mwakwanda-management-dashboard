@@ -1,47 +1,15 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
 import { VisXYContainer, VisGroupedBar, VisAxis } from '@unovis/vue'
-import { Card, CardContent, CardHeader, CardTitle, CardAction } from '@/components/ui/card'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 type DataPoint = { day: string; booked: number; cancelled: number }
 
-const allData: Record<string, DataPoint[]> = {
-  '7days': [
-    { day: '12 Jun', booked: 65, cancelled: 8 },
-    { day: '13 Jun', booked: 72, cancelled: 12 },
-    { day: '14 Jun', booked: 58, cancelled: 5 },
-    { day: '15 Jun', booked: 85, cancelled: 10 },
-    { day: '16 Jun', booked: 92, cancelled: 7 },
-    { day: '17 Jun', booked: 78, cancelled: 15 },
-    { day: '18 Jun', booked: 88, cancelled: 9 },
-  ],
-  '14days': [
-    { day: '5 Jun',  booked: 55, cancelled: 6 },
-    { day: '6 Jun',  booked: 60, cancelled: 9 },
-    { day: '7 Jun',  booked: 70, cancelled: 4 },
-    { day: '8 Jun',  booked: 63, cancelled: 11 },
-    { day: '9 Jun',  booked: 75, cancelled: 8 },
-    { day: '10 Jun', booked: 68, cancelled: 13 },
-    { day: '11 Jun', booked: 80, cancelled: 6 },
-    { day: '12 Jun', booked: 65, cancelled: 8 },
-    { day: '13 Jun', booked: 72, cancelled: 12 },
-    { day: '14 Jun', booked: 58, cancelled: 5 },
-    { day: '15 Jun', booked: 85, cancelled: 10 },
-    { day: '16 Jun', booked: 92, cancelled: 7 },
-    { day: '17 Jun', booked: 78, cancelled: 15 },
-    { day: '18 Jun', booked: 88, cancelled: 9 },
-  ],
-}
+const props = defineProps<{
+  data: DataPoint[]
+}>()
 
-const period = ref('7days')
-const data = computed(() => allData[period.value] ?? allData['7days'])
+const data = computed(() => props.data ?? [])
 
 const x = (_: DataPoint, i: number) => i
 const ys = [(d: DataPoint) => d.booked, (d: DataPoint) => d.cancelled]
@@ -65,17 +33,6 @@ const xTickFormat = (i: number) => data.value[i]?.day ?? ''
           </div>
         </div>
       </div>
-      <CardAction>
-        <Select v-model="period">
-          <SelectTrigger class="h-8 w-32.5 text-xs">
-            <SelectValue placeholder="Select period" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="7days">Last 7 Days</SelectItem>
-            <SelectItem value="14days">Last 14 Days</SelectItem>
-          </SelectContent>
-        </Select>
-      </CardAction>
     </CardHeader>
 
     <CardContent>

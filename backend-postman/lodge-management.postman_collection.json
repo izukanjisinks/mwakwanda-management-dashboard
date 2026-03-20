@@ -1,0 +1,1428 @@
+{
+  "info": {
+    "name": "Lodge Management System",
+    "description": "API collection for the Lodge Management System backend. Phase 1 + Phase 2 endpoints: Auth, Users, Rooms, Clients, Bookings, Password Policy, Workflow Engine.\n\nBase URL: {{base_url}}\nSet `token` variable after login — all authenticated requests use it automatically via collection auth.",
+    "_postman_id": "lodge-management-system-v1",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    { "key": "base_url",      "value": "http://localhost:8080", "type": "string" },
+    { "key": "token",         "value": "", "type": "string" },
+    { "key": "user_id",       "value": "", "type": "string" },
+    { "key": "room_id",               "value": "", "type": "string" },
+    { "key": "individual_client_id",  "value": "", "type": "string" },
+    { "key": "corporate_client_id",   "value": "", "type": "string" },
+    { "key": "booking_id",            "value": "", "type": "string" },
+    { "key": "meal_plan_id",          "value": "", "type": "string" },
+    { "key": "invoice_id",            "value": "", "type": "string" },
+    { "key": "workflow_id",   "value": "", "type": "string" },
+    { "key": "instance_id",   "value": "", "type": "string" },
+    { "key": "task_id",       "value": "", "type": "string" },
+    { "key": "step_id",       "value": "", "type": "string" },
+    { "key": "transition_id", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            },
+            "description": "Public health check. Returns 200 OK when the server is running."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.token) {",
+                  "  pm.collectionVariables.set('token', res.token);",
+                  "  console.log('Token saved:', res.token.substring(0, 20) + '...');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@lodge.dev\",\n  \"password\": \"Admin@123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "login"]
+            },
+            "description": "Authenticate with email and password. Saves token to `token` collection variable automatically."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Current User (Me)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "me"]
+            },
+            "description": "Returns the currently authenticated user decoded from the JWT."
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "logout"]
+            },
+            "description": "JWT is stateless — logout is handled client-side by discarding the token."
+          },
+          "response": []
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"old_password\": \"Admin@123\",\n  \"new_password\": \"NewAdmin@456\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/change-password",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "change-password"]
+            },
+            "description": "Change the authenticated user's own password. Validates against the active password policy."
+          },
+          "response": []
+        },
+        {
+          "name": "Generate Password Suggestion",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/generate-password",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "generate-password"]
+            },
+            "description": "Returns a randomly generated password that satisfies the active password policy."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Profile",
+      "item": [
+        {
+          "name": "Get My Profile",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/profile",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "profile"]
+            },
+            "description": "Returns the authenticated user's profile. Available to all roles."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Create User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.id) pm.collectionVariables.set('user_id', res.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Grace Mwila\",\n  \"email\": \"grace@lodge.dev\",\n  \"password\": \"SecurePass@123\",\n  \"role\": \"manager\",\n  \"status\": \"active\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/users",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "users"]
+            },
+            "description": "Create a new system user. Requires admin role. Saves returned `id` to `user_id` variable. A welcome email with credentials is sent to the user."
+          },
+          "response": []
+        },
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/users?page=1&page_size=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "users"],
+              "query": [
+                { "key": "page",      "value": "1" },
+                { "key": "page_size", "value": "20" },
+                { "key": "search",    "value": "", "disabled": true, "description": "Filter by email (partial match)" },
+                { "key": "role_id",   "value": "", "disabled": true, "description": "Filter by role UUID" },
+                { "key": "is_active", "value": "true", "disabled": true, "description": "true | false" }
+              ]
+            },
+            "description": "Paginated list of all system users. Returns SystemUser shape: id, full_name, email, role, status, last_login, created_at."
+          },
+          "response": []
+        },
+        {
+          "name": "Get User by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "users", "{{user_id}}"]
+            },
+            "description": "Get a single user by their UUID."
+          },
+          "response": []
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Grace Mwila\",\n  \"email\": \"grace@lodge.dev\",\n  \"role\": \"receptionist\",\n  \"status\": \"active\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "users", "{{user_id}}"]
+            },
+            "description": "Update a user's full_name, email, role, status, or password. All fields optional. Include `password` only when resetting."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "users", "{{user_id}}"]
+            },
+            "description": "Permanently delete a user. Use with caution."
+          },
+          "response": []
+        },
+        {
+          "name": "Lock User Account",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/{{user_id}}/lock",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "users", "{{user_id}}", "lock"]
+            },
+            "description": "Permanently lock a user account until an admin explicitly unlocks it."
+          },
+          "response": []
+        },
+        {
+          "name": "Unlock User Account",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/{{user_id}}/unlock",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "users", "{{user_id}}", "unlock"]
+            },
+            "description": "Unlock a locked user account and reset their failed login attempt counter."
+          },
+          "response": []
+        },
+        {
+          "name": "Change User Role (by UUID)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role_id\": \"<role-uuid>\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/users/{{user_id}}/role",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "users", "{{user_id}}", "role"]
+            },
+            "description": "Assign a role by UUID. Use PUT /users/{id} with `role` name string for the simpler approach."
+          },
+          "response": []
+        },
+        {
+          "name": "Reset User Password",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/users/{{user_id}}/reset-password",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "users", "{{user_id}}", "reset-password"]
+            },
+            "description": "Generate a temporary password and send it to the user's email. Forces password change on next login."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Rooms",
+      "item": [
+        {
+          "name": "List Rooms",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/rooms?page=1&page_size=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "rooms"],
+              "query": [
+                { "key": "page",         "value": "1" },
+                { "key": "page_size",    "value": "20" },
+                { "key": "type",         "value": "", "disabled": true, "description": "single | double | suite | cabin | conference" },
+                { "key": "is_available", "value": "true", "disabled": true, "description": "true | false" }
+              ]
+            },
+            "description": "Paginated list of all rooms. Filterable by type and availability. Available to all authenticated staff."
+          },
+          "response": []
+        },
+        {
+          "name": "List Available Rooms",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/rooms/available?check_in=2026-04-01&check_out=2026-04-05",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "rooms", "available"],
+              "query": [
+                { "key": "check_in",  "value": "2026-04-01", "description": "YYYY-MM-DD" },
+                { "key": "check_out", "value": "2026-04-05", "description": "YYYY-MM-DD" },
+                { "key": "type",      "value": "", "disabled": true, "description": "single | double | suite | cabin | conference" }
+              ]
+            },
+            "description": "Returns rooms with no confirmed or checked_in bookings overlapping [check_in, check_out). Used by the booking wizard."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Room by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/rooms/{{room_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "rooms", "{{room_id}}"]
+            },
+            "description": "Get a single room by UUID."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Room",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.id) pm.collectionVariables.set('room_id', res.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Room 101\",\n  \"type\": \"double\",\n  \"capacity\": 2,\n  \"price_per_night\": 250.00,\n  \"amenities\": [\"WiFi\", \"Air Conditioning\", \"En-suite Bathroom\"],\n  \"description\": \"Spacious double room with garden view\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/rooms",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "rooms"]
+            },
+            "description": "Create a new room. Requires admin or manager role. Room types: single, double, suite, cabin, conference. Saves returned `id` to `room_id` variable."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Room",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Room 101\",\n  \"type\": \"double\",\n  \"capacity\": 2,\n  \"price_per_night\": 280.00,\n  \"amenities\": [\"WiFi\", \"Air Conditioning\", \"En-suite Bathroom\", \"Mini Bar\"],\n  \"description\": \"Spacious double room with garden view and mini bar\",\n  \"is_available\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/rooms/{{room_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "rooms", "{{room_id}}"]
+            },
+            "description": "Update a room's details. All fields are optional — only provided fields are applied. Requires admin or manager."
+          },
+          "response": []
+        },
+        {
+          "name": "Toggle Room Availability",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_available\": false\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/rooms/{{room_id}}/availability",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "rooms", "{{room_id}}", "availability"]
+            },
+            "description": "Toggle a room's availability flag. Use `false` to take it offline (maintenance, etc), `true` to restore it. Requires admin or manager."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Room",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/api/v1/rooms/{{room_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "rooms", "{{room_id}}"]
+            },
+            "description": "Permanently delete a room. Requires admin or manager."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin — Password Policy",
+      "item": [
+        {
+          "name": "Get Password Policy",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/password-policy",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "password-policy"]
+            },
+            "description": "Get the current global password policy configuration."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Password Policy",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"min_length\": 8,\n  \"require_uppercase\": true,\n  \"require_lowercase\": true,\n  \"require_numbers\": true,\n  \"require_special_chars\": true,\n  \"max_failed_attempts\": 5,\n  \"lockout_duration_mins\": 30,\n  \"password_expiry_days\": 90,\n  \"otp_length\": 6,\n  \"otp_expiry_mins\": 5,\n  \"session_timeout_mins\": 30\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/password-policy",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "password-policy"]
+            },
+            "description": "Update the global password policy. All fields optional — only provided fields are updated."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Clients — Individual",
+      "item": [
+        {
+          "name": "List Individual Clients",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/clients/individual?search=&status=&page=1&page_size=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "clients", "individual"],
+              "query": [
+                { "key": "search",    "value": "",     "description": "Search by name or email" },
+                { "key": "status",    "value": "",     "description": "Filter: active | inactive" },
+                { "key": "page",      "value": "1" },
+                { "key": "page_size", "value": "20" }
+              ]
+            },
+            "description": "List individual clients with optional search and status filter."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Individual Client",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/clients/individual/{{individual_client_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "clients", "individual", "{{individual_client_id}}"]
+            },
+            "description": "Get a single individual client by ID."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Individual Client",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.id) pm.collectionVariables.set('individual_client_id', res.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/api/v1/clients/individual",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "clients", "individual"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"John Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"phone\": \"+260971234567\",\n  \"id_passport_number\": \"NRC123456\",\n  \"nationality\": \"Zambian\",\n  \"status\": \"active\",\n  \"notes\": \"VIP guest\"\n}"
+            },
+            "description": "Create a new individual client record."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Individual Client",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/api/v1/clients/individual/{{individual_client_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "clients", "individual", "{{individual_client_id}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+260971111111\",\n  \"nationality\": \"Zambian\",\n  \"notes\": \"Updated notes\"\n}"
+            },
+            "description": "Update an individual client. Only provided fields are changed."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Individual Client",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/api/v1/clients/individual/{{individual_client_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "clients", "individual", "{{individual_client_id}}"]
+            },
+            "description": "Delete an individual client by ID. Requires admin or manager role."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Clients — Corporate",
+      "item": [
+        {
+          "name": "List Corporate Clients",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/clients/corporate?search=&status=&page=1&page_size=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "clients", "corporate"],
+              "query": [
+                { "key": "search",    "value": "",     "description": "Search by company name or email" },
+                { "key": "status",    "value": "",     "description": "Filter: active | inactive" },
+                { "key": "page",      "value": "1" },
+                { "key": "page_size", "value": "20" }
+              ]
+            },
+            "description": "List corporate clients with optional search and status filter."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Corporate Client",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/clients/corporate/{{corporate_client_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "clients", "corporate", "{{corporate_client_id}}"]
+            },
+            "description": "Get a single corporate client by ID."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Corporate Client",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.id) pm.collectionVariables.set('corporate_client_id', res.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/api/v1/clients/corporate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "clients", "corporate"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"company_name\": \"Acme Corp\",\n  \"contact_person\": \"Jane Smith\",\n  \"email\": \"jane.smith@acme.com\",\n  \"phone\": \"+260977654321\",\n  \"company_reg_number\": \"ZM-2024-001\",\n  \"industry\": \"Mining\",\n  \"status\": \"active\",\n  \"notes\": \"Corporate account\"\n}"
+            },
+            "description": "Create a new corporate client record."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Corporate Client",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/api/v1/clients/corporate/{{corporate_client_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "clients", "corporate", "{{corporate_client_id}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"contact_person\": \"Bob Jones\",\n  \"industry\": \"Tourism\",\n  \"notes\": \"Updated contact\"\n}"
+            },
+            "description": "Update a corporate client. Only provided fields are changed."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Corporate Client",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/api/v1/clients/corporate/{{corporate_client_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "clients", "corporate", "{{corporate_client_id}}"]
+            },
+            "description": "Delete a corporate client by ID. Requires admin or manager role."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Bookings",
+      "item": [
+        {
+          "name": "List Bookings",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/bookings?page=1&page_size=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "bookings"],
+              "query": [
+                { "key": "page",        "value": "1" },
+                { "key": "page_size",   "value": "20" },
+                { "key": "status",      "value": "", "disabled": true, "description": "pending | confirmed | checked_in | checked_out | cancelled" },
+                { "key": "client_type", "value": "", "disabled": true, "description": "individual | corporate" },
+                { "key": "client_id",   "value": "", "disabled": true, "description": "Filter by client UUID" }
+              ]
+            },
+            "description": "Paginated list of all bookings. Filterable by status, client_type, and client_id. Available to all authenticated staff."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Booking by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/bookings/{{booking_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "bookings", "{{booking_id}}"]
+            },
+            "description": "Get a single booking by UUID."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Booking",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.id) pm.collectionVariables.set('booking_id', res.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"room_id\": \"{{room_id}}\",\n  \"client_id\": \"{{individual_client_id}}\",\n  \"client_type\": \"individual\",\n  \"check_in\": \"2026-04-01T00:00:00Z\",\n  \"check_out\": \"2026-04-05T00:00:00Z\",\n  \"guests\": 2,\n  \"special_requests\": \"Non-smoking room, early check-in if possible\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/bookings",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "bookings"]
+            },
+            "description": "Create a new booking in pending status. Validates room capacity, date range, and checks for overlapping confirmed/checked_in bookings. Requires admin, manager, or receptionist role. Saves returned `id` to `booking_id` variable."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Booking",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"check_in\": \"2026-04-02T00:00:00Z\",\n  \"check_out\": \"2026-04-06T00:00:00Z\",\n  \"guests\": 1,\n  \"special_requests\": \"Late check-out requested\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/bookings/{{booking_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "bookings", "{{booking_id}}"]
+            },
+            "description": "Update a booking's dates, guests, or special requests. Only allowed while the booking is in pending status. All fields are optional. Requires admin, manager, or receptionist role."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Booking Status",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"confirmed\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/bookings/{{booking_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "bookings", "{{booking_id}}", "status"]
+            },
+            "description": "Advance a booking through its lifecycle. Valid transitions:\n- pending → confirmed (locks the room)\n- pending → cancelled (frees the room)\n- confirmed → checked_in\n- confirmed → cancelled (frees the room)\n- checked_in → checked_out (frees the room)\n\nRequires admin or manager role."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Booking",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/api/v1/bookings/{{booking_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "bookings", "{{booking_id}}"]
+            },
+            "description": "Permanently delete a booking. Not allowed when status is checked_in. Requires admin or manager role."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Meal Plans",
+      "item": [
+        {
+          "name": "List Meal Plans",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/meal-plans?page=1&page_size=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "meal-plans"],
+              "query": [
+                { "key": "page",      "value": "1" },
+                { "key": "page_size", "value": "20" },
+                { "key": "is_active", "value": "true", "disabled": true, "description": "true | false" }
+              ]
+            },
+            "description": "Paginated list of all meal plans. Filter by is_active. Available to all authenticated staff."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Meal Plan by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/meal-plans/{{meal_plan_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "meal-plans", "{{meal_plan_id}}"]
+            },
+            "description": "Get a single meal plan by UUID."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Meal Plan",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.id) pm.collectionVariables.set('meal_plan_id', res.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Full Board\",\n  \"price_per_person_per_night\": 85.00,\n  \"includes\": [\"Breakfast\", \"Lunch\", \"Dinner\"],\n  \"description\": \"Three meals a day included\",\n  \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/meal-plans",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "meal-plans"]
+            },
+            "description": "Create a new meal plan. Requires admin or manager role. Saves returned `id` to `meal_plan_id` variable."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Meal Plan",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price_per_person_per_night\": 90.00,\n  \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/meal-plans/{{meal_plan_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "meal-plans", "{{meal_plan_id}}"]
+            },
+            "description": "Update a meal plan. All fields optional. Requires admin or manager role."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Meal Plan",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/api/v1/meal-plans/{{meal_plan_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "meal-plans", "{{meal_plan_id}}"]
+            },
+            "description": "Permanently delete a meal plan. Requires admin or manager role."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Invoices",
+      "item": [
+        {
+          "name": "List Invoices",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/invoices?page=1&page_size=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "invoices"],
+              "query": [
+                { "key": "page",      "value": "1" },
+                { "key": "page_size", "value": "20" },
+                { "key": "status",    "value": "", "disabled": true, "description": "draft | issued | paid | overdue | cancelled" }
+              ]
+            },
+            "description": "Paginated list of all invoices. Filterable by status. Requires admin or manager role."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Invoice by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.id) pm.collectionVariables.set('invoice_id', res.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/invoices/{{invoice_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "invoices", "{{invoice_id}}"]
+            },
+            "description": "Get a single invoice by UUID. Requires admin, manager, or receptionist role."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Invoice by Booking ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/invoices/booking/{{booking_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "invoices", "booking", "{{booking_id}}"]
+            },
+            "description": "Fetch the invoice for a given booking. Useful when you already have a booking_id and want its invoice without a separate lookup. Available to all authenticated staff."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Invoice Status",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"issued\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/invoices/{{invoice_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "invoices", "{{invoice_id}}", "status"]
+            },
+            "description": "Advance an invoice through its lifecycle. Valid transitions:\n- draft → issued\n- draft → cancelled\n- issued → paid (include paid_date)\n- issued → overdue\n- issued → cancelled\n- overdue → paid (include paid_date)\n- overdue → cancelled\n\nRequires admin or manager role."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "item": [
+        {
+          "name": "Get Staff Dashboard Stats",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/dashboard/stats",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "dashboard", "stats"]
+            },
+            "description": "Returns all data needed for the staff dashboard in a single request:\n- stat_cards: new bookings this month, today's check-ins, today's check-outs\n- room_summary: occupied / reserved / available / not_ready counts\n- revenue_by_month: last 12 months of paid/issued invoice totals\n- reservations_by_day: last 14 days of booked vs cancelled counts\n- recent_bookings: latest 5 bookings with client name, room, dates, status\n\nRequires admin, manager, or receptionist role."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin — Workflow Engine",
+      "item": [
+        {
+          "name": "Get Available Workflow Types",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/workflow-types",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "workflow-types"]
+            },
+            "description": "Returns the list of supported workflow type constants (e.g. booking_approval)."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Workflow",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.id) pm.collectionVariables.set('workflow_id', res.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Booking Approval\",\n  \"description\": \"Standard workflow for approving guest bookings\",\n  \"type\": \"booking_approval\",\n  \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/workflows",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "workflows"]
+            },
+            "description": "Create a new workflow template. Saves returned `id` to `workflow_id` variable."
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Workflows",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/workflows",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "workflows"]
+            },
+            "description": "List all workflow templates."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Workflow by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/workflows/{{workflow_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "workflows", "{{workflow_id}}"]
+            },
+            "description": "Get a single workflow template by ID."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Workflow Structure",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/workflows/{{workflow_id}}/structure",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "workflows", "{{workflow_id}}", "structure"]
+            },
+            "description": "Returns the complete workflow structure — all steps and transitions in one response."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Workflow",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Booking Approval (Updated)\",\n  \"description\": \"Updated description\",\n  \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/workflows/{{workflow_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "workflows", "{{workflow_id}}"]
+            },
+            "description": "Update a workflow template's name, description, or active status."
+          },
+          "response": []
+        },
+        {
+          "name": "Deactivate Workflow",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/workflows/{{workflow_id}}/deactivate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "workflows", "{{workflow_id}}", "deactivate"]
+            },
+            "description": "Soft-delete: marks the workflow as inactive."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Workflow",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/workflows/{{workflow_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "workflows", "{{workflow_id}}"]
+            },
+            "description": "Permanently delete a workflow template and all its steps/transitions."
+          },
+          "response": []
+        },
+        {
+          "name": "Steps — Create Step",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.id) pm.collectionVariables.set('step_id', res.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"workflow_id\": \"{{workflow_id}}\",\n  \"step_name\": \"Pending Review\",\n  \"step_order\": 2,\n  \"initial\": false,\n  \"final\": false,\n  \"allowed_roles\": [\"manager\"],\n  \"requires_all_approvers\": false,\n  \"min_approvals\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/workflow-steps",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "workflow-steps"]
+            },
+            "description": "Add a step to a workflow. Saves returned `id` to `step_id`."
+          },
+          "response": []
+        },
+        {
+          "name": "Steps — Get Step by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/workflow-steps/{{step_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "workflow-steps", "{{step_id}}"]
+            },
+            "description": "Get a single workflow step."
+          },
+          "response": []
+        },
+        {
+          "name": "Steps — Get All Steps for Workflow",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/workflows/{{workflow_id}}/steps",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "workflows", "{{workflow_id}}", "steps"]
+            },
+            "description": "List all steps for a workflow, ordered by step_order."
+          },
+          "response": []
+        },
+        {
+          "name": "Steps — Update Step",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"step_name\": \"Manager Review\",\n  \"allowed_roles\": [\"manager\", \"admin\"],\n  \"min_approvals\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/workflow-steps/{{step_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "workflow-steps", "{{step_id}}"]
+            },
+            "description": "Update an existing workflow step."
+          },
+          "response": []
+        },
+        {
+          "name": "Steps — Delete Step",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/workflow-steps/{{step_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "workflow-steps", "{{step_id}}"]
+            },
+            "description": "Delete a workflow step. Also removes all transitions referencing this step."
+          },
+          "response": []
+        },
+        {
+          "name": "Steps — Get Valid Transitions",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/workflow-steps/{{step_id}}/transitions",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "workflow-steps", "{{step_id}}", "transitions"]
+            },
+            "description": "List all transitions that originate from this step."
+          },
+          "response": []
+        },
+        {
+          "name": "Transitions — Create Transition",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.id) pm.collectionVariables.set('transition_id', res.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"workflow_id\": \"{{workflow_id}}\",\n  \"from_step_id\": \"<from-step-uuid>\",\n  \"to_step_id\": \"<to-step-uuid>\",\n  \"action_name\": \"approve\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/workflow-transitions",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "workflow-transitions"]
+            },
+            "description": "Define a valid transition between two steps. Saves returned `id` to `transition_id`."
+          },
+          "response": []
+        },
+        {
+          "name": "Transitions — Get All for Workflow",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/workflows/{{workflow_id}}/transitions",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "workflows", "{{workflow_id}}", "transitions"]
+            },
+            "description": "List all transitions for a workflow."
+          },
+          "response": []
+        },
+        {
+          "name": "Transitions — Update Transition",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action_name\": \"approve\",\n  \"condition_type\": \"user_role\",\n  \"condition_value\": \"manager\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/workflow-transitions/{{transition_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "workflow-transitions", "{{transition_id}}"]
+            },
+            "description": "Update a workflow transition."
+          },
+          "response": []
+        },
+        {
+          "name": "Transitions — Delete Transition",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/api/v1/admin/workflow-transitions/{{transition_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "admin", "workflow-transitions", "{{transition_id}}"]
+            },
+            "description": "Delete a workflow transition."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Workflow — Task Inbox",
+      "item": [
+        {
+          "name": "Get My Tasks",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/workflow/my-tasks",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "workflow", "my-tasks"],
+              "query": [
+                { "key": "status", "value": "pending", "disabled": true, "description": "pending | in_progress | completed" }
+              ]
+            },
+            "description": "Get all workflow tasks assigned to the authenticated user."
+          },
+          "response": []
+        },
+        {
+          "name": "Get My Pending Tasks",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/workflow/my-tasks/pending",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "workflow", "my-tasks", "pending"]
+            },
+            "description": "Shortcut to get only pending tasks for the authenticated user."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Task Details",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/workflow/tasks/{{task_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "workflow", "tasks", "{{task_id}}"]
+            },
+            "description": "Get full details of a specific assigned task."
+          },
+          "response": []
+        },
+        {
+          "name": "Initiate Workflow",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.id) pm.collectionVariables.set('instance_id', res.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"workflow_type\": \"booking_approval\",\n  \"task_details\": {\n    \"task_id\": \"<booking-uuid>\",\n    \"task_type\": \"booking\",\n    \"task_description\": \"New booking request from John Doe\",\n    \"sender_details\": {\n      \"sender_id\": \"<user-uuid>\",\n      \"sender_name\": \"John Doe\"\n    }\n  },\n  \"priority\": \"medium\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/workflow/instances",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "workflow", "instances"]
+            },
+            "description": "Start a new workflow instance. Saves returned `id` to `instance_id`."
+          },
+          "response": []
+        },
+        {
+          "name": "Process Action on Instance",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"approve\",\n  \"comments\": \"Looks good, approved.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/workflow/instances/{{instance_id}}/action",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "workflow", "instances", "{{instance_id}}", "action"]
+            },
+            "description": "Perform an action on a workflow instance (e.g. approve, reject)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Instance by Task ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/workflow/task/{{task_id}}/instance",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "workflow", "task", "{{task_id}}", "instance"]
+            },
+            "description": "Find the workflow instance associated with a specific business task ID (e.g. a booking UUID)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Instance History",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/workflow/instances/{{instance_id}}/history",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "workflow", "instances", "{{instance_id}}", "history"]
+            },
+            "description": "Get the full audit trail of actions taken on a workflow instance."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
