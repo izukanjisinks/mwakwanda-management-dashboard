@@ -53,8 +53,7 @@ const filtered = computed(() => {
   return store.rooms.filter(
     r =>
       r.name.toLowerCase().includes(q) ||
-      r.type.toLowerCase().includes(q) ||
-      r.status.toLowerCase().includes(q),
+      r.type.toLowerCase().includes(q),
   )
 })
 
@@ -89,20 +88,6 @@ async function handleDelete() {
     deleteDialogOpen.value = false
     roomToDelete.value = null
   }
-}
-
-const statusVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  available: 'default',
-  occupied: 'secondary',
-  reserved: 'outline',
-  not_ready: 'destructive',
-}
-
-const statusLabel: Record<string, string> = {
-  available: 'Available',
-  occupied: 'Occupied',
-  reserved: 'Reserved',
-  not_ready: 'Not Ready',
 }
 
 const typeLabel: Record<string, string> = {
@@ -168,8 +153,8 @@ const typeLabel: Record<string, string> = {
               <TableCell>{{ room.capacity }} guest{{ room.capacity === 1 ? '' : 's' }}</TableCell>
               <TableCell>ZMW {{ room.price_per_night.toLocaleString() }}</TableCell>
               <TableCell>
-                <Badge :variant="statusVariant[room.status] ?? 'outline'">
-                  {{ statusLabel[room.status] ?? room.status }}
+                <Badge :variant="room.is_available ? 'default' : 'secondary'">
+                  {{ room.is_available ? 'Available' : 'Unavailable' }}
                 </Badge>
               </TableCell>
               <TableCell>

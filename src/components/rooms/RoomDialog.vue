@@ -22,7 +22,7 @@ import { Badge } from '@/components/ui/badge'
 import { Loader2, X, Plus } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { useRoomsStore } from '@/stores/rooms'
-import type { Room, RoomType, RoomStatus } from '@/types/room'
+import type { Room, RoomType } from '@/types/room'
 
 const props = defineProps<{
   open: boolean
@@ -46,7 +46,7 @@ const form = ref({
   type: 'single' as RoomType,
   capacity: 1,
   price_per_night: 0,
-  status: 'available' as RoomStatus,
+  is_available: true,
   description: '',
   amenities: [] as string[],
 })
@@ -61,7 +61,7 @@ watch(() => props.open, (open) => {
       type: props.room.type,
       capacity: props.room.capacity,
       price_per_night: props.room.price_per_night,
-      status: props.room.status,
+      is_available: props.room.is_available,
       description: props.room.description ?? '',
       amenities: [...props.room.amenities],
     }
@@ -71,7 +71,7 @@ watch(() => props.open, (open) => {
       type: 'single',
       capacity: 1,
       price_per_night: 0,
-      status: 'available',
+      is_available: true,
       description: '',
       amenities: [],
     }
@@ -130,12 +130,6 @@ const roomTypes: { value: RoomType; label: string }[] = [
   { value: 'conference', label: 'Conference' },
 ]
 
-const roomStatuses: { value: RoomStatus; label: string }[] = [
-  { value: 'available', label: 'Available' },
-  { value: 'occupied', label: 'Occupied' },
-  { value: 'reserved', label: 'Reserved' },
-  { value: 'not_ready', label: 'Not Ready' },
-]
 </script>
 
 <template>
@@ -177,15 +171,17 @@ const roomStatuses: { value: RoomStatus; label: string }[] = [
           </div>
 
           <div class="grid gap-2">
-            <Label>Status *</Label>
-            <Select v-model="form.status">
+            <Label>Availability *</Label>
+            <Select
+              :model-value="form.is_available ? 'true' : 'false'"
+              @update:model-value="(v) => form.is_available = v === 'true'"
+            >
               <SelectTrigger>
-                <SelectValue placeholder="Select status" />
+                <SelectValue placeholder="Select availability" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem v-for="s in roomStatuses" :key="s.value" :value="s.value">
-                  {{ s.label }}
-                </SelectItem>
+                <SelectItem value="true">Available</SelectItem>
+                <SelectItem value="false">Unavailable</SelectItem>
               </SelectContent>
             </Select>
           </div>
