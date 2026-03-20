@@ -4,20 +4,47 @@ import type {
   IndividualClientPayload,
   CorporateClient,
   CorporateClientPayload,
+  PaginatedIndividualClients,
+  PaginatedCorporateClients,
 } from '@/types/client'
 
+export interface ClientListParams extends Record<string, string | number | boolean | undefined> {
+  page?: number
+  page_size?: number
+  status?: string
+  search?: string
+}
+
 export const individualClientApi = {
-  list: () => apiClient.get<IndividualClient[]>('/clients/individual'),
-  get: (id: number) => apiClient.get<IndividualClient>(`/clients/individual/${id}`),
-  create: (payload: IndividualClientPayload) => apiClient.post<IndividualClient>('/clients/individual', payload),
-  update: (id: number, payload: Partial<IndividualClientPayload>) => apiClient.put<IndividualClient>(`/clients/individual/${id}`, payload),
-  delete: (id: number) => apiClient.delete<void>(`/clients/individual/${id}`),
+  list: (params?: ClientListParams) =>
+    apiClient.get<PaginatedIndividualClients>('/clients/individual', { params }),
+
+  get: (id: string) =>
+    apiClient.get<IndividualClient>(`/clients/individual/${id}`),
+
+  create: (payload: IndividualClientPayload) =>
+    apiClient.post<IndividualClient>('/clients/individual', payload),
+
+  update: (id: string, payload: Partial<IndividualClientPayload>) =>
+    apiClient.put<IndividualClient>(`/clients/individual/${id}`, payload),
+
+  delete: (id: string) =>
+    apiClient.delete<void>(`/clients/individual/${id}`),
 }
 
 export const corporateClientApi = {
-  list: () => apiClient.get<CorporateClient[]>('/clients/corporate'),
-  get: (id: number) => apiClient.get<CorporateClient>(`/clients/corporate/${id}`),
-  create: (payload: CorporateClientPayload) => apiClient.post<CorporateClient>('/clients/corporate', payload),
-  update: (id: number, payload: Partial<CorporateClientPayload>) => apiClient.put<CorporateClient>(`/clients/corporate/${id}`, payload),
-  delete: (id: number) => apiClient.delete<void>(`/clients/corporate/${id}`),
+  list: (params?: ClientListParams) =>
+    apiClient.get<PaginatedCorporateClients>('/clients/corporate', { params }),
+
+  get: (id: string) =>
+    apiClient.get<CorporateClient>(`/clients/corporate/${id}`),
+
+  create: (payload: CorporateClientPayload) =>
+    apiClient.post<CorporateClient>('/clients/corporate', payload),
+
+  update: (id: string, payload: Partial<CorporateClientPayload>) =>
+    apiClient.put<CorporateClient>(`/clients/corporate/${id}`, payload),
+
+  delete: (id: string) =>
+    apiClient.delete<void>(`/clients/corporate/${id}`),
 }

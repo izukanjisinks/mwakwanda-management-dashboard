@@ -60,7 +60,7 @@ watch(() => props.open, (open) => {
       email: props.client.email,
       phone: props.client.phone,
       company_reg_number: props.client.company_reg_number,
-      industry: props.client.industry,
+      industry: props.client.industry ?? '',
       status: props.client.status,
       notes: props.client.notes ?? '',
     }
