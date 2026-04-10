@@ -9,6 +9,7 @@ export interface Room {
   amenities: string[]
   is_available: boolean
   description?: string
+  images: string[]
   created_at: string
   updated_at: string
 }

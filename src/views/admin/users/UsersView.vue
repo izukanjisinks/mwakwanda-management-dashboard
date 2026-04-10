@@ -153,8 +153,8 @@ const currentUserEmail = computed(() => authStore.user?.email)
               </TableCell>
               <TableCell class="text-muted-foreground">{{ user.email }}</TableCell>
               <TableCell>
-                <Badge :variant="roleConfig[user.role].variant">
-                  {{ roleConfig[user.role].label }}
+                <Badge :variant="roleConfig[user.role]?.variant ?? 'secondary'">
+                  {{ roleConfig[user.role]?.label ?? user.role }}
                 </Badge>
               </TableCell>
               <TableCell>

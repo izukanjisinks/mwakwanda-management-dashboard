@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { Plus, Pencil, Trash2, Search, ChevronLeft, ChevronRight, Sparkles } from 'lucide-vue-next'
+import { Plus, Pencil, Trash2, Search, ChevronLeft, ChevronRight, Sparkles, Images } from 'lucide-vue-next'
 import { usePagination } from '@/composables/usePagination'
 import { toast } from 'vue-sonner'
 import { useRoomsStore } from '@/stores/rooms'
@@ -9,6 +9,7 @@ import type { Room } from '@/types/room'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import RoomDialog from '@/components/rooms/RoomDialog.vue'
 import RoomCleaningSheet from '@/components/rooms/RoomCleaningSheet.vue'
+import RoomImageDialog from '@/components/rooms/RoomImageDialog.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -40,6 +41,8 @@ const cleaningSheetOpen = ref(false)
 const cleaningRoom = ref<Room | null>(null)
 const deleteDialogOpen = ref(false)
 const roomToDelete = ref<Room | null>(null)
+const imageDialogOpen = ref(false)
+const imageRoom = ref<Room | null>(null)
 const search = ref('')
 const deleting = ref(false)
 
@@ -177,6 +180,9 @@ const typeLabel: Record<string, string> = {
                   <Button variant="ghost" size="icon" class="size-8 text-muted-foreground hover:text-foreground" title="Cleaning assignments" @click="cleaningRoom = room; cleaningSheetOpen = true">
                     <Sparkles class="size-4" />
                   </Button>
+                  <Button variant="ghost" size="icon" class="size-8 text-muted-foreground hover:text-foreground" title="Upload images" @click="imageRoom = room; imageDialogOpen = true">
+                    <Images class="size-4" />
+                  </Button>
                   <template v-if="!isReadOnly">
                     <Button variant="ghost" size="icon" class="size-8" @click="openEdit(room)">
                       <Pencil class="size-4" />
@@ -218,6 +224,11 @@ const typeLabel: Record<string, string> = {
       </div>
     </div>
   </div>
+
+  <RoomImageDialog
+    v-model:open="imageDialogOpen"
+    :room="imageRoom"
+  />
 
   <RoomCleaningSheet
     v-model:open="cleaningSheetOpen"

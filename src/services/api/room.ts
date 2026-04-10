@@ -33,6 +33,9 @@ export const roomApi = {
   setAvailability: (id: string, is_available: boolean) =>
     apiClient.patch<{ id: string; is_available: boolean }>(`/rooms/${id}/availability`, { is_available }),
 
+  uploadImages: (id: string, images: string[]) =>
+    apiClient.put<Room>(`/rooms/${id}/images`, { images }),
+
   delete: (id: string) =>
     apiClient.delete<void>(`/rooms/${id}`),
 }

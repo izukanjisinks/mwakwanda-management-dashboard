@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { roomApi } from '@/services/api/room'
+import { uploadRoomImage, deleteRoomImage } from '@/services/storage'
 import type { Room, RoomPayload } from '@/types/room'
 
 export const useRoomsStore = defineStore('rooms', () => {
@@ -40,7 +41,18 @@ export const useRoomsStore = defineStore('rooms', () => {
   async function setAvailability(id: string, is_available: boolean): Promise<void> {
     await roomApi.setAvailability(id, is_available)
     const idx = rooms.value.findIndex(r => r.id === id)
-    if (idx !== -1) rooms.value[idx].is_available = is_available
+    if (idx !== -1) rooms.value[idx]!.is_available = is_available
+  }
+
+  async function uploadImages(id: string, files: File[], existingUrls: string[] = []): Promise<Room> {
+    const originalUrls = rooms.value.find(r => r.id === id)?.images ?? []
+    const removedUrls = originalUrls.filter(u => !existingUrls.includes(u))
+    await Promise.all(removedUrls.map(u => deleteRoomImage(u)))
+    const newUrls = await Promise.all(files.map(f => uploadRoomImage(id, f)))
+    const updated = await roomApi.uploadImages(id, [...existingUrls, ...newUrls])
+    const idx = rooms.value.findIndex(r => r.id === id)
+    if (idx !== -1) rooms.value[idx] = updated
+    return updated
   }
 
   async function deleteRoom(id: string): Promise<void> {
@@ -49,5 +61,5 @@ export const useRoomsStore = defineStore('rooms', () => {
     total.value--
   }
 
-  return { rooms, total, loading, error, fetchRooms, createRoom, updateRoom, setAvailability, deleteRoom }
+  return { rooms, total, loading, error, fetchRooms, createRoom, updateRoom, setAvailability, uploadImages, deleteRoom }
 })
