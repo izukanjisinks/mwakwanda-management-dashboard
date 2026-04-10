@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { roomApi } from '@/services/api/room'
-import { uploadRoomImage, deleteRoomImage } from '@/services/storage'
+import { uploadRoomImage, deleteRoomImage, deleteAllRoomImages } from '@/services/storage'
 import type { Room, RoomPayload } from '@/types/room'
 
 export const useRoomsStore = defineStore('rooms', () => {
@@ -56,7 +56,9 @@ export const useRoomsStore = defineStore('rooms', () => {
   }
 
   async function deleteRoom(id: string): Promise<void> {
+    const room = rooms.value.find(r => r.id === id)
     await roomApi.delete(id)
+    if (room?.images?.length) await deleteAllRoomImages(room.images)
     rooms.value = rooms.value.filter(r => r.id !== id)
     total.value--
   }
