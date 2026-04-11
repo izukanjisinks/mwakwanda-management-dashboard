@@ -1,17 +1,17 @@
 export type RoomType = 'single' | 'double' | 'suite' | 'cabin' | 'conference'
 
-export type RoomStatus = 'available' | 'occupied' | 'reserved' | 'not_ready'
-
 export interface Room {
-  id: number
+  id: string
   name: string
   type: RoomType
   capacity: number
   price_per_night: number
   amenities: string[]
-  status: RoomStatus
+  is_available: boolean
   description?: string
+  images: string[]
   created_at: string
+  updated_at: string
 }
 
 export interface RoomPayload {
@@ -20,13 +20,13 @@ export interface RoomPayload {
   capacity: number
   price_per_night: number
   amenities: string[]
-  status: RoomStatus
+  is_available: boolean
   description?: string
 }
 
-export interface RoomSummary {
-  occupied: number
-  reserved: number
-  available: number
-  not_ready: number
+export interface PaginatedRooms {
+  data: Room[]
+  page: number
+  page_size: number
+  total: number
 }

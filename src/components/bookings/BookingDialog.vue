@@ -24,7 +24,8 @@ import { useBookingsStore } from '@/stores/bookings'
 import { useRoomsStore } from '@/stores/rooms'
 import { useIndividualClientsStore, useCorporateClientsStore } from '@/stores/clients'
 import { useMealsStore } from '@/stores/meals'
-import type { Booking, BookingPayload, ClientType } from '@/types/booking'
+import type { Booking, BookingPayload, BookingUpdatePayload, ClientType } from '@/types/booking'
+// BookingUpdatePayload used in handleSave for edit path
 
 const props = defineProps<{
   open: boolean
@@ -48,14 +49,14 @@ const error = ref('')
 const isEdit = computed(() => !!props.booking)
 
 const form = ref({
-  room_id: '' as number | '',
+  room_id: '' as string | '',
   client_type: 'individual' as ClientType,
-  client_id: '' as number | '',
+  client_id: '' as string | '',
   check_in: '',
   check_out: '',
   guests: 1,
   special_requests: '',
-  meal_plan_id: null as number | null,
+  meal_plan_id: null as string | null,
 })
 
 const clientOptions = computed(() => {
@@ -66,7 +67,7 @@ const clientOptions = computed(() => {
 })
 
 const availableRooms = computed(() =>
-  roomsStore.rooms.filter(r => r.status === 'available' || (isEdit.value && r.id === props.booking?.room_id))
+  roomsStore.rooms.filter(r => r.is_available || (isEdit.value && r.id === props.booking?.room_id))
 )
 
 const nights = computed(() => {
@@ -83,7 +84,7 @@ const roomCost = computed(() => {
 })
 
 const selectedMealPlan = computed(() =>
-  mealsStore.activePlans.find(p => p.id === form.value.meal_plan_id) ?? null
+  mealsStore.activePlans.find(p => String(p.id) === form.value.meal_plan_id) ?? null
 )
 
 const mealCost = computed(() => {
@@ -108,8 +109,8 @@ watch(() => props.open, (open) => {
       room_id: props.booking.room_id,
       client_type: props.booking.client_type,
       client_id: props.booking.client_id,
-      check_in: props.booking.check_in,
-      check_out: props.booking.check_out,
+      check_in: props.booking.check_in.slice(0, 10),
+      check_out: props.booking.check_out.slice(0, 10),
       guests: props.booking.guests,
       special_requests: props.booking.special_requests ?? '',
       meal_plan_id: props.booking.meal_plan_id ?? null,
@@ -146,21 +147,27 @@ async function handleSave() {
 
   saving.value = true
   try {
-    const payload: BookingPayload = {
-      room_id: form.value.room_id as number,
-      client_id: form.value.client_id as number,
-      client_type: form.value.client_type,
-      check_in: form.value.check_in,
-      check_out: form.value.check_out,
-      guests: form.value.guests,
-      special_requests: form.value.special_requests || undefined,
-      meal_plan_id: form.value.meal_plan_id,
-    }
-
     let saved: Booking
     if (isEdit.value && props.booking) {
+      const payload: BookingUpdatePayload = {
+        check_in: form.value.check_in,
+        check_out: form.value.check_out,
+        guests: form.value.guests,
+        special_requests: form.value.special_requests || undefined,
+        meal_plan_id: form.value.meal_plan_id,
+      }
       saved = await bookingsStore.updateBooking(props.booking.id, payload)
     } else {
+      const payload: BookingPayload = {
+        room_id: form.value.room_id as string,
+        client_id: form.value.client_id as string,
+        client_type: form.value.client_type,
+        check_in: new Date(form.value.check_in).toISOString(),
+        check_out: new Date(form.value.check_out).toISOString(),
+        guests: form.value.guests,
+        special_requests: form.value.special_requests || undefined,
+        meal_plan_id: form.value.meal_plan_id,
+      }
       saved = await bookingsStore.createBooking(payload)
     }
     toast.success(isEdit.value ? 'Booking updated successfully.' : 'Booking created successfully.')
@@ -195,7 +202,7 @@ async function handleSave() {
         <div class="grid gap-2">
           <Label>Room *</Label>
           <Select v-model="form.room_id">
-            <SelectTrigger>
+            <SelectTrigger class="w-full">
               <SelectValue placeholder="Select a room" />
             </SelectTrigger>
             <SelectContent>
@@ -240,7 +247,7 @@ async function handleSave() {
         <div class="grid gap-2">
           <Label>{{ form.client_type === 'individual' ? 'Client' : 'Company' }} *</Label>
           <Select v-model="form.client_id">
-            <SelectTrigger>
+            <SelectTrigger class="w-full">
               <SelectValue :placeholder="form.client_type === 'individual' ? 'Select client' : 'Select company'" />
             </SelectTrigger>
             <SelectContent>
@@ -282,8 +289,8 @@ async function handleSave() {
         <!-- Meal Plan -->
         <div class="grid gap-2">
           <Label>Meal Plan</Label>
-          <Select :model-value="form.meal_plan_id === null ? '__none__' : String(form.meal_plan_id)" @update:model-value="(v) => form.meal_plan_id = v === '__none__' ? null : Number(v)">
-            <SelectTrigger>
+          <Select :model-value="form.meal_plan_id ?? '__none__'" @update:model-value="(v) => form.meal_plan_id = v === '__none__' ? null : String(v)">
+            <SelectTrigger class="w-full">
               <SelectValue placeholder="No meal plan" />
             </SelectTrigger>
             <SelectContent>

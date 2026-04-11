@@ -58,7 +58,7 @@ watch(() => props.open, (open) => {
       email: props.client.email,
       phone: props.client.phone,
       id_passport_number: props.client.id_passport_number,
-      nationality: props.client.nationality,
+      nationality: props.client.nationality ?? '',
       status: props.client.status,
       notes: props.client.notes ?? '',
     }

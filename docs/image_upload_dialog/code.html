@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-tint": "#934b19",
+                        "secondary-container": "#fdcb9b",
+                        "tertiary-container": "#4e5e31",
+                        "background": "#fdf9f6",
+                        "on-primary": "#ffffff",
+                        "surface-variant": "#e5e2df",
+                        "primary-fixed": "#ffdbc9",
+                        "on-secondary-container": "#79542d",
+                        "outline-variant": "#dac2b6",
+                        "primary-fixed-dim": "#ffb68c",
+                        "on-tertiary-fixed-variant": "#3d4c20",
+                        "on-background": "#1c1b1a",
+                        "secondary": "#7c5730",
+                        "tertiary": "#37461b",
+                        "tertiary-fixed-dim": "#bbcd96",
+                        "on-error": "#ffffff",
+                        "primary": "#6c2f00",
+                        "on-secondary-fixed": "#2c1600",
+                        "error": "#ba1a1a",
+                        "on-surface-variant": "#54433a",
+                        "inverse-surface": "#31302f",
+                        "surface-container-lowest": "#ffffff",
+                        "surface": "#fdf9f6",
+                        "surface-container-highest": "#e5e2df",
+                        "surface-container-low": "#f7f3f0",
+                        "on-primary-fixed": "#321200",
+                        "inverse-primary": "#ffb68c",
+                        "error-container": "#ffdad6",
+                        "tertiary-fixed": "#d7eab0",
+                        "on-tertiary-fixed": "#131f00",
+                        "surface-container-high": "#ebe7e5",
+                        "on-secondary": "#ffffff",
+                        "primary-container": "#8b4513",
+                        "surface-container": "#f1edea",
+                        "on-error-container": "#93000a",
+                        "on-primary-container": "#ffc29f",
+                        "on-surface": "#1c1b1a",
+                        "on-tertiary": "#ffffff",
+                        "inverse-on-surface": "#f4f0ed",
+                        "secondary-fixed": "#ffdcbd",
+                        "outline": "#877369",
+                        "on-tertiary-container": "#c4d69e",
+                        "on-primary-fixed-variant": "#753401",
+                        "secondary-fixed-dim": "#eebd8e",
+                        "on-secondary-fixed-variant": "#61401b",
+                        "surface-dim": "#ddd9d6",
+                        "surface-bright": "#fdf9f6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "2xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .bg-mesh-gradient {
+            background-color: #fdf9f6;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(140, 69, 19, 0.05) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(253, 203, 155, 0.1) 0px, transparent 50%);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body min-h-screen relative overflow-hidden">
+<!-- Background Layer (Blurred Rooms Dashboard) -->
+<div class="absolute inset-0 z-0 flex flex-col blur-md grayscale-[0.2] opacity-50 pointer-events-none">
+<!-- Mock SideNav (Immutable JSON Shell Logic) -->
+<div class="flex h-full">
+<aside class="h-screen w-64 bg-stone-100 flex flex-col py-6 px-4">
+<div class="mb-10 px-2">
+<span class="text-xl font-bold font-headline text-orange-950">The Modern Lodge</span>
+<p class="text-[10px] uppercase tracking-wider text-stone-500 font-bold">Management Suite</p>
+</div>
+<div class="space-y-4">
+<div class="flex items-center gap-3 text-stone-500"><span class="material-symbols-outlined">dashboard</span> Dashboard</div>
+<div class="flex items-center gap-3 text-orange-900 border-r-4 border-orange-900"><span class="material-symbols-outlined">bed</span> Room Ledger</div>
+<div class="flex items-center gap-3 text-stone-500"><span class="material-symbols-outlined">group</span> Guest Registry</div>
+</div>
+</aside>
+<main class="flex-1 p-8 space-y-8">
+<header class="flex justify-between items-center">
+<h1 class="font-headline font-bold text-3xl text-primary">Room Inventory</h1>
+<div class="w-12 h-12 rounded-full bg-surface-container-highest"></div>
+</header>
+<div class="grid grid-cols-3 gap-6">
+<div class="h-64 bg-surface-container-low rounded-xl"></div>
+<div class="h-64 bg-surface-container-low rounded-xl"></div>
+<div class="h-64 bg-surface-container-low rounded-xl"></div>
+</div>
+</main>
+</div>
+</div>
+<!-- Modal Backdrop -->
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-on-background/10 backdrop-blur-sm p-4">
+<!-- Modal Window -->
+<div class="bg-surface-container-lowest w-full max-w-2xl rounded-2xl shadow-[0_12px_40px_rgba(135,115,105,0.12)] overflow-hidden flex flex-col">
+<!-- Modal Header -->
+<header class="px-8 pt-8 pb-4 text-center border-b border-outline-variant/10">
+<h2 class="font-headline font-bold text-2xl text-on-surface">Upload Room Images</h2>
+<p class="text-on-surface-variant text-sm font-body mt-1">Add high-resolution photography to your room listings</p>
+</header>
+<!-- Modal Content -->
+<div class="p-8 space-y-6 overflow-y-auto max-h-[819px]">
+<!-- Room Selection Dropdown -->
+<div class="space-y-2">
+<label class="block text-sm font-semibold text-on-surface-variant font-label">Select Room</label>
+<div class="relative">
+<select class="w-full bg-surface-container-low border-none rounded-lg py-3 px-4 text-on-surface appearance-none focus:ring-2 focus:ring-primary/20 cursor-pointer font-body">
+<option>Grand Timber Suite - #402</option>
+<option>Mountain View Deluxe - #105</option>
+<option>Riverside Cabin - #12</option>
+<option>Forest Edge Studio - #208</option>
+</select>
+<div class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-outline">
+<span class="material-symbols-outlined">expand_more</span>
+</div>
+</div>
+</div>
+<!-- Drag & Drop Zone -->
+<div class="relative group">
+<div class="border-2 border-dashed border-outline-variant rounded-2xl p-12 flex flex-col items-center justify-center text-center space-y-4 bg-surface-container-low/30 hover:bg-surface-container-low transition-colors cursor-pointer">
+<div class="w-16 h-16 rounded-full bg-primary-fixed flex items-center justify-center text-on-primary-fixed-variant">
+<span class="material-symbols-outlined text-4xl" data-weight="fill">add_photo_alternate</span>
+</div>
+<div class="space-y-1">
+<p class="font-headline font-bold text-lg text-on-surface">Drag and drop images here or click to browse</p>
+<p class="text-xs text-on-surface-variant font-label">Supported formats: JPG, PNG, HEIC (Max 10MB each)</p>
+</div>
+</div>
+</div>
+<!-- Gallery Preview -->
+<div class="space-y-3">
+<div class="flex justify-between items-end">
+<h3 class="text-sm font-semibold text-on-surface-variant font-label">Gallery Preview (4 images selected)</h3>
+<button class="text-xs font-bold text-primary hover:underline transition-all">Clear All</button>
+</div>
+<div class="grid grid-cols-4 gap-4">
+<!-- Thumbnail 1 -->
+<div class="relative group aspect-square rounded-lg overflow-hidden bg-surface-container">
+<img alt="" class="w-full h-full object-cover" data-alt="Modern lodge bedroom with high wooden ceilings, warm sunlight hitting a plush white bed and rustic furniture" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBN79_cwJ-44hgFTkpwkkqu8dkIvwqEnz4LqEJwK59u0yyz1zHXH4Mz0v1Dp3vhQJDDaqXULfAWVedYEQiP0x1jTaspnw-kBD7yzLDlZa3UvJeICqe7QtoI_vWuM-iG8DRZ-7n1EMjd0h-roDTrizL0649jH_jTBfpINa3AzKar6u_tYh3VP1glr2WYSHvGu2t9YJaUfdYAniGb9ZzxaXrH2qODQcGYzY1AWJAnB0XKXZ59F9qHidi3sPkk549LlHZL2u5R3M2vUceH"/>
+<button class="absolute top-1 right-1 w-6 h-6 bg-error/90 text-on-error rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-xs">close</span>
+</button>
+</div>
+<!-- Thumbnail 2 -->
+<div class="relative group aspect-square rounded-lg overflow-hidden bg-surface-container">
+<img alt="" class="w-full h-full object-cover" data-alt="Luxury bathroom with a freestanding copper tub, stone walls, and a large window overlooking a pine forest" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB0IYPmfSG89Yuv8Qsb84CqFldF2OhJp8UABVXht3Yfu_93IQ5MlAqYqqv_NIHEv_Ufsa0kjV6huzoLjF5qM1iEUDyc6M70b8uxDBaeefZJTVCgMKeGHnmwuZGcStZOxS8iToPUaLjoFWv5ynVKI7GV26bdS_X501Yi95m7orTXfusjJLPLZhFb6yVxCLymyLdwUa9WnmmyPtMuO9ON4QVjwYagv3ZRSCubkl9CK3avii50Oj6pPE1n2011JkDRSrJ-GQ1ueXf1703s"/>
+<button class="absolute top-1 right-1 w-6 h-6 bg-error/90 text-on-error rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-xs">close</span>
+</button>
+</div>
+<!-- Thumbnail 3 -->
+<div class="relative group aspect-square rounded-lg overflow-hidden bg-surface-container">
+<img alt="" class="w-full h-full object-cover" data-alt="Cozy reading nook with a leather armchair, a wool throw, and a built-in bookshelf in a rustic lodge style" src="https://lh3.googleusercontent.com/aida-public/AB6AXuClZHSlOTyOIaJPfkrb9nYZbkV3181jTkBjgYrR-j3TIsoMOwpNdHexNCARwC6BojdtkvVEIc7sOify5ZLl_GFmh6-6-ajHQHkcs9u3tFl1QbrvxFADIGgC504Ia-ilZJpgdKfaInk1FOaLaWIAx2bl4FJMoB2ofTJSoaSAqlEBbl8SFoJc8Pr8JJHlkXRfF5Td_kWt8KIAZqQn71eKmen4xx36_7qTNB9tUxnMhnDkuLiptRVuqW3pEVUCq0LhOMXaKYSLRw8wqZCu"/>
+<button class="absolute top-1 right-1 w-6 h-6 bg-error/90 text-on-error rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-xs">close</span>
+</button>
+</div>
+<!-- Thumbnail 4 -->
+<div class="relative group aspect-square rounded-lg overflow-hidden bg-surface-container">
+<img alt="" class="w-full h-full object-cover" data-alt="Morning light streaming through large floor-to-ceiling windows of a mountain lodge room with misty hills in the background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBoDusjpoxBgJXZlEkJQne6cV3yIW9WfBSlroDY6134XmsTvPvk2fXJDQvnFL4E7QnKnU_0YYFCuRa35AxN9G1t87FJsA1LJZsUBy4EK6xrwTC1Qg-1qwarteDZcQG_RFOK-dpnqVEv7rKwqRQACSygp5sTrQ3AmJ636DNuP6s0Wr9Td2l97KzN7iJafCTmtdTzxpZuKE5-b-MYSkmavy247Rs6zZyV7tA4RVdIuHho3CnLGsKOcX3AjHx-I6uNvU7k0MzL4nfIgY-7"/>
+<button class="absolute top-1 right-1 w-6 h-6 bg-error/90 text-on-error rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-xs">close</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Modal Footer -->
+<footer class="p-8 flex items-center justify-between bg-surface-container-low/50">
+<button class="px-6 py-2.5 rounded-lg font-body font-semibold text-on-surface-variant hover:bg-surface-container-high transition-all active:scale-95">
+                    Cancel
+                </button>
+<button class="px-8 py-2.5 bg-gradient-to-b from-primary to-primary-container text-on-primary rounded-lg font-body font-bold shadow-md hover:brightness-110 transition-all active:scale-95 flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">cloud_upload</span>
+                    Upload All
+                </button>
+</footer>
+</div>
+</div>
+</body></html>

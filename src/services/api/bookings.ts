@@ -1,12 +1,30 @@
 import { apiClient } from './client'
-import type { Booking, BookingPayload, BookingStatusUpdate } from '@/types/booking'
+import type { Booking, BookingPayload, BookingUpdatePayload, BookingStatusUpdate, PaginatedBookings } from '@/types/booking'
+
+export interface BookingListParams extends Record<string, string | number | boolean | undefined> {
+  page?: number
+  page_size?: number
+  status?: string
+  client_type?: string
+  client_id?: string
+}
 
 export const bookingApi = {
-  list: () => apiClient.get<Booking[]>('/bookings'),
-  get: (id: number) => apiClient.get<Booking>(`/bookings/${id}`),
-  create: (payload: BookingPayload) => apiClient.post<Booking>('/bookings', payload),
-  updateStatus: (id: number, payload: BookingStatusUpdate) => apiClient.put<Booking>(`/bookings/${id}/status`, payload),
-  update: (id: number, payload: Partial<BookingPayload>) => apiClient.put<Booking>(`/bookings/${id}`, payload),
-  delete: (id: number) => apiClient.delete<void>(`/bookings/${id}`),
-  myBookings: () => apiClient.get<Booking[]>('/bookings/mine'),
+  list: (params?: BookingListParams) =>
+    apiClient.get<PaginatedBookings>('/bookings', { params }),
+
+  get: (id: string) =>
+    apiClient.get<Booking>(`/bookings/${id}`),
+
+  create: (payload: BookingPayload) =>
+    apiClient.post<Booking>('/bookings', payload),
+
+  update: (id: string, payload: BookingUpdatePayload) =>
+    apiClient.put<Booking>(`/bookings/${id}`, payload),
+
+  updateStatus: (id: string, payload: BookingStatusUpdate) =>
+    apiClient.patch<Booking>(`/bookings/${id}/status`, payload),
+
+  delete: (id: string) =>
+    apiClient.delete<void>(`/bookings/${id}`),
 }

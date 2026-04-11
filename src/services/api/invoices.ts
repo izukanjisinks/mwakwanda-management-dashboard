@@ -1,11 +1,22 @@
 import { apiClient } from './client'
-import type { Invoice, InvoicePayload, InvoiceStatusUpdate } from '@/types/invoice'
+import type { Invoice, InvoiceStatusUpdate, PaginatedInvoices } from '@/types/invoice'
+
+export interface InvoiceListParams extends Record<string, string | number | boolean | undefined> {
+  page?: number
+  page_size?: number
+  status?: string
+}
 
 export const invoiceApi = {
-  list: () => apiClient.get<Invoice[]>('/invoices'),
-  get: (id: number) => apiClient.get<Invoice>(`/invoices/${id}`),
-  create: (payload: InvoicePayload) => apiClient.post<Invoice>('/invoices', payload),
-  updateStatus: (id: number, payload: InvoiceStatusUpdate) => apiClient.put<Invoice>(`/invoices/${id}/status`, payload),
-  delete: (id: number) => apiClient.delete<void>(`/invoices/${id}`),
-  myInvoices: () => apiClient.get<Invoice[]>('/invoices/mine'),
+  list: (params?: InvoiceListParams) =>
+    apiClient.get<PaginatedInvoices>('/invoices', { params }),
+
+  get: (id: string) =>
+    apiClient.get<Invoice>(`/invoices/${id}`),
+
+  getByBookingId: (bookingId: string) =>
+    apiClient.get<Invoice>(`/invoices/booking/${bookingId}`),
+
+  updateStatus: (id: string, payload: InvoiceStatusUpdate) =>
+    apiClient.patch<Invoice>(`/invoices/${id}/status`, payload),
 }

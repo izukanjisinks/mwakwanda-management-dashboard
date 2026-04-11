@@ -4,24 +4,25 @@ export interface LoginCredentials {
 }
 
 export interface AuthRole {
-  id: string
-  name: UserRole
+  role_id: string
+  name: string
 }
 
 export interface AuthUser {
-  id: string
+  user_id: string
   email: string
-  role: UserRole | AuthRole
+  role: AuthRole
   full_name?: string
   created_at: string
   change_password: boolean
   is_active: boolean
 }
 
-export type UserRole = 'admin' | 'manager' | 'receptionist' | 'cleaner' | 'client_individual' | 'client_corporate'
+export type UserRole = 'admin' | 'manager' | 'receptionist' | 'cleaner'
 
 export interface LoginResponse {
   token: string
+  expires_at: string
   user: AuthUser
 }
 

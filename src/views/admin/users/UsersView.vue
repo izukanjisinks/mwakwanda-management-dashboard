@@ -57,6 +57,7 @@ const roleConfig: Record<SystemUserRole, { label: string; variant: 'default' | '
   manager:      { label: 'Manager',      variant: 'secondary' },
   receptionist: { label: 'Receptionist', variant: 'outline' },
   cleaner:      { label: 'Cleaner',      variant: 'outline' },
+  guest:        { label: 'Guest',        variant: 'outline' },
 }
 
 function formatDate(d?: string) {
@@ -153,8 +154,8 @@ const currentUserEmail = computed(() => authStore.user?.email)
               </TableCell>
               <TableCell class="text-muted-foreground">{{ user.email }}</TableCell>
               <TableCell>
-                <Badge :variant="roleConfig[user.role].variant">
-                  {{ roleConfig[user.role].label }}
+                <Badge :variant="roleConfig[user.role]?.variant ?? 'secondary'">
+                  {{ roleConfig[user.role]?.label ?? user.role }}
                 </Badge>
               </TableCell>
               <TableCell>
@@ -165,13 +166,17 @@ const currentUserEmail = computed(() => authStore.user?.email)
               <TableCell class="text-muted-foreground text-sm">{{ formatDate(user.last_login) }}</TableCell>
               <TableCell class="text-right">
                 <div class="flex justify-end gap-1">
-                  <Button variant="ghost" size="icon" class="size-8" @click="openEdit(user)">
+                  <Button
+                    variant="ghost" size="icon" class="size-8"
+                    :disabled="user.role === 'guest'"
+                    @click="openEdit(user)"
+                  >
                     <Pencil class="size-4" />
                   </Button>
                   <Button
                     variant="ghost" size="icon"
                     class="size-8 text-destructive hover:text-destructive"
-                    :disabled="user.email === currentUserEmail"
+                    :disabled="user.role === 'guest' || user.email === currentUserEmail"
                     @click="confirmDelete(user)"
                   >
                     <Trash2 class="size-4" />

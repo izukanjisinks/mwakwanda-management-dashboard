@@ -115,13 +115,6 @@ function handlePasswordChanged() {
               </div>
             </div>
 
-            <div class="flex items-center gap-2">
-              <Checkbox id="remember" />
-              <Label for="remember" class="text-sm text-muted-foreground cursor-pointer font-normal">
-                Keep me signed in
-              </Label>
-            </div>
-
             <Button
               type="submit"
               :disabled="authStore.loading"

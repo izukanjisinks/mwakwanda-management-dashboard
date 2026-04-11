@@ -9,7 +9,7 @@ export interface WorkflowStep {
   step_name: string
   step_order: number
   step_type: StepType
-  allowed_roles: string[]      // system user roles e.g. 'admin', 'manager', 'receptionist'
+  allowed_roles: string[]
   requires_all_approvers: boolean
   min_approvals: number
   created_at: string
@@ -20,7 +20,7 @@ export interface WorkflowTransition {
   workflow_id: string
   from_step_id: string
   to_step_id: string
-  action_name: string          // e.g. 'confirm', 'reject', 'check_in'
+  action_name: string
   condition_type: 'always' | 'equals' | 'not_equals'
   condition_value: string
 }
@@ -73,33 +73,38 @@ export interface UpdateTransitionPayload {
 
 // ── Workflow tasks (staff inbox) ──────────────────────────────────────────────
 
-export interface BookingTaskDetails {
-  booking_id: number
-  room_name: string
-  client_name: string
-  client_type: string
-  check_in: string
-  check_out: string
-  guests: number
-  meal_plan_name: string | null
-  total_amount: number
-  special_requests?: string
+export interface TaskSenderDetails {
+  sender_id: string
+  sender_name: string
+  position: string
+  department: string
+}
+
+export interface TaskDetails {
+  task_id: string
+  task_type: string
+  task_description: string
+  sender_details: TaskSenderDetails
 }
 
 export interface WorkflowTask {
   id: string
   instance_id: string
-  booking_id: number
   step_id: string
   step_name: string
-  assigned_to: string          // user id
+  assigned_to: string
   assigned_by: string
   status: TaskStatus
-  due_date: string
-  comments?: string
-  booking_details: BookingTaskDetails
+  due_date?: string
+  completed_at?: string
+  task_details?: TaskDetails
   created_at: string
   updated_at: string
+}
+
+export interface WorkflowTasksResponse {
+  count: number
+  tasks: WorkflowTask[]
 }
 
 export interface ProcessTaskPayload {
