@@ -47,9 +47,15 @@ export const useRoomsStore = defineStore('rooms', () => {
   async function uploadImages(id: string, files: File[], existingUrls: string[] = []): Promise<Room> {
     const originalUrls = rooms.value.find(r => r.id === id)?.images ?? []
     const removedUrls = originalUrls.filter(u => !existingUrls.includes(u))
+    console.log('[rooms] removing', removedUrls.length, 'image(s) from Firebase:', removedUrls)
     await Promise.all(removedUrls.map(u => deleteRoomImage(u)))
+    console.log('[rooms] uploading', files.length, 'new file(s) to Firebase...')
     const newUrls = await Promise.all(files.map(f => uploadRoomImage(id, f)))
-    const updated = await roomApi.uploadImages(id, [...existingUrls, ...newUrls])
+    console.log('[rooms] Firebase upload done, new URLs:', newUrls)
+    const payload = [...existingUrls, ...newUrls]
+    console.log('[rooms] PUT /rooms/' + id + '/images with', payload)
+    const updated = await roomApi.uploadImages(id, payload)
+    console.log('[rooms] backend response:', updated)
     const idx = rooms.value.findIndex(r => r.id === id)
     if (idx !== -1) rooms.value[idx] = updated
     return updated

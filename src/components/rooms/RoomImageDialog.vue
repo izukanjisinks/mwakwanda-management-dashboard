@@ -110,11 +110,14 @@ async function handleUpload() {
   uploading.value = true
   try {
     const files = pending.value.map(p => p.file)
+    console.log('[RoomImageDialog] uploading', files.length, 'file(s) for room', props.room.id)
+    console.log('[RoomImageDialog] keeping existing URLs:', existingImages.value)
     await store.uploadImages(props.room.id, files, existingImages.value)
     toast.success(`Gallery updated for ${props.room.name}.`)
     clearPending()
     emit('update:open', false)
-  } catch {
+  } catch (err) {
+    console.error('[RoomImageDialog] upload error:', err)
     toast.error('Upload failed. Please try again.')
   } finally {
     uploading.value = false
