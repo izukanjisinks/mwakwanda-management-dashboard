@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { randomUUID } from '@/lib/utils'
 import { ImagePlus, Upload, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import {
@@ -64,7 +65,7 @@ function addFiles(files: FileList | File[]) {
     if (pending.value.some(p => p.file.name === file.name && p.file.size === file.size)) {
       continue
     }
-    pending.value.push({ id: crypto.randomUUID(), file, url: URL.createObjectURL(file) })
+    pending.value.push({ id: randomUUID(), file, url: URL.createObjectURL(file) })
   }
 }
 

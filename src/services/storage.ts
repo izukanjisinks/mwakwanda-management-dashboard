@@ -1,9 +1,10 @@
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import { storage } from '@/lib/firebase'
+import { randomUUID } from '@/lib/utils'
 
 export async function uploadRoomImage(roomId: string, file: File): Promise<string> {
   const ext = file.name.split('.').pop()
-  const filename = `${crypto.randomUUID()}.${ext}`
+  const filename = `${randomUUID()}.${ext}`
   const ref = storageRef(storage, `rooms/${roomId}/${filename}`)
   await uploadBytes(ref, file)
   return getDownloadURL(ref)
