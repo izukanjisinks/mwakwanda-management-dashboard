@@ -35,7 +35,8 @@ function handleConfirm() {
   }
 }
 
-function fmt(d: string) {
+function fmt(d?: string) {
+  if (!d) return '—'
   return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 </script>
@@ -58,46 +59,28 @@ function fmt(d: string) {
       </DialogHeader>
 
       <div v-if="task" class="flex flex-col gap-4 py-2">
-        <!-- Booking summary -->
+        <!-- Task summary -->
         <div class="rounded-lg border bg-muted/30 divide-y text-sm">
           <div class="grid grid-cols-2 gap-x-4 px-4 py-3">
             <div>
-              <p class="text-xs text-muted-foreground mb-0.5">Client</p>
-              <p class="font-medium">{{ task.booking_details.client_name }}</p>
-              <Badge variant="outline" class="text-[10px] capitalize mt-0.5">{{ task.booking_details.client_type }}</Badge>
+              <p class="text-xs text-muted-foreground mb-0.5">From</p>
+              <p class="font-medium">{{ task.task_details?.sender_details?.sender_name || '—' }}</p>
+              <Badge variant="outline" class="text-[10px] capitalize mt-0.5">
+                {{ task.task_details?.sender_details?.department || '—' }}
+              </Badge>
             </div>
             <div>
-              <p class="text-xs text-muted-foreground mb-0.5">Room</p>
-              <p class="font-medium">{{ task.booking_details.room_name }}</p>
+              <p class="text-xs text-muted-foreground mb-0.5">Step</p>
+              <p class="font-medium">{{ task.step_name }}</p>
             </div>
           </div>
-          <div class="grid grid-cols-3 gap-x-4 px-4 py-3">
-            <div>
-              <p class="text-xs text-muted-foreground mb-0.5">Check-In</p>
-              <p class="font-medium">{{ fmt(task.booking_details.check_in) }}</p>
-            </div>
-            <div>
-              <p class="text-xs text-muted-foreground mb-0.5">Check-Out</p>
-              <p class="font-medium">{{ fmt(task.booking_details.check_out) }}</p>
-            </div>
-            <div>
-              <p class="text-xs text-muted-foreground mb-0.5">Guests</p>
-              <p class="font-medium">{{ task.booking_details.guests }}</p>
-            </div>
+          <div v-if="task.task_details?.task_description" class="px-4 py-3">
+            <p class="text-xs text-muted-foreground mb-0.5">Description</p>
+            <p class="text-sm">{{ task.task_details.task_description }}</p>
           </div>
-          <div class="grid grid-cols-2 gap-x-4 px-4 py-3">
-            <div>
-              <p class="text-xs text-muted-foreground mb-0.5">Meal Plan</p>
-              <p class="font-medium">{{ task.booking_details.meal_plan_name ?? 'Room Only' }}</p>
-            </div>
-            <div>
-              <p class="text-xs text-muted-foreground mb-0.5">Total Amount</p>
-              <p class="font-semibold text-base">ZMW {{ task.booking_details.total_amount.toLocaleString() }}</p>
-            </div>
-          </div>
-          <div v-if="task.booking_details.special_requests" class="px-4 py-3">
-            <p class="text-xs text-muted-foreground mb-0.5">Special Requests</p>
-            <p class="text-sm italic">{{ task.booking_details.special_requests }}</p>
+          <div v-if="task.due_date" class="px-4 py-3">
+            <p class="text-xs text-muted-foreground mb-0.5">Due Date</p>
+            <p class="font-medium">{{ fmt(task.due_date) }}</p>
           </div>
         </div>
 

@@ -79,6 +79,7 @@ provide('deleteStep', (step: WorkflowStep) => {
 
 onMounted(async () => {
   await store.fetchWorkflow()
+  console.log('[WorkflowView] workflow:', store.workflow)
   if (store.workflow) {
     infoName.value = store.workflow.name
     infoDescription.value = store.workflow.description

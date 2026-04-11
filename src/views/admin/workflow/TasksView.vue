@@ -17,7 +17,7 @@ const selectedTask = ref<WorkflowTask | null>(null)
 const dialogAction = ref<'approve' | 'reject' | null>(null)
 
 const displayedTasks = computed(() =>
-  activeTab.value === 'active' ? store.pendingTasks : store.completedTasks
+  activeTab.value === 'active' ? store.pendingTasks : store.completedTasks,
 )
 
 onMounted(() => store.fetchTasks())
@@ -31,8 +31,9 @@ function openAction(task: WorkflowTask, action: 'approve' | 'reject') {
 async function handleConfirm(action: string, comments: string) {
   if (!selectedTask.value) return
   try {
-    await store.processTask(selectedTask.value.id, { action, comments: comments || undefined })
-    toast.success(action === 'approve' ? 'Booking approved and moved forward.' : 'Booking rejected.')
+    // API requires instance_id, not task id
+    await store.processTask(selectedTask.value.instance_id, { action, comments: comments || undefined })
+    toast.success(action === 'approve' ? 'Booking approved.' : 'Booking rejected.')
     actionDialog.value = false
     selectedTask.value = null
   } catch {
@@ -42,15 +43,16 @@ async function handleConfirm(action: string, comments: string) {
 
 function statusConfig(status: string) {
   switch (status) {
-    case 'pending': return { label: 'Pending', variant: 'secondary' as const, icon: Clock }
-    case 'in_progress': return { label: 'In Progress', variant: 'default' as const, icon: Clock }
-    case 'completed': return { label: 'Completed', variant: 'outline' as const, icon: CheckCheck }
-    case 'rejected': return { label: 'Rejected', variant: 'destructive' as const, icon: XCircle }
-    default: return { label: status, variant: 'secondary' as const, icon: Clock }
+    case 'pending':     return { label: 'Pending',     variant: 'secondary' as const,    icon: Clock }
+    case 'in_progress': return { label: 'In Progress', variant: 'default' as const,      icon: Clock }
+    case 'completed':   return { label: 'Completed',   variant: 'outline' as const,      icon: CheckCheck }
+    case 'rejected':    return { label: 'Rejected',    variant: 'destructive' as const,  icon: XCircle }
+    default:            return { label: status,        variant: 'secondary' as const,    icon: Clock }
   }
 }
 
-function fmt(d: string) {
+function fmt(d?: string) {
+  if (!d) return '—'
   return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 </script>
@@ -89,7 +91,7 @@ function fmt(d: string) {
     </div>
 
     <!-- Loading -->
-    <div v-if="store.tasksLoading" class="grid gap-4 sm:grid-cols-2">
+    <div v-if="store.tasksLoading" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       <div v-for="i in 3" :key="i" class="h-48 rounded-xl bg-muted animate-pulse" />
     </div>
 
@@ -97,7 +99,9 @@ function fmt(d: string) {
     <div v-else-if="displayedTasks.length === 0" class="py-24 flex flex-col items-center text-center text-muted-foreground">
       <InboxIcon class="size-12 mb-4 opacity-30" />
       <p class="font-medium">{{ activeTab === 'active' ? 'No pending tasks' : 'No completed tasks' }}</p>
-      <p class="text-sm mt-1">{{ activeTab === 'active' ? 'All booking requests have been actioned.' : 'Completed tasks will appear here.' }}</p>
+      <p class="text-sm mt-1">
+        {{ activeTab === 'active' ? 'All booking requests have been actioned.' : 'Completed tasks will appear here.' }}
+      </p>
     </div>
 
     <!-- Task cards -->
@@ -118,57 +122,48 @@ function fmt(d: string) {
           </Badge>
         </div>
 
-        <!-- Booking info -->
+        <!-- Task details -->
         <div class="rounded-lg bg-muted/40 divide-y text-sm">
-          <div class="grid grid-cols-2 px-3 py-2 gap-x-4">
-            <div>
-              <p class="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Client</p>
-              <p class="font-medium truncate">{{ task.booking_details.client_name }}</p>
-            </div>
-            <div>
-              <p class="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Room</p>
-              <p class="font-medium truncate">{{ task.booking_details.room_name }}</p>
-            </div>
+          <!-- Description -->
+          <div v-if="task.task_details?.task_description" class="px-3 py-2">
+            <p class="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Description</p>
+            <p class="text-sm">{{ task.task_details.task_description }}</p>
           </div>
-          <div class="grid grid-cols-2 px-3 py-2 gap-x-4">
-            <div>
-              <p class="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Check-In</p>
-              <p>{{ fmt(task.booking_details.check_in) }}</p>
-            </div>
-            <div>
-              <p class="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Check-Out</p>
-              <p>{{ fmt(task.booking_details.check_out) }}</p>
-            </div>
-          </div>
-          <div class="grid grid-cols-2 px-3 py-2 gap-x-4">
-            <div>
-              <p class="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Guests</p>
-              <p>{{ task.booking_details.guests }}</p>
-            </div>
-            <div>
-              <p class="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Total</p>
-              <p class="font-semibold">ZMW {{ task.booking_details.total_amount.toLocaleString() }}</p>
-            </div>
-          </div>
-          <div v-if="task.booking_details.meal_plan_name" class="px-3 py-2">
-            <p class="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Meal Plan</p>
-            <p>{{ task.booking_details.meal_plan_name }}</p>
-          </div>
-          <div v-if="task.booking_details.special_requests" class="px-3 py-2">
-            <p class="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Special Requests</p>
-            <p class="text-xs italic">{{ task.booking_details.special_requests }}</p>
-          </div>
-        </div>
 
-        <!-- Due date -->
-        <div class="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Clock class="size-3.5" />
-          Due {{ fmt(task.due_date) }}
-        </div>
+          <div class="grid grid-cols-2 px-3 py-2 gap-x-4">
+            <div>
+              <p class="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">From</p>
+              <p class="font-medium truncate">{{ task.task_details?.sender_details?.sender_name || '—' }}</p>
+            </div>
+            <div>
+              <p class="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Type</p>
+              <p class="capitalize">{{ task.task_details?.task_type || '—' }}</p>
+            </div>
+          </div>
 
-        <!-- Comments on completed -->
-        <div v-if="task.comments" class="rounded-lg bg-muted/30 px-3 py-2 text-xs text-muted-foreground italic border-l-2 border-border">
-          "{{ task.comments }}"
+          <div class="grid grid-cols-2 px-3 py-2 gap-x-4">
+            <div>
+              <p class="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Department</p>
+              <p class="capitalize">{{ task.task_details?.sender_details?.department || '—' }}</p>
+            </div>
+            <div>
+              <p class="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Position</p>
+              <p class="capitalize">{{ task.task_details?.sender_details?.position || '—' }}</p>
+            </div>
+          </div>
+
+          <div v-if="task.due_date" class="px-3 py-2">
+            <p class="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Due Date</p>
+            <div class="flex items-center gap-1.5 text-xs">
+              <Clock class="size-3.5" />
+              {{ fmt(task.due_date) }}
+            </div>
+          </div>
+
+          <div v-if="task.completed_at" class="px-3 py-2">
+            <p class="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Completed</p>
+            <p class="text-xs">{{ fmt(task.completed_at) }}</p>
+          </div>
         </div>
 
         <!-- Action buttons (active only) -->

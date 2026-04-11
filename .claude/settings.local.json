@@ -9,7 +9,10 @@
       "Bash(ls -1 \"c:\\\\development\\\\New folder \\(3\\)/src/views/auth\")",
       "Bash(find \"c:\\\\development\\\\New folder \\(3\\)/src\" -name \"*.ts\" -o -name \"*.js\")",
       "Bash(xargs grep:*)",
-      "Bash(ls -la \"C:\\\\development\\\\New folder \\(3\\)\\\\src\\\\views\\\\admin\"\" 2>/dev/null || echo \"Directory does not exist or cannot be read \")"
+      "Bash(ls -la \"C:\\\\development\\\\New folder \\(3\\)\\\\src\\\\views\\\\admin\"\" 2>/dev/null || echo \"Directory does not exist or cannot be read \")",
+      "Bash(python -c \"import json,sys; data=json.load\\(sys.stdin\\); [print\\(i['name'], '-', i.get\\('request',{}\\).get\\('method',''\\), i.get\\('request',{}\\).get\\('url',{}\\).get\\('raw',''\\)\\) for item in data['item'] for i in item.get\\('item',[]\\)]\")",
+      "Bash(python -c 'import json,sys; data=json.load\\(sys.stdin\\);:*)",
+      "Bash(python -c ':*)"
     ]
   }
 }
