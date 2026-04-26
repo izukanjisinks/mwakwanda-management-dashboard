@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useBackofficeStore } from '@/stores/backoffice'
 import type { UserRole } from '@/types/auth'
 
 declare module 'vue-router' {
@@ -201,6 +202,20 @@ router.beforeEach(async (to) => {
 
     if (to.meta.requiresBackofficeAuth && !isBackofficeAuthenticated) {
       return { name: 'backoffice-login', query: { redirect: to.fullPath } }
+    }
+
+    // Hydrate backoffice user on page reload
+    const backofficeStore = useBackofficeStore()
+    if (backofficeToken && !backofficeStore.user) {
+      await backofficeStore.fetchMe()
+    }
+
+    // Force password change for backoffice users
+    if (
+      backofficeStore.user?.change_password &&
+      to.name !== 'backoffice-change-password'
+    ) {
+      return { name: 'backoffice-change-password' }
     }
 
     return

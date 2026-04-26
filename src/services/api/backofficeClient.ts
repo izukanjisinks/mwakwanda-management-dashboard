@@ -56,9 +56,16 @@ async function request<T>(
   }
 
   if (!response.ok) {
-    const errorData: ApiError = await response.json().catch(() => ({
-      error: { code: 'UNKNOWN_ERROR', message: `HTTP ${response.status}` },
-    }))
+    const text = await response.text().catch(() => '')
+    let errorData: ApiError
+    try {
+      const parsed = JSON.parse(text)
+      errorData = parsed?.error
+        ? parsed
+        : { error: { code: 'UNKNOWN_ERROR', message: (parsed?.message ?? text) || `HTTP ${response.status}` } }
+    } catch {
+      errorData = { error: { code: 'UNKNOWN_ERROR', message: text || `HTTP ${response.status}` } }
+    }
     throw errorData
   }
 

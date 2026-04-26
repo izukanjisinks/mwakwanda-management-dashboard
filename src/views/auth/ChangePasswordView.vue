@@ -31,7 +31,9 @@ async function handleSubmit() {
       old_password: form.value.old_password,
       new_password: form.value.new_password,
     })
-    // Refresh user so change_password flag is cleared
+    // Optimistically clear the flag so the guard won't redirect again,
+    // then refresh from server in the background.
+    if (authStore.user) authStore.user.change_password = false
     await authStore.fetchCurrentUser()
     router.push({ name: 'dashboard' })
   } catch (err: any) {
