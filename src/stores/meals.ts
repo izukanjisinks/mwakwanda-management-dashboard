@@ -16,7 +16,7 @@ export const useMealsStore = defineStore('meals', () => {
     error.value = null
     try {
       const res = await mealsApi.list({ page, page_size: pageSize })
-      plans.value = res.data
+      plans.value = res.data ?? []
       total.value = res.total
     } catch (err: any) {
       error.value = err?.error?.message ?? 'Failed to load meal plans.'
