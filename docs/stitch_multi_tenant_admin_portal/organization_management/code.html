@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-highest": "#eae1da",
+                        "on-secondary-container": "#783916",
+                        "tertiary-container": "#464440",
+                        "surface-bright": "#fff8f4",
+                        "outline-variant": "#c2c8bf",
+                        "background": "#fff8f4",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "primary-fixed": "#c8ecc9",
+                        "primary-container": "#2d4b32",
+                        "on-primary-container": "#98ba9a",
+                        "on-primary-fixed-variant": "#2f4d34",
+                        "on-error-container": "#93000a",
+                        "tertiary-fixed": "#e6e2dc",
+                        "on-tertiary-container": "#b5b1ac",
+                        "secondary": "#904c27",
+                        "error": "#ba1a1a",
+                        "tertiary": "#2f2e2a",
+                        "on-secondary-fixed-variant": "#733512",
+                        "on-surface": "#1f1b17",
+                        "surface-variant": "#eae1da",
+                        "inverse-surface": "#34302b",
+                        "secondary-container": "#ffa67a",
+                        "on-primary-fixed": "#03210c",
+                        "on-surface-variant": "#424842",
+                        "inverse-on-surface": "#f8efe8",
+                        "surface-container-low": "#fbf2eb",
+                        "surface-dim": "#e1d8d2",
+                        "on-secondary-fixed": "#341000",
+                        "surface-container-high": "#f0e7df",
+                        "on-error": "#ffffff",
+                        "surface": "#fff8f4",
+                        "on-background": "#1f1b17",
+                        "primary": "#17341d",
+                        "on-tertiary": "#ffffff",
+                        "surface-tint": "#47664b",
+                        "on-tertiary-fixed": "#1d1b18",
+                        "error-container": "#ffdad6",
+                        "secondary-fixed-dim": "#ffb693",
+                        "surface-container": "#f5ece5",
+                        "inverse-primary": "#adcfae",
+                        "outline": "#737971",
+                        "secondary-fixed": "#ffdbcb",
+                        "tertiary-fixed-dim": "#cac6c0",
+                        "on-tertiary-fixed-variant": "#494642",
+                        "on-secondary": "#ffffff",
+                        "primary-fixed-dim": "#adcfae"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "lg": "40px",
+                        "gutter": "24px",
+                        "md": "24px",
+                        "xl": "64px",
+                        "xs": "8px",
+                        "sm": "16px",
+                        "base": "4px",
+                        "margin": "32px"
+                    },
+                    "fontFamily": {
+                        "headline-xl": ["Manrope"],
+                        "body-md": ["Manrope"],
+                        "body-lg": ["Manrope"],
+                        "headline-md": ["Manrope"],
+                        "label-md": ["Manrope"],
+                        "headline-lg": ["Manrope"],
+                        "label-sm": ["Manrope"]
+                    },
+                    "fontSize": {
+                        "headline-xl": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "body-md": ["14px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                        "body-lg": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                        "headline-md": ["20px", {"lineHeight": "1.4", "fontWeight": "600"}],
+                        "label-md": ["13px", {"lineHeight": "1.2", "letterSpacing": "0.01em", "fontWeight": "600"}],
+                        "headline-lg": ["24px", {"lineHeight": "1.3", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "label-sm": ["11px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "700"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #F4EFE9;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="font-body-md text-on-background antialiased">
+<!-- Navigation Drawer -->
+<nav class="fixed left-0 top-0 h-full w-[260px] bg-emerald-900 dark:bg-slate-950 border-r border-emerald-800 dark:border-slate-800 shadow-xl z-50 flex flex-col h-full overflow-y-auto">
+<div class="p-margin">
+<span class="text-lg font-bold tracking-tight text-white font-headline-md">LodgeCentral Backoffice</span>
+</div>
+<div class="flex-1 px-4 space-y-1">
+<a class="flex items-center gap-3 px-4 py-3 text-emerald-100/70 hover:bg-emerald-800/30 hover:text-white transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-label-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 bg-emerald-800/50 text-white border-l-4 border-orange-600" href="#">
+<span class="material-symbols-outlined" data-icon="domain">domain</span>
+<span class="font-label-md">Organizations</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-emerald-100/70 hover:bg-emerald-800/30 hover:text-white transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="add_business">add_business</span>
+<span class="font-label-md">Provisioning</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-emerald-100/70 hover:bg-emerald-800/30 hover:text-white transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="admin_panel_settings">admin_panel_settings</span>
+<span class="font-label-md">Platform Admins</span>
+</a>
+</div>
+<div class="p-margin border-t border-emerald-800/50">
+<div class="flex items-center gap-sm">
+<div class="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-on-secondary-container text-sm">person</span>
+</div>
+<div class="flex flex-col">
+<span class="text-white font-label-md leading-none">Admin User</span>
+<span class="text-emerald-300/60 text-[10px] uppercase font-bold">System Root</span>
+</div>
+</div>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="ml-[260px] min-h-screen flex flex-col">
+<!-- Top App Bar -->
+<header class="w-full sticky top-0 z-40 bg-[#F4EFE9] dark:bg-slate-900 border-b border-stone-200 dark:border-slate-800 shadow-sm flex items-center justify-between px-8 py-4">
+<div class="flex items-center gap-md">
+<button class="hover:bg-stone-100 dark:hover:bg-slate-800 rounded-full p-2 active:scale-95 transition-transform text-emerald-900">
+<span class="material-symbols-outlined" data-icon="menu_open">menu_open</span>
+</button>
+<h1 class="text-emerald-900 dark:text-white font-black text-xl font-headline-lg">System Overview</h1>
+</div>
+<div class="flex items-center gap-sm">
+<div class="relative group">
+<input class="bg-surface-container-low border-none rounded-full px-lg py-xs text-body-md focus:ring-2 focus:ring-primary w-64 transition-all" placeholder="Search lodges..." type="text"/>
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-stone-400">search</span>
+</div>
+<div class="w-10 h-10 rounded-full bg-stone-300 overflow-hidden border-2 border-white shadow-sm">
+<img alt="Profile" data-alt="Close-up professional portrait of a platform administrator in a modern office setting, soft professional lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDYZjGal1lGmJKBGHPq7AFHrUIxM6hKwaBfHKR1Q_G8IeXnGHUZjMou-gaXV_xA5w7xKaKxzJgQ-X-MhqQsN09boeU8HNFz1xVM5NGGBt2gjUc-HqhXNGzXr5m3vOn-JNCb2QYdkK98B9u0M-jKUQfhcOC-GChTUQEiIXqT4KqZRCWCza4uYA9BqX8Agf0_yQ7tUgp7UnelPMTqU4ftG8CNfrXkOCSifLv9uNlYx94BWaPVs4bMwwnaK9SYUo0ePNje9br72g0SyZLN"/>
+</div>
+</div>
+</header>
+<!-- Page Content -->
+<div class="p-margin max-w-7xl mx-auto w-full">
+<!-- Header Section -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-md mb-xl">
+<div>
+<h2 class="font-headline-xl text-primary mb-base">Organization Management</h2>
+<p class="text-on-surface-variant font-body-lg">Oversee and manage high-end lodge portfolio performance and access.</p>
+</div>
+<div class="flex items-center gap-sm">
+<button class="flex items-center gap-xs px-md py-sm bg-surface-container-lowest border border-outline-variant text-primary rounded-lg font-label-md hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined" data-icon="filter_list">filter_list</span>
+                        Filters
+                    </button>
+<button class="flex items-center gap-xs px-md py-sm bg-secondary text-on-primary rounded-lg font-label-md hover:opacity-90 transition-opacity shadow-lg">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+                        Provision New Organization
+                    </button>
+</div>
+</div>
+<!-- Bento Grid Stats (Contextual) -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-md mb-xl">
+<div class="bg-surface-container-lowest p-md rounded-xl shadow-sm border border-stone-100 flex flex-col justify-between">
+<span class="text-on-surface-variant font-label-sm uppercase">Total Lodges</span>
+<div class="flex items-end justify-between mt-sm">
+<span class="text-headline-xl font-headline-xl text-primary">42</span>
+<span class="text-primary-container font-label-md flex items-center">+4 <span class="material-symbols-outlined text-sm">trending_up</span></span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-md rounded-xl shadow-sm border border-stone-100 flex flex-col justify-between">
+<span class="text-on-surface-variant font-label-sm uppercase">Active Capacity</span>
+<div class="flex items-end justify-between mt-sm">
+<span class="text-headline-xl font-headline-xl text-primary">89%</span>
+<div class="h-2 w-24 bg-stone-100 rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[89%]"></div>
+</div>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-md rounded-xl shadow-sm border border-stone-100 flex flex-col justify-between">
+<span class="text-on-surface-variant font-label-sm uppercase">Pending Approvals</span>
+<div class="flex items-end justify-between mt-sm">
+<span class="text-headline-xl font-headline-xl text-secondary">3</span>
+<span class="material-symbols-outlined text-secondary" data-weight="fill">priority_high</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-md rounded-xl shadow-sm border border-stone-100 flex flex-col justify-between">
+<span class="text-on-surface-variant font-label-sm uppercase">Sys Health</span>
+<div class="flex items-end justify-between mt-sm">
+<span class="text-headline-xl font-headline-xl text-primary">Stable</span>
+<span class="material-symbols-outlined text-primary-container" data-icon="check_circle">check_circle</span>
+</div>
+</div>
+</div>
+<!-- Organization List (Asymmetric Card Layout) -->
+<div class="space-y-sm">
+<!-- Org Card 1 -->
+<div class="group bg-surface-container-lowest rounded-xl p-md border border-stone-100 shadow-sm hover:shadow-md transition-all">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-md">
+<div class="flex items-center gap-md">
+<div class="w-16 h-16 rounded-lg overflow-hidden bg-stone-200">
+<img alt="Lodge" data-alt="Luxury mountain lodge with stone exterior and large windows reflecting pine forest at dusk" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB7OK6k7D030vUgJwIOHc6tpT3o4qojWYRIq6u2yDNmfX-0hH6PB6ELiPTDTEv1wBkxZ_quWmYXSTYI6gjHP_8VrobLojh_lePBhK8A1GSRnVPCE5TQVnrET2L9ylNi0kWhhrHjg0PCh0-2NeKW-Tlvsy115FthA_G-yGOPZrNJjdPCREz7d49rVUCQbwio-dRBFttY2zilIbExY-VgQDFXM4eF5WH0H8YKiJA05j4vRt3UGY75oi4b27S4DT16MTD3OQSW_7KlyoSp"/>
+</div>
+<div>
+<h3 class="font-headline-md text-primary">Serengeti Sky Lounge</h3>
+<div class="flex items-center gap-sm mt-base">
+<span class="text-on-surface-variant font-body-md">ops@serengeti-sky.com</span>
+<span class="w-1 h-1 bg-stone-300 rounded-full"></span>
+<span class="text-on-surface-variant font-body-md">Joined Jan 12, 2023</span>
+</div>
+</div>
+</div>
+<div class="flex flex-wrap items-center gap-md">
+<div class="flex flex-col items-end">
+<span class="px-sm py-1 bg-primary-fixed text-on-primary-fixed-variant rounded-full font-label-sm uppercase">Active</span>
+<span class="text-[10px] text-on-surface-variant mt-1">Last login 2h ago</span>
+</div>
+<div class="h-10 w-px bg-stone-100 hidden md:block"></div>
+<div class="flex items-center gap-xs">
+<button class="p-2 hover:bg-stone-50 rounded-lg text-on-surface-variant transition-colors" title="Edit Details">
+<span class="material-symbols-outlined">edit</span>
+</button>
+<button class="p-2 hover:bg-stone-50 rounded-lg text-on-surface-variant transition-colors" title="Manage Users">
+<span class="material-symbols-outlined">group</span>
+</button>
+<button class="p-2 hover:bg-error-container text-error rounded-lg transition-colors" title="Suspend">
+<span class="material-symbols-outlined">block</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Org Card 2 -->
+<div class="group bg-surface-container-lowest rounded-xl p-md border border-stone-100 shadow-sm hover:shadow-md transition-all">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-md">
+<div class="flex items-center gap-md">
+<div class="w-16 h-16 rounded-lg overflow-hidden bg-stone-200">
+<img alt="Lodge" data-alt="Coastal boutique resort villa with turquoise pool water and white sand beach in background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuButlhy52RDYj0xsFi5tLTphuMtQ5OrqlCoAo6ACuBHQwTPU_93GNzy_Icg_s4Ihs_sMTpeTl2Sn3nxoIfcCZp2n3ly-w7KFfDXWS6KHFZ_TcRjUJrR01lGFPgVTYF_LgGKZB9NfWFL2qswcfFtTz8zT9lrI_Xncu8FLnJ8kuBeqU__Pg9IGJzUNeP4Eet2B1rVXlxUYbHZmDDXXlJ6N8qAY4cHac6szJ9TqXVrcE_fRsEN8WI_-fqQtvX6DumO2RhK2y3n3113BKrT"/>
+</div>
+<div>
+<h3 class="font-headline-md text-primary">Azure Coast Retreat</h3>
+<div class="flex items-center gap-sm mt-base">
+<span class="text-on-surface-variant font-body-md">contact@azurecoast.io</span>
+<span class="w-1 h-1 bg-stone-300 rounded-full"></span>
+<span class="text-on-surface-variant font-body-md">Joined Mar 04, 2023</span>
+</div>
+</div>
+</div>
+<div class="flex flex-wrap items-center gap-md">
+<div class="flex flex-col items-end">
+<span class="px-sm py-1 bg-primary-fixed text-on-primary-fixed-variant rounded-full font-label-sm uppercase">Active</span>
+<span class="text-[10px] text-on-surface-variant mt-1">Last login 1d ago</span>
+</div>
+<div class="h-10 w-px bg-stone-100 hidden md:block"></div>
+<div class="flex items-center gap-xs">
+<button class="p-2 hover:bg-stone-50 rounded-lg text-on-surface-variant transition-colors">
+<span class="material-symbols-outlined">edit</span>
+</button>
+<button class="p-2 hover:bg-stone-50 rounded-lg text-on-surface-variant transition-colors">
+<span class="material-symbols-outlined">group</span>
+</button>
+<button class="p-2 hover:bg-error-container text-error rounded-lg transition-colors">
+<span class="material-symbols-outlined">block</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Org Card 3 (Inactive State) -->
+<div class="group bg-surface-dim/40 rounded-xl p-md border border-stone-200 shadow-none opacity-80 grayscale-[0.5]">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-md">
+<div class="flex items-center gap-md">
+<div class="w-16 h-16 rounded-lg overflow-hidden bg-stone-300">
+<img alt="Lodge" data-alt="A-frame wooden cabin in a snowy pine forest during a winter sunset with soft golden light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC8CfhDNpxjX3NokrK6k-2vuPiOskLDFe5Ow9bNn3QkKAD86tEh9XcYBe8Rg1rNZ13TJF24nTR3JCZ2qHz2ur0rGdAJ0labyGh8dr9pHErnp0DgGMs3TxDSAjUXW4aNKe5Zm6aqZrmontIyIiy6rZ-ofsZZB2drQxzvbPCsLuoYRZiMgXtlo1Vg1eSo6Lsla2VHtIHHOhDkWpYpIWuCRrmn-nj84foDlWKkgnah0N-lqRv25gWGGKPc5ijYGNmY_RX1X00jx005urhZ"/>
+</div>
+<div>
+<h3 class="font-headline-md text-on-surface/60">Alpine Whisper Lodge</h3>
+<div class="flex items-center gap-sm mt-base">
+<span class="text-on-surface-variant/60 font-body-md">admin@alpinewhisper.com</span>
+<span class="w-1 h-1 bg-stone-300 rounded-full"></span>
+<span class="text-on-surface-variant/60 font-body-md">Joined Oct 28, 2022</span>
+</div>
+</div>
+</div>
+<div class="flex flex-wrap items-center gap-md">
+<div class="flex flex-col items-end">
+<span class="px-sm py-1 bg-stone-200 text-stone-600 rounded-full font-label-sm uppercase">Inactive</span>
+<span class="text-[10px] text-on-surface-variant mt-1">Suspended Oct 2023</span>
+</div>
+<div class="h-10 w-px bg-stone-200 hidden md:block"></div>
+<div class="flex items-center gap-xs">
+<button class="p-2 hover:bg-stone-50 rounded-lg text-on-surface-variant transition-colors">
+<span class="material-symbols-outlined">edit</span>
+</button>
+<button class="p-2 hover:bg-stone-50 rounded-lg text-on-surface-variant transition-colors">
+<span class="material-symbols-outlined">group</span>
+</button>
+<button class="p-2 hover:bg-primary-fixed text-primary rounded-lg transition-colors" title="Activate">
+<span class="material-symbols-outlined">check_circle</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Org Card 4 -->
+<div class="group bg-surface-container-lowest rounded-xl p-md border border-stone-100 shadow-sm hover:shadow-md transition-all">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-md">
+<div class="flex items-center gap-md">
+<div class="w-16 h-16 rounded-lg overflow-hidden bg-stone-200">
+<img alt="Lodge" data-alt="Elegant desert resort architecture with clean lines and warm sand tones against a clear blue sky" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCp1fWvobw77iykLI0bJ8qiXZ8TlW_YeenSBcgYuDvpky1SFrT8Ym4WsmvSE2VtXipuVWqKp3jeaKPyRAyh7SfoWcMdIXSD-zlzndnsFbu4JyoqSKEZ180Nd28zOrAEUWf_PaYbLwwAV2wL7BcZgLS9HrJDnNingtZBVxLGFmw7GLM6PpeBnlaZe5CWJOoCwD2FwiXAl28TEdTvdUMNfjVGBwcO_KiybXzkhnMcel6Gfs9L8Q0Ceixv1QMajciBLp3mQ8ezweMUDOkm"/>
+</div>
+<div>
+<h3 class="font-headline-md text-primary">Sand Dune Sanctuary</h3>
+<div class="flex items-center gap-sm mt-base">
+<span class="text-on-surface-variant font-body-md">management@sanddune.org</span>
+<span class="w-1 h-1 bg-stone-300 rounded-full"></span>
+<span class="text-on-surface-variant font-body-md">Joined May 15, 2023</span>
+</div>
+</div>
+</div>
+<div class="flex flex-wrap items-center gap-md">
+<div class="flex flex-col items-end">
+<span class="px-sm py-1 bg-primary-fixed text-on-primary-fixed-variant rounded-full font-label-sm uppercase">Active</span>
+<span class="text-[10px] text-on-surface-variant mt-1">Last login 5m ago</span>
+</div>
+<div class="h-10 w-px bg-stone-100 hidden md:block"></div>
+<div class="flex items-center gap-xs">
+<button class="p-2 hover:bg-stone-50 rounded-lg text-on-surface-variant transition-colors">
+<span class="material-symbols-outlined">edit</span>
+</button>
+<button class="p-2 hover:bg-stone-50 rounded-lg text-on-surface-variant transition-colors">
+<span class="material-symbols-outlined">group</span>
+</button>
+<button class="p-2 hover:bg-error-container text-error rounded-lg transition-colors">
+<span class="material-symbols-outlined">block</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Pagination -->
+<div class="mt-xl flex items-center justify-between bg-surface-container-low p-sm rounded-lg border border-stone-200">
+<span class="text-on-surface-variant font-label-md">Showing 4 of 42 lodges</span>
+<div class="flex items-center gap-xs">
+<button class="p-1 hover:bg-stone-200 rounded disabled:opacity-30" disabled="">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center bg-primary text-white rounded font-label-md">1</button>
+<button class="w-8 h-8 flex items-center justify-center hover:bg-stone-200 rounded font-label-md">2</button>
+<button class="w-8 h-8 flex items-center justify-center hover:bg-stone-200 rounded font-label-md">3</button>
+<button class="p-1 hover:bg-stone-200 rounded">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Floating Action Button -->
+<button class="fixed bottom-margin right-margin w-14 h-14 bg-secondary text-white rounded-full shadow-2xl flex items-center justify-center group active:scale-95 transition-all hover:w-56 overflow-hidden">
+<span class="material-symbols-outlined shrink-0" data-icon="add">add</span>
+<span class="font-label-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity ml-2">Provision Organization</span>
+</button>
+</main>
+</body></html>

@@ -14,7 +14,7 @@ export const useBookingsStore = defineStore('bookings', () => {
     error.value = null
     try {
       const res = await bookingApi.list({ page, page_size: pageSize })
-      bookings.value = res.data
+      bookings.value = res.data ?? []
       total.value = res.total
     } catch (err: any) {
       error.value = err?.error?.message ?? 'Failed to load bookings.'

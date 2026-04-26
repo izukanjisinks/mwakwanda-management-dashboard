@@ -14,7 +14,7 @@ export const useInvoicesStore = defineStore('invoices', () => {
     error.value = null
     try {
       const res = await invoiceApi.list({ page, page_size: pageSize })
-      invoices.value = res.data
+      invoices.value = res.data ?? []
       total.value = res.total
     } catch (err: any) {
       error.value = err?.error?.message ?? 'Failed to load invoices.'

@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-highest": "#eae1da",
+                        "on-secondary-container": "#783916",
+                        "tertiary-container": "#464440",
+                        "surface-bright": "#fff8f4",
+                        "outline-variant": "#c2c8bf",
+                        "background": "#fff8f4",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "primary-fixed": "#c8ecc9",
+                        "primary-container": "#2d4b32",
+                        "on-primary-container": "#98ba9a",
+                        "on-primary-fixed-variant": "#2f4d34",
+                        "on-error-container": "#93000a",
+                        "tertiary-fixed": "#e6e2dc",
+                        "on-tertiary-container": "#b5b1ac",
+                        "secondary": "#904c27",
+                        "error": "#ba1a1a",
+                        "tertiary": "#2f2e2a",
+                        "on-secondary-fixed-variant": "#733512",
+                        "on-surface": "#1f1b17",
+                        "surface-variant": "#eae1da",
+                        "inverse-surface": "#34302b",
+                        "secondary-container": "#ffa67a",
+                        "on-primary-fixed": "#03210c",
+                        "on-surface-variant": "#424842",
+                        "inverse-on-surface": "#f8efe8",
+                        "surface-container-low": "#fbf2eb",
+                        "surface-dim": "#e1d8d2",
+                        "on-secondary-fixed": "#341000",
+                        "surface-container-high": "#f0e7df",
+                        "on-error": "#ffffff",
+                        "surface": "#fff8f4",
+                        "on-background": "#1f1b17",
+                        "primary": "#17341d",
+                        "on-tertiary": "#ffffff",
+                        "surface-tint": "#47664b",
+                        "on-tertiary-fixed": "#1d1b18",
+                        "error-container": "#ffdad6",
+                        "secondary-fixed-dim": "#ffb693",
+                        "surface-container": "#f5ece5",
+                        "inverse-primary": "#adcfae",
+                        "outline": "#737971",
+                        "secondary-fixed": "#ffdbcb",
+                        "tertiary-fixed-dim": "#cac6c0",
+                        "on-tertiary-fixed-variant": "#494642",
+                        "on-secondary": "#ffffff",
+                        "primary-fixed-dim": "#adcfae"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "lg": "40px",
+                        "gutter": "24px",
+                        "md": "24px",
+                        "xl": "64px",
+                        "xs": "8px",
+                        "sm": "16px",
+                        "base": "4px",
+                        "margin": "32px"
+                    },
+                    "fontFamily": {
+                        "headline-xl": ["Manrope"],
+                        "body-md": ["Manrope"],
+                        "body-lg": ["Manrope"],
+                        "headline-md": ["Manrope"],
+                        "label-md": ["Manrope"],
+                        "headline-lg": ["Manrope"],
+                        "label-sm": ["Manrope"]
+                    },
+                    "fontSize": {
+                        "headline-xl": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "body-md": ["14px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                        "body-lg": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                        "headline-md": ["20px", {"lineHeight": "1.4", "fontWeight": "600"}],
+                        "label-md": ["13px", {"lineHeight": "1.2", "letterSpacing": "0.01em", "fontWeight": "600"}],
+                        "headline-lg": ["24px", {"lineHeight": "1.3", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "label-sm": ["11px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "700"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #fff8f4;
+            color: #1f1b17;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="font-body-md antialiased overflow-x-hidden">
+<!-- Navigation Drawer -->
+<aside class="fixed left-0 top-0 h-full w-[260px] bg-emerald-900 dark:bg-slate-950 border-r border-emerald-800 dark:border-slate-800 shadow-xl z-50 flex flex-col font-['Manrope'] antialiased">
+<div class="px-6 py-8">
+<h1 class="text-lg font-bold tracking-tight text-white">LodgeCentral Backoffice</h1>
+</div>
+<nav class="flex-grow">
+<div class="space-y-1">
+<!-- Dashboard -->
+<a class="flex items-center gap-3 px-4 py-3 text-emerald-100/70 hover:bg-emerald-800/30 hover:text-white transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-label-md">Dashboard</span>
+</a>
+<!-- Organizations -->
+<a class="flex items-center gap-3 px-4 py-3 text-emerald-100/70 hover:bg-emerald-800/30 hover:text-white transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="domain">domain</span>
+<span class="font-label-md">Organizations</span>
+</a>
+<!-- Provisioning -->
+<a class="flex items-center gap-3 px-4 py-3 text-emerald-100/70 hover:bg-emerald-800/30 hover:text-white transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="add_business">add_business</span>
+<span class="font-label-md">Provisioning</span>
+</a>
+<!-- Platform Admins (Active) -->
+<a class="flex items-center gap-3 px-4 py-3 bg-emerald-800/50 text-white border-l-4 border-orange-600 transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined" data-icon="admin_panel_settings">admin_panel_settings</span>
+<span class="font-label-md">Platform Admins</span>
+</a>
+</div>
+</nav>
+<div class="p-6 border-t border-emerald-800/50">
+<div class="flex items-center gap-3 text-white/80">
+<div class="w-10 h-10 rounded-full bg-emerald-700 flex items-center justify-center overflow-hidden">
+<img alt="avatar" class="w-full h-full object-cover" data-alt="professional male portrait with glasses and friendly expression, minimalist corporate style avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA91ASOXtdLyFieIUQtI5qr37RD1Nl2oP2pL-pZCTgXkVBAw6AoHM-8AcYcF3d6cJrfu1vUUwBAQ6H-ilf-QI_XQ50WiqoB6GdSk7pBiZVqgbDNjMEgxwuIp6eXwobhE1W-YVgZAtPVBWS6sgzeWfv1E-CK9DoGzIPDu1buNqvTr1Inawp0TiBj_oV5wqDRSPBR_-sF8YlbZXgmCui8GhEtIUgX91u79ehlwMSWXdDzNpVtI1LsL0RFdHWCGcYBF5esz1jqRqj7lKy_"/>
+</div>
+<div>
+<p class="font-label-md text-white">Alex Sterling</p>
+<p class="text-[10px] text-emerald-300/60 uppercase tracking-widest">Super Admin</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-[260px] min-h-screen">
+<!-- Top App Bar -->
+<header class="w-full sticky top-0 z-40 bg-[#F4EFE9] dark:bg-slate-900 border-b border-stone-200 dark:border-slate-800 shadow-sm flex items-center justify-between px-8 py-4 font-['Manrope'] text-sm font-semibold">
+<div class="flex items-center gap-4">
+<button class="hover:bg-stone-100 dark:hover:bg-slate-800 rounded-full p-2 active:scale-95 transition-transform text-emerald-900 dark:text-emerald-50">
+<span class="material-symbols-outlined" data-icon="menu_open">menu_open</span>
+</button>
+<h2 class="text-emerald-900 dark:text-white font-black text-xl">System Overview</h2>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2">
+<span class="text-stone-500 font-label-md">Status:</span>
+<span class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold">
+<span class="w-2 h-2 rounded-full bg-emerald-600"></span>
+                        OPERATIONAL
+                    </span>
+</div>
+<div class="w-10 h-10 rounded-full border-2 border-white shadow-sm overflow-hidden">
+<img alt="Platform Administrator Profile" class="w-full h-full object-cover" data-alt="minimalist graphic avatar representing a platform administrator" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDx1WHZF5yjcyzpg3RVQvt6K_MkQO9tTRy4RdMOzOIh0IZIZgsosFo_ljlrIs-nsaKZE9BUSZR2f99qaeP8y3buTfupL2Hvf2QD820wOHdVDwBYtLlXTpAYSSgfN1KD-tqtWY_Oox1knWyed27IJUoSadg6TbtmIF-LYU224-Fyt_H7vC5XNzs2O_SVRIzQbk20-Etg3RGR2k5MqCCi5ziuSkw63LmnzStCp2ni1rrH9nCPr5S_n156PGqb3YjpTAZDmUguocUbRcjd"/>
+</div>
+</div>
+</header>
+<!-- Page Content -->
+<div class="p-margin max-w-7xl mx-auto">
+<!-- Header Section with asymmetric layout -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-md mb-xl">
+<div class="max-w-2xl">
+<div class="flex items-center gap-2 mb-2">
+<span class="text-secondary font-label-sm uppercase">Access Management</span>
+</div>
+<h1 class="font-headline-xl text-headline-xl text-on-surface mb-sm">Platform Administrators</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant">Manage high-level system permissions, monitor security logs, and provision new administrative access across the LodgeCentral ecosystem.</p>
+</div>
+<div>
+<button class="group flex items-center gap-3 bg-secondary text-white px-6 py-4 rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all">
+<span class="material-symbols-outlined text-xl" data-icon="person_add">person_add</span>
+<span class="font-label-md">Add New Super Admin</span>
+</button>
+</div>
+</div>
+<!-- Dashboard Stats / Bento Grid Influence -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-gutter mb-xl">
+<div class="col-span-1 bg-white p-6 rounded-xl shadow-sm border border-stone-100">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-primary-fixed text-primary rounded-lg">
+<span class="material-symbols-outlined" data-icon="shield_person">shield_person</span>
+</div>
+<span class="text-emerald-600 font-label-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-xs" data-icon="trending_up">trending_up</span>
+                            +2
+                        </span>
+</div>
+<p class="text-stone-500 font-label-sm uppercase mb-1">Total Super-Admins</p>
+<h3 class="font-headline-lg text-headline-lg">12</h3>
+</div>
+<div class="col-span-1 bg-white p-6 rounded-xl shadow-sm border border-stone-100">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-secondary-fixed text-secondary rounded-lg">
+<span class="material-symbols-outlined" data-icon="key">key</span>
+</div>
+</div>
+<p class="text-stone-500 font-label-sm uppercase mb-1">Active Sessions</p>
+<h3 class="font-headline-lg text-headline-lg">04</h3>
+</div>
+<div class="col-span-1 md:col-span-2 bg-primary text-white p-6 rounded-xl shadow-lg relative overflow-hidden">
+<div class="relative z-10">
+<h4 class="font-headline-md text-headline-md mb-2">Security Audit Status</h4>
+<p class="text-emerald-100/70 text-body-md mb-4">Last full system scan completed 4 hours ago.</p>
+<div class="flex gap-2">
+<span class="px-3 py-1 bg-white/10 rounded-full text-[11px] font-bold">ALL CLEAR</span>
+<span class="px-3 py-1 bg-white/10 rounded-full text-[11px] font-bold">2FA ENFORCED</span>
+</div>
+</div>
+<!-- Decorative background element -->
+<div class="absolute right-[-20px] bottom-[-20px] opacity-10">
+<span class="material-symbols-outlined text-[120px]" data-icon="verified_user">verified_user</span>
+</div>
+</div>
+</div>
+<!-- Main Table Section -->
+<div class="bg-white rounded-xl shadow-md border border-stone-100 overflow-hidden">
+<div class="p-6 border-b border-stone-100 flex items-center justify-between">
+<div class="relative w-full max-w-md">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" data-icon="search">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-stone-50 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" placeholder="Search by name or email..." type="text"/>
+</div>
+<div class="flex gap-2">
+<button class="p-2 text-stone-500 hover:bg-stone-50 rounded-lg transition-colors">
+<span class="material-symbols-outlined" data-icon="filter_list">filter_list</span>
+</button>
+<button class="p-2 text-stone-500 hover:bg-stone-50 rounded-lg transition-colors">
+<span class="material-symbols-outlined" data-icon="download">download</span>
+</button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead class="bg-stone-50/50">
+<tr>
+<th class="px-6 py-4 font-label-sm text-stone-500 uppercase">Administrator</th>
+<th class="px-6 py-4 font-label-sm text-stone-500 uppercase">Status</th>
+<th class="px-6 py-4 font-label-sm text-stone-500 uppercase">Last Login</th>
+<th class="px-6 py-4 font-label-sm text-stone-500 uppercase text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-stone-100">
+<!-- Row 1 -->
+<tr class="hover:bg-stone-50 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-sm">JS</div>
+<div>
+<p class="font-headline-md text-sm text-on-surface">Julian Schmidt</p>
+<p class="text-xs text-stone-400">julian.schmidt@lodgecentral.com</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                                        ACTIVE
+                                    </span>
+</td>
+<td class="px-6 py-4">
+<p class="text-sm text-stone-600">Oct 24, 2023</p>
+<p class="text-[11px] text-stone-400">14:32 GMT</p>
+</td>
+<td class="px-6 py-4">
+<div class="flex justify-end gap-2">
+<button class="flex items-center gap-1.5 px-3 py-1.5 text-stone-600 hover:bg-white hover:shadow-sm border border-transparent hover:border-stone-200 rounded-lg text-[12px] font-semibold transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="lock_reset">lock_reset</span>
+                                            Reset Password
+                                        </button>
+<button class="flex items-center gap-1.5 px-3 py-1.5 text-error hover:bg-error/5 rounded-lg text-[12px] font-semibold transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="block">block</span>
+                                            Lock Account
+                                        </button>
+</div>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-stone-50 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-orange-50 text-orange-700 flex items-center justify-center font-bold text-sm">AM</div>
+<div>
+<p class="font-headline-md text-sm text-on-surface">Amara Miller</p>
+<p class="text-xs text-stone-400">amara.m@lodgecentral.com</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                                        ACTIVE
+                                    </span>
+</td>
+<td class="px-6 py-4">
+<p class="text-sm text-stone-600">Oct 23, 2023</p>
+<p class="text-[11px] text-stone-400">09:15 GMT</p>
+</td>
+<td class="px-6 py-4">
+<div class="flex justify-end gap-2">
+<button class="flex items-center gap-1.5 px-3 py-1.5 text-stone-600 hover:bg-white hover:shadow-sm border border-transparent hover:border-stone-200 rounded-lg text-[12px] font-semibold transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="lock_reset">lock_reset</span>
+                                            Reset Password
+                                        </button>
+<button class="flex items-center gap-1.5 px-3 py-1.5 text-error hover:bg-error/5 rounded-lg text-[12px] font-semibold transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="block">block</span>
+                                            Lock Account
+                                        </button>
+</div>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-stone-50 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-stone-100 text-stone-500 flex items-center justify-center font-bold text-sm">RB</div>
+<div>
+<p class="font-headline-md text-sm text-on-surface">Robert Blackstone</p>
+<p class="text-xs text-stone-400">r.blackstone@lodgecentral.com</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-stone-100 text-stone-500 text-[11px] font-bold">
+<span class="w-1.5 h-1.5 rounded-full bg-stone-400"></span>
+                                        LOCKED
+                                    </span>
+</td>
+<td class="px-6 py-4">
+<p class="text-sm text-stone-600">Sep 12, 2023</p>
+<p class="text-[11px] text-stone-400">18:45 GMT</p>
+</td>
+<td class="px-6 py-4">
+<div class="flex justify-end gap-2">
+<button class="flex items-center gap-1.5 px-3 py-1.5 text-stone-600 hover:bg-white hover:shadow-sm border border-transparent hover:border-stone-200 rounded-lg text-[12px] font-semibold transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="lock_reset">lock_reset</span>
+                                            Reset Password
+                                        </button>
+<button class="flex items-center gap-1.5 px-4 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-[12px] font-bold transition-all">
+<span class="material-symbols-outlined text-sm" data-icon="lock_open">lock_open</span>
+                                            Unlock Account
+                                        </button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="p-6 bg-stone-50/50 border-t border-stone-100 flex items-center justify-between">
+<p class="text-xs text-stone-500 font-label-md">Showing 3 of 12 Super-Admins</p>
+<div class="flex gap-1">
+<button class="w-8 h-8 flex items-center justify-center rounded-lg border border-stone-200 text-stone-400 hover:bg-white">
+<span class="material-symbols-outlined text-sm" data-icon="chevron_left">chevron_left</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center rounded-lg bg-primary text-white font-bold text-xs">1</button>
+<button class="w-8 h-8 flex items-center justify-center rounded-lg border border-stone-200 text-stone-600 hover:bg-white text-xs">2</button>
+<button class="w-8 h-8 flex items-center justify-center rounded-lg border border-stone-200 text-stone-600 hover:bg-white text-xs">3</button>
+<button class="w-8 h-8 flex items-center justify-center rounded-lg border border-stone-200 text-stone-400 hover:bg-white">
+<span class="material-symbols-outlined text-sm" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Info Section / Side Bento Card -->
+<div class="mt-xl grid grid-cols-1 md:grid-cols-3 gap-gutter">
+<div class="md:col-span-2 bg-surface-container-low p-8 rounded-2xl border border-stone-200/50">
+<h4 class="font-headline-lg text-on-surface mb-4">Security Protocol Reminder</h4>
+<p class="text-on-surface-variant text-body-lg mb-6 leading-relaxed">
+                        Adding a new Super-Admin grants full access to the LodgeCentral ecosystem, including financial provisioning and organization creation. Always verify identity through an out-of-band channel before issuing credentials.
+                    </p>
+<div class="flex items-center gap-4 p-4 bg-white/50 rounded-xl border border-white">
+<span class="material-symbols-outlined text-secondary" data-icon="info">info</span>
+<p class="text-sm font-semibold text-on-surface">All administrative actions are logged and immutable in the global audit trail.</p>
+</div>
+</div>
+<div class="bg-white p-8 rounded-2xl shadow-sm border border-stone-100 relative overflow-hidden group">
+<h5 class="font-label-sm text-stone-400 uppercase mb-4">Account Health</h5>
+<div class="space-y-4">
+<div class="flex justify-between items-center">
+<span class="text-sm text-stone-600">Password Compliance</span>
+<span class="text-emerald-600 font-bold text-sm">100%</span>
+</div>
+<div class="w-full bg-stone-100 h-1.5 rounded-full">
+<div class="bg-emerald-500 h-full w-[100%] rounded-full"></div>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-sm text-stone-600">2FA Enrollment</span>
+<span class="text-emerald-600 font-bold text-sm">100%</span>
+</div>
+<div class="w-full bg-stone-100 h-1.5 rounded-full">
+<div class="bg-emerald-500 h-full w-[100%] rounded-full"></div>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-sm text-stone-600">Avg. Rotation Age</span>
+<span class="text-on-surface font-bold text-sm">42 Days</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Contextual FAB - Only for Home/Dashboard as per mandate, but added here specifically for the "Add" intent if required as a float on mobile -->
+<button class="md:hidden fixed bottom-8 right-8 w-14 h-14 bg-secondary text-white rounded-full shadow-2xl flex items-center justify-center active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-2xl" data-icon="person_add">person_add</span>
+</button>
+</body></html>

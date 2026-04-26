@@ -1,9 +1,9 @@
 import { apiClient } from './client'
-import type { LoginCredentials, LoginResponse, AuthUser } from '@/types/auth'
+import type { LoginCredentials, LoginResult, AuthUser } from '@/types/auth'
 
 export const authApi = {
-  login(credentials: LoginCredentials): Promise<LoginResponse> {
-    return apiClient.post<LoginResponse>('/auth/login', credentials, false)
+  login(credentials: LoginCredentials): Promise<LoginResult> {
+    return apiClient.post<LoginResult>('/auth/login', credentials, false)
   },
 
   me(): Promise<AuthUser> {

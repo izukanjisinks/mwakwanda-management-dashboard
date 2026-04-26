@@ -1,6 +1,7 @@
 export interface LoginCredentials {
   email: string
   password: string
+  org_id?: string
 }
 
 export interface AuthRole {
@@ -25,6 +26,18 @@ export interface LoginResponse {
   expires_at: string
   user: AuthUser
 }
+
+export interface OrgOption {
+  org_id: string
+  name: string
+}
+
+export interface MultiOrgLoginResponse {
+  requires_org_selection: true
+  organizations: OrgOption[]
+}
+
+export type LoginResult = LoginResponse | MultiOrgLoginResponse
 
 export interface ApiError {
   error: {

@@ -15,7 +15,7 @@ export const useRoomsStore = defineStore('rooms', () => {
     error.value = null
     try {
       const res = await roomApi.list({ page, page_size: pageSize })
-      rooms.value = res.data
+      rooms.value = res.data ?? []
       total.value = res.total
     } catch (err: any) {
       error.value = err?.error?.message ?? 'Failed to load rooms.'

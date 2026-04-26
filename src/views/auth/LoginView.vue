@@ -5,8 +5,8 @@ import { useAuthStore } from '@/stores/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
 import ChangePasswordDialog from '@/components/auth/ChangePasswordDialog.vue'
+import OrgPickerDialog from '@/components/auth/OrgPickerDialog.vue'
 import { Trees, Eye, EyeOff, Loader2 } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -19,6 +19,17 @@ const showChangePasswordDialog = ref(false)
 
 async function handleSubmit() {
   const success = await authStore.login({ email: email.value, password: password.value })
+  if (success) {
+    if (authStore.user?.change_password) {
+      showChangePasswordDialog.value = true
+    } else {
+      router.push({ name: 'dashboard' })
+    }
+  }
+}
+
+async function handleOrgSelect(orgId: string) {
+  const success = await authStore.login({ email: email.value, password: password.value, org_id: orgId })
   if (success) {
     if (authStore.user?.change_password) {
       showChangePasswordDialog.value = true
@@ -169,6 +180,14 @@ function handlePasswordChanged() {
     </div>
 
   </div>
+
+  <!-- Org Picker Dialog -->
+  <OrgPickerDialog
+    :open="authStore.requiresOrgSelection"
+    :orgs="authStore.pendingOrgs"
+    :loading="authStore.loading"
+    @select="handleOrgSelect"
+  />
 
   <!-- Change Password Dialog -->
   <ChangePasswordDialog

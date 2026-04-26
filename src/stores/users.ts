@@ -14,7 +14,7 @@ export const useUsersStore = defineStore('users', () => {
     error.value = null
     try {
       const res = await usersApi.list({ page, page_size: pageSize })
-      users.value = res.data
+      users.value = res.data ?? []
       total.value = res.total
     } catch (err: any) {
       error.value = err?.error?.message ?? 'Failed to load users.'

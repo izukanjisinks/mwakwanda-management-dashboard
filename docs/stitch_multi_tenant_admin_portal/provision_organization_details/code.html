@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>LodgeCentral - Organization Provisioning</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-highest": "#eae1da",
+                        "on-secondary-container": "#783916",
+                        "tertiary-container": "#464440",
+                        "surface-bright": "#fff8f4",
+                        "outline-variant": "#c2c8bf",
+                        "background": "#fff8f4",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "primary-fixed": "#c8ecc9",
+                        "primary-container": "#2d4b32",
+                        "on-primary-container": "#98ba9a",
+                        "on-primary-fixed-variant": "#2f4d34",
+                        "on-error-container": "#93000a",
+                        "tertiary-fixed": "#e6e2dc",
+                        "on-tertiary-container": "#b5b1ac",
+                        "secondary": "#904c27",
+                        "error": "#ba1a1a",
+                        "tertiary": "#2f2e2a",
+                        "on-secondary-fixed-variant": "#733512",
+                        "on-surface": "#1f1b17",
+                        "surface-variant": "#eae1da",
+                        "inverse-surface": "#34302b",
+                        "secondary-container": "#ffa67a",
+                        "on-primary-fixed": "#03210c",
+                        "on-surface-variant": "#424842",
+                        "inverse-on-surface": "#f8efe8",
+                        "surface-container-low": "#fbf2eb",
+                        "surface-dim": "#e1d8d2",
+                        "on-secondary-fixed": "#341000",
+                        "surface-container-high": "#f0e7df",
+                        "on-error": "#ffffff",
+                        "surface": "#fff8f4",
+                        "on-background": "#1f1b17",
+                        "primary": "#17341d",
+                        "on-tertiary": "#ffffff",
+                        "surface-tint": "#47664b",
+                        "on-tertiary-fixed": "#1d1b18",
+                        "error-container": "#ffdad6",
+                        "secondary-fixed-dim": "#ffb693",
+                        "surface-container": "#f5ece5",
+                        "inverse-primary": "#adcfae",
+                        "outline": "#737971",
+                        "secondary-fixed": "#ffdbcb",
+                        "tertiary-fixed-dim": "#cac6c0",
+                        "on-tertiary-fixed-variant": "#494642",
+                        "on-secondary": "#ffffff",
+                        "primary-fixed-dim": "#adcfae"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "lg": "40px",
+                        "gutter": "24px",
+                        "md": "24px",
+                        "xl": "64px",
+                        "xs": "8px",
+                        "sm": "16px",
+                        "base": "4px",
+                        "margin": "32px"
+                    },
+                    "fontFamily": {
+                        "headline-xl": ["Manrope"],
+                        "body-md": ["Manrope"],
+                        "body-lg": ["Manrope"],
+                        "headline-md": ["Manrope"],
+                        "label-md": ["Manrope"],
+                        "headline-lg": ["Manrope"],
+                        "label-sm": ["Manrope"]
+                    },
+                    "fontSize": {
+                        "headline-xl": ["32px", { "lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-md": ["14px", { "lineHeight": "1.5", "fontWeight": "400" }],
+                        "body-lg": ["16px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "headline-md": ["20px", { "lineHeight": "1.4", "fontWeight": "600" }],
+                        "label-md": ["13px", { "lineHeight": "1.2", "letterSpacing": "0.01em", "fontWeight": "600" }],
+                        "headline-lg": ["24px", { "lineHeight": "1.3", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "label-sm": ["11px", { "lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "700" }]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        body {
+            font-family: 'Manrope', sans-serif;
+            background-color: #F4EFE9;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="antialiased text-on-background">
+<!-- Navigation Drawer (Shell Sidebar) -->
+<aside class="fixed left-0 top-0 h-full w-[260px] bg-emerald-900 dark:bg-slate-950 border-r border-emerald-800 dark:border-slate-800 shadow-xl flex flex-col h-full overflow-y-auto z-50">
+<div class="p-6">
+<h1 class="text-lg font-bold tracking-tight text-white">LodgeCentral Backoffice</h1>
+</div>
+<nav class="flex-1 px-2 space-y-1">
+<a class="flex items-center gap-3 px-4 py-3 text-emerald-100/70 hover:bg-emerald-800/30 hover:text-white transition-colors" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body-md text-body-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-emerald-100/70 hover:bg-emerald-800/30 hover:text-white transition-colors" href="#">
+<span class="material-symbols-outlined">domain</span>
+<span class="font-body-md text-body-md">Organizations</span>
+</a>
+<!-- Active State: Provisioning -->
+<a class="flex items-center gap-3 px-4 py-3 bg-emerald-800/50 text-white border-l-4 border-orange-600 transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">add_business</span>
+<span class="font-body-md text-body-md">Provisioning</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-emerald-100/70 hover:bg-emerald-800/30 hover:text-white transition-colors" href="#">
+<span class="material-symbols-outlined">admin_panel_settings</span>
+<span class="font-body-md text-body-md">Platform Admins</span>
+</a>
+</nav>
+<div class="p-4 border-t border-emerald-800 mt-auto">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-orange-600 flex items-center justify-center text-white font-bold">PA</div>
+<div class="flex flex-col">
+<span class="text-sm font-semibold text-white">Admin User</span>
+<span class="text-xs text-emerald-200/60">Super Administrator</span>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-[260px] min-h-screen">
+<!-- Top App Bar -->
+<header class="w-full sticky top-0 z-40 bg-[#F4EFE9] dark:bg-slate-900 border-b border-stone-200 dark:border-slate-800 shadow-sm flex items-center justify-between px-8 py-4">
+<div class="flex items-center gap-4">
+<button class="hover:bg-stone-100 dark:hover:bg-slate-800 rounded-full p-2 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-emerald-900 dark:text-emerald-50">menu_open</span>
+</button>
+<h2 class="text-emerald-900 dark:text-white font-black text-xl">System Overview</h2>
+</div>
+<div class="flex items-center gap-6">
+<div class="hidden md:flex gap-4">
+<span class="text-stone-500 font-label-md text-label-md uppercase tracking-wider">Status: Healthy</span>
+</div>
+<div class="w-10 h-10 rounded-full overflow-hidden border-2 border-primary">
+<img alt="Profile" class="w-full h-full object-cover" data-alt="close-up portrait of professional executive male with warm lighting and blurred office background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDM7SENW4AyWq0W9R-oNA6DJG9Gvk5Ir8djHRDGh5ECnrhUYuFzY-G1TbaMc1lmbQ7XkxDwx7vpg1Bt3c38amIU9UQ-EngKTKgmJHyaJ1ob6KlKEter_jjFDmFUnOQsKxFtt7DtnuuebpDsAaSFdaAp8iN-2FUTVNW1wp_4WiSLDXiMOs3OKRfiRHMOVmjcumC4g8mAIy7e0VzFc1i47R9D9580KZM-2SniY0TWtJbUbYTFKhuoZMo72-g4sXFPGRe3Cd6nlkLzmQ1J"/>
+</div>
+</div>
+</header>
+<!-- Canvas Area -->
+<div class="p-margin max-w-6xl mx-auto">
+<!-- Stepper Progress -->
+<div class="mb-xl">
+<div class="flex items-center justify-between max-w-3xl mx-auto relative">
+<div class="absolute top-1/2 left-0 w-full h-0.5 bg-outline-variant -z-10 -translate-y-1/2"></div>
+<!-- Step 1: Active -->
+<div class="flex flex-col items-center gap-xs">
+<div class="w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center font-bold ring-4 ring-primary-fixed">1</div>
+<span class="text-label-sm font-label-sm uppercase text-primary">Details</span>
+</div>
+<!-- Step 2: Pending -->
+<div class="flex flex-col items-center gap-xs">
+<div class="w-10 h-10 rounded-full bg-surface-container-highest text-on-surface-variant flex items-center justify-center font-bold">2</div>
+<span class="text-label-sm font-label-sm uppercase text-on-surface-variant">Security</span>
+</div>
+<!-- Step 3: Pending -->
+<div class="flex flex-col items-center gap-xs">
+<div class="w-10 h-10 rounded-full bg-surface-container-highest text-on-surface-variant flex items-center justify-center font-bold">3</div>
+<span class="text-label-sm font-label-sm uppercase text-on-surface-variant">Modules</span>
+</div>
+<!-- Step 4: Pending -->
+<div class="flex flex-col items-center gap-xs">
+<div class="w-10 h-10 rounded-full bg-surface-container-highest text-on-surface-variant flex items-center justify-center font-bold">4</div>
+<span class="text-label-sm font-label-sm uppercase text-on-surface-variant">Review</span>
+</div>
+</div>
+</div>
+<!-- Provisioning Content Grid -->
+<div class="grid grid-cols-12 gap-gutter">
+<!-- Left Column: Instructional Header -->
+<div class="col-span-12 lg:col-span-4 space-y-md">
+<h3 class="text-headline-xl font-headline-xl text-primary">Organization Details</h3>
+<p class="text-body-lg font-body-lg text-on-surface-variant leading-relaxed">
+                        Start the provisioning process by entering the core identity details for the new lodge management entity. This information will be used for billing, communications, and system labeling.
+                    </p>
+<!-- Info Card -->
+<div class="bg-primary-container p-md rounded-xl space-y-sm mt-lg">
+<div class="flex items-center gap-sm text-on-primary-container">
+<span class="material-symbols-outlined">info</span>
+<span class="font-headline-md text-headline-md">Identity Standards</span>
+</div>
+<p class="text-on-primary-container/80 text-body-md font-body-md">
+                            Ensure the organization name exactly matches the legal business entity registered for tax purposes.
+                        </p>
+</div>
+</div>
+<!-- Right Column: Provisioning Form -->
+<div class="col-span-12 lg:col-span-8">
+<div class="bg-surface-container-lowest p-xl rounded-xl shadow-xl border border-outline-variant/30">
+<form action="#" class="space-y-lg" method="POST">
+<!-- Section: Basic Information -->
+<div class="space-y-md">
+<h4 class="text-label-sm font-label-sm uppercase text-secondary tracking-widest border-b border-surface-container-highest pb-xs">Primary Identity</h4>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-md">
+<div class="flex flex-col gap-xs">
+<label class="text-label-md font-label-md text-on-surface" for="org_name">Organization Legal Name</label>
+<input class="p-md bg-surface-container-low border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all text-body-md font-body-md outline-none" id="org_name" name="org_name" placeholder="e.g. Serengeti Heights Resorts" type="text"/>
+</div>
+<div class="flex flex-col gap-xs">
+<label class="text-label-md font-label-md text-on-surface" for="org_id">External Reference ID</label>
+<input class="p-md bg-surface-container-low border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all text-body-md font-body-md outline-none" id="org_id" name="org_id" placeholder="REF-0000" type="text"/>
+</div>
+</div>
+</div>
+<!-- Section: Contact Details -->
+<div class="space-y-md">
+<h4 class="text-label-sm font-label-sm uppercase text-secondary tracking-widest border-b border-surface-container-highest pb-xs">Contact Information</h4>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-md">
+<div class="flex flex-col gap-xs">
+<label class="text-label-md font-label-md text-on-surface" for="email">Primary Admin Email</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-md top-1/2 -translate-y-1/2 text-outline">mail</span>
+<input class="w-full pl-xl pr-md py-md bg-surface-container-low border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all text-body-md font-body-md outline-none" id="email" name="email" placeholder="admin@lodge.com" type="email"/>
+</div>
+</div>
+<div class="flex flex-col gap-xs">
+<label class="text-label-md font-label-md text-on-surface" for="phone">Operational Contact Number</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-md top-1/2 -translate-y-1/2 text-outline">call</span>
+<input class="w-full pl-xl pr-md py-md bg-surface-container-low border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all text-body-md font-body-md outline-none" id="phone" name="phone" placeholder="+1 (555) 000-0000" type="tel"/>
+</div>
+</div>
+</div>
+</div>
+<!-- Section: Location Details -->
+<div class="space-y-md">
+<h4 class="text-label-sm font-label-sm uppercase text-secondary tracking-widest border-b border-surface-container-highest pb-xs">Headquarters Address</h4>
+<div class="flex flex-col gap-xs">
+<label class="text-label-md font-label-md text-on-surface" for="address">Street Address</label>
+<input class="p-md bg-surface-container-low border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all text-body-md font-body-md outline-none" id="address" name="address" placeholder="123 Savannah Plaza, Suite 400" type="text"/>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-md">
+<div class="flex flex-col gap-xs">
+<label class="text-label-md font-label-md text-on-surface" for="city">City</label>
+<input class="p-md bg-surface-container-low border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all text-body-md font-body-md outline-none" id="city" name="city" placeholder="Nairobi" type="text"/>
+</div>
+<div class="flex flex-col gap-xs">
+<label class="text-label-md font-label-md text-on-surface" for="region">Region / State</label>
+<input class="p-md bg-surface-container-low border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all text-body-md font-body-md outline-none" id="region" name="region" placeholder="East Africa" type="text"/>
+</div>
+<div class="flex flex-col gap-xs">
+<label class="text-label-md font-label-md text-on-surface" for="postal">Postal Code</label>
+<input class="p-md bg-surface-container-low border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all text-body-md font-body-md outline-none" id="postal" name="postal" placeholder="00100" type="text"/>
+</div>
+</div>
+</div>
+<!-- Action Footer -->
+<div class="flex items-center justify-between pt-lg mt-xl border-t border-surface-container-highest">
+<button class="px-md py-sm text-on-surface-variant font-label-md text-label-md hover:bg-surface-container-high rounded-lg transition-colors flex items-center gap-xs" type="button">
+<span class="material-symbols-outlined">close</span>
+                                    Cancel Provisioning
+                                </button>
+<button class="px-xl py-md bg-primary text-on-primary font-headline-md text-headline-md rounded-lg shadow-lg hover:shadow-xl hover:bg-primary-container transition-all flex items-center gap-sm" type="submit">
+                                    Next: Security Configuration
+                                    <span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</form>
+</div>
+</div>
+</div>
+<!-- Contextual Graphics / Visual Anchors -->
+<div class="mt-xl grid grid-cols-1 md:grid-cols-3 gap-gutter">
+<div class="h-48 rounded-xl overflow-hidden shadow-md group">
+<img class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" data-alt="majestic luxury safari lodge overlooking a dry riverbed with elephants in the distance at sunset, warm earthy tones" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDVgSCWJy8qZaRoNjlo4tFwnLzkrr1-Is13DY-SobEc-aj4OHPXnR4KQnzjqZO-N23au6CHYmZqGxtwgEsK5cQ-Cglf3y_n9SFRiHupu6m6H6uaK2fvCg_n32fRqh3JBf7Yq2YHGWqLqs-kAAjNcATH21AGswhXpWmivUfOXjtP9yeUst40AsIdAvuKFsC3nVEc9YdmdT04QHH2frXQLprCmuT_eUBBzWoxN2_P7L3uT6nBbSEy8At1lrngWvIakIp7npj0scr9P19c"/>
+</div>
+<div class="h-48 rounded-xl overflow-hidden shadow-md group">
+<img class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" data-alt="aerial view of a boutique hotel pool area surrounded by lush tropical gardens and white umbrellas, morning mist" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBamXl695IYdyNXedBvUKVeIfoj0ru511etQLel0esQpGmVJpkwNqyUtnOc1qBAa9SsDuoypewawVJLKkrsMq3oWtuQWxI14-nNMfcfdY7ALJLnTKRleSNnai49MK-bB2tmjWO46zhTCG4C_Yjf3wk6gWO4GDycl6MNDrY_sFPlwubG7PUW9CImAfitkdd9Ug5hCusCaRUx95wyaYEX5VfPMTnUL5Ou9ROZ9gguGeQ1_QyY3FoSP2Yowa8Cl-bOwNtcaWQkevDTTJ7X"/>
+</div>
+<div class="h-48 rounded-xl overflow-hidden shadow-md group">
+<img class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" data-alt="interior of a high-end mountain resort lobby with floor to ceiling windows showing snow peaks and a modern fireplace" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBw16sIecuOeqF_qUrEHqUHRw0WDYqnQlpwvoamqsnPGtxzTzgZgQ_wfc2I52WlNCwJrmcADp9Z0uhhI21ofrKRj8VmKrAfMfdfQ0THzIyCGAyvf3yNiF4gjfcVqP7MlqyrunWbz--Ucpuie8uUeYiNXO4c51ICKLEVpw-_Fnigz-dE_KAtQBajPtTSJ2_Gged54_OOGgHJ9gdTId22GATeSA4u_O3-ImN77zWfCxcHX7szOszfOt5qP2hOra-RY7GHbd9qxGJin4vK"/>
+</div>
+</div>
+</div>
+</main>
+<!-- Success Feedback (Hidden by default, for demonstration) -->
+<div class="fixed bottom-margin right-margin bg-on-secondary-fixed text-on-secondary-fixed-variant px-lg py-md rounded-xl shadow-2xl flex items-center gap-sm border-l-4 border-secondary opacity-0 pointer-events-none transform translate-y-4">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="font-label-md text-label-md">Details Saved Successfully</span>
+</div>
+</body></html>
