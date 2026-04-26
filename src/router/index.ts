@@ -22,6 +22,12 @@ const router = createRouter({
       component: () => import('@/views/auth/LoginView.vue'),
       meta: { requiresAuth: false, guestOnly: true },
     },
+    {
+      path: '/change-password',
+      name: 'change-password',
+      component: () => import('@/views/auth/ChangePasswordView.vue'),
+      meta: { requiresAuth: true },
+    },
 
     // Authenticated — all share the sidebar layout
     {
@@ -215,6 +221,15 @@ router.beforeEach(async (to) => {
 
   if (guestOnly && authStore.isAuthenticated) {
     return { name: 'dashboard' }
+  }
+
+  // Force password change before accessing anything else
+  if (
+    authStore.isAuthenticated &&
+    authStore.user?.change_password &&
+    to.name !== 'change-password'
+  ) {
+    return { name: 'change-password' }
   }
 
   if (roles && authStore.userRole && !roles.includes(authStore.userRole)) {

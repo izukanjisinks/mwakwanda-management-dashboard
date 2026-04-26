@@ -7,6 +7,9 @@ export interface LoginCredentials {
 export interface AuthRole {
   role_id: string
   name: string
+  description?: string
+  created_at?: string
+  updated_at?: string
 }
 
 export interface AuthUser {
@@ -14,6 +17,9 @@ export interface AuthUser {
   email: string
   role: AuthRole
   full_name?: string
+  org_id?: string
+  org_name?: string
+  org_logo_url?: string
   created_at: string
   change_password: boolean
   is_active: boolean
