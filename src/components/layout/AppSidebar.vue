@@ -69,7 +69,8 @@ const adminNav = [
     items: [
       { title: 'Rooms', icon: Hotel, routeName: 'rooms' },
       { title: 'Bookings', icon: CalendarDays, routeName: 'admin-bookings' },
-      { title: 'Meals', icon: UtensilsCrossed, routeName: 'meals' },
+      { title: 'Menus', icon: UtensilsCrossed, routeName: 'menus' },
+      { title: 'Orders', icon: BookOpen, routeName: 'orders' },
       { title: 'Invoices', icon: ReceiptText, routeName: 'admin-invoices' },
     ],
   },

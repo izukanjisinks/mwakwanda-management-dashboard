@@ -68,9 +68,14 @@ const router = createRouter({
           component: () => import('@/views/admin/bookings/BookingsView.vue'),
         },
         {
-          path: 'meals',
-          name: 'meals',
-          component: () => import('@/views/admin/meals/MealsView.vue'),
+          path: 'menus',
+          name: 'menus',
+          component: () => import('@/views/admin/menus/MenusView.vue'),
+        },
+        {
+          path: 'orders',
+          name: 'orders',
+          component: () => import('@/views/admin/orders/OrdersView.vue'),
         },
         {
           path: 'invoices',

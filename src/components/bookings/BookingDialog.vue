@@ -23,9 +23,7 @@ import { toast } from 'vue-sonner'
 import { useBookingsStore } from '@/stores/bookings'
 import { useRoomsStore } from '@/stores/rooms'
 import { useIndividualClientsStore, useCorporateClientsStore } from '@/stores/clients'
-import { useMealsStore } from '@/stores/meals'
 import type { Booking, BookingPayload, BookingUpdatePayload, ClientType } from '@/types/booking'
-// BookingUpdatePayload used in handleSave for edit path
 
 const props = defineProps<{
   open: boolean
@@ -41,7 +39,6 @@ const bookingsStore = useBookingsStore()
 const roomsStore = useRoomsStore()
 const individualStore = useIndividualClientsStore()
 const corporateStore = useCorporateClientsStore()
-const mealsStore = useMealsStore()
 
 const saving = ref(false)
 const error = ref('')
@@ -49,14 +46,13 @@ const error = ref('')
 const isEdit = computed(() => !!props.booking)
 
 const form = ref({
-  room_id: '' as string | '',
+  room_id: '' as string,
   client_type: 'individual' as ClientType,
-  client_id: '' as string | '',
+  client_id: '' as string,
   check_in: '',
   check_out: '',
   guests: 1,
   special_requests: '',
-  meal_plan_id: null as string | null,
 })
 
 const clientOptions = computed(() => {
@@ -83,26 +79,13 @@ const roomCost = computed(() => {
   return selectedRoom.value.price_per_night * nights.value
 })
 
-const selectedMealPlan = computed(() =>
-  mealsStore.activePlans.find(p => String(p.id) === form.value.meal_plan_id) ?? null
-)
-
-const mealCost = computed(() => {
-  if (!selectedMealPlan.value || nights.value === 0) return 0
-  return selectedMealPlan.value.price_per_person_per_night * form.value.guests * nights.value
-})
-
-const estimatedTotal = computed(() => roomCost.value + mealCost.value)
-
 watch(() => props.open, (open) => {
   if (!open) return
   error.value = ''
 
-  // Ensure stores are populated
   if (roomsStore.rooms.length === 0) roomsStore.fetchRooms()
   if (individualStore.clients.length === 0) individualStore.fetchClients()
   if (corporateStore.clients.length === 0) corporateStore.fetchClients()
-  if (mealsStore.plans.length === 0) mealsStore.fetchPlans()
 
   if (props.booking) {
     form.value = {
@@ -113,7 +96,6 @@ watch(() => props.open, (open) => {
       check_out: props.booking.check_out.slice(0, 10),
       guests: props.booking.guests,
       special_requests: props.booking.special_requests ?? '',
-      meal_plan_id: props.booking.meal_plan_id ?? null,
     }
   } else {
     form.value = {
@@ -124,12 +106,10 @@ watch(() => props.open, (open) => {
       check_out: '',
       guests: 1,
       special_requests: '',
-      meal_plan_id: null,
     }
   }
 })
 
-// Reset client when type changes
 watch(() => form.value.client_type, () => {
   form.value.client_id = ''
 })
@@ -154,19 +134,17 @@ async function handleSave() {
         check_out: form.value.check_out,
         guests: form.value.guests,
         special_requests: form.value.special_requests || undefined,
-        meal_plan_id: form.value.meal_plan_id,
       }
       saved = await bookingsStore.updateBooking(props.booking.id, payload)
     } else {
       const payload: BookingPayload = {
-        room_id: form.value.room_id as string,
-        client_id: form.value.client_id as string,
+        room_id: form.value.room_id,
+        client_id: form.value.client_id,
         client_type: form.value.client_type,
         check_in: new Date(form.value.check_in).toISOString(),
         check_out: new Date(form.value.check_out).toISOString(),
         guests: form.value.guests,
         special_requests: form.value.special_requests || undefined,
-        meal_plan_id: form.value.meal_plan_id,
       }
       saved = await bookingsStore.createBooking(payload)
     }
@@ -286,38 +264,15 @@ async function handleSave() {
           </p>
         </div>
 
-        <!-- Meal Plan -->
-        <div class="grid gap-2">
-          <Label>Meal Plan</Label>
-          <Select :model-value="form.meal_plan_id ?? '__none__'" @update:model-value="(v) => form.meal_plan_id = v === '__none__' ? null : String(v)">
-            <SelectTrigger class="w-full">
-              <SelectValue placeholder="No meal plan" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none__">No meal plan (Room Only)</SelectItem>
-              <SelectItem v-for="plan in mealsStore.activePlans" :key="plan.id" :value="String(plan.id)">
-                {{ plan.name }} — ZMW {{ plan.price_per_person_per_night.toLocaleString() }} / person / night
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          <p v-if="selectedMealPlan?.includes.length" class="text-xs text-muted-foreground">
-            Includes: {{ selectedMealPlan.includes.join(', ') }}
-          </p>
-        </div>
-
-        <!-- Cost breakdown -->
+        <!-- Cost preview -->
         <div v-if="roomCost > 0" class="rounded-lg bg-muted/50 border divide-y text-sm overflow-hidden">
           <div class="flex items-center justify-between px-4 py-2.5">
             <span class="text-muted-foreground">{{ nights }} night{{ nights === 1 ? '' : 's' }} × ZMW {{ selectedRoom?.price_per_night.toLocaleString() }}</span>
             <span>ZMW {{ roomCost.toLocaleString() }}</span>
           </div>
-          <div v-if="mealCost > 0" class="flex items-center justify-between px-4 py-2.5">
-            <span class="text-muted-foreground">{{ selectedMealPlan?.name }} × {{ form.guests }} guest{{ form.guests === 1 ? '' : 's' }} × {{ nights }} night{{ nights === 1 ? '' : 's' }}</span>
-            <span>ZMW {{ mealCost.toLocaleString() }}</span>
-          </div>
           <div class="flex items-center justify-between px-4 py-2.5 font-semibold bg-background">
             <span>Estimated Total</span>
-            <span>ZMW {{ estimatedTotal.toLocaleString() }}</span>
+            <span>ZMW {{ roomCost.toLocaleString() }}</span>
           </div>
         </div>
 

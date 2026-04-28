@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&amp;family=Noto+Serif:ital,wght@0,500;0,600;1,700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-primary": "#ffb599",
+                        "surface-container-low": "#fdf2e6",
+                        "on-tertiary-fixed": "#360f00",
+                        "on-surface-variant": "#53433e",
+                        "surface-container-highest": "#ece1d6",
+                        "tertiary-fixed": "#ffdbcd",
+                        "surface-container-high": "#f1e6db",
+                        "secondary-fixed": "#e6e2de",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary": "#605e5b",
+                        "on-background": "#201b14",
+                        "surface-variant": "#ece1d6",
+                        "on-primary-container": "#ffcdba",
+                        "surface-dim": "#e3d8cd",
+                        "on-secondary-fixed-variant": "#484644",
+                        "inverse-surface": "#352f28",
+                        "outline": "#86736d",
+                        "on-secondary-fixed": "#1d1b19",
+                        "on-error-container": "#93000a",
+                        "tertiary-fixed-dim": "#ffb597",
+                        "surface-container": "#f7ece1",
+                        "on-tertiary": "#ffffff",
+                        "surface": "#fff8f3",
+                        "outline-variant": "#d8c2ba",
+                        "on-secondary": "#ffffff",
+                        "primary-fixed": "#ffdbce",
+                        "primary-container": "#8c4d33",
+                        "primary": "#6f361e",
+                        "error": "#ba1a1a",
+                        "on-primary-fixed": "#370e00",
+                        "tertiary": "#77310e",
+                        "on-secondary-container": "#666461",
+                        "on-error": "#ffffff",
+                        "on-tertiary-fixed-variant": "#77320e",
+                        "inverse-on-surface": "#faefe4",
+                        "tertiary-container": "#954823",
+                        "secondary-container": "#e6e2de",
+                        "on-primary": "#ffffff",
+                        "surface-bright": "#fff8f3",
+                        "on-tertiary-container": "#ffcdb9",
+                        "on-primary-fixed-variant": "#70371f",
+                        "error-container": "#ffdad6",
+                        "secondary-fixed-dim": "#cac6c2",
+                        "background": "#fff8f3",
+                        "surface-tint": "#8d4e33",
+                        "primary-fixed-dim": "#ffb599",
+                        "on-surface": "#201b14"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "stack-md": "24px",
+                        "stack-sm": "12px",
+                        "sidebar-width": "280px",
+                        "gutter": "24px",
+                        "container-padding": "32px",
+                        "base": "8px"
+                    },
+                    "fontFamily": {
+                        "body-sm": ["Manrope"],
+                        "body-md": ["Manrope"],
+                        "headline-xl": ["Noto Serif"],
+                        "headline-lg": ["Noto Serif"],
+                        "label-md": ["Manrope"],
+                        "label-sm": ["Manrope"]
+                    },
+                    "fontSize": {
+                        "body-sm": ["14px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                        "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                        "headline-xl": ["32px", {"lineHeight": "1.2", "fontWeight": "600"}],
+                        "headline-lg": ["24px", {"lineHeight": "1.3", "fontWeight": "500"}],
+                        "label-md": ["14px", {"lineHeight": "1.2", "letterSpacing": "0.02em", "fontWeight": "600"}],
+                        "label-sm": ["12px", {"lineHeight": "1.1", "letterSpacing": "0.05em", "fontWeight": "700"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .tonal-layer {
+            background-color: #fff8f3;
+        }
+        .card-surface {
+            background-color: #ffffff;
+            border: 1px solid #EAE0D5;
+        }
+    </style>
+</head>
+<body class="bg-surface font-body-md text-on-background">
+<!-- SideNavBar -->
+<aside class="h-screen w-72 fixed left-0 top-0 border-r border-stone-200 bg-white flex flex-col py-8 px-6 z-50">
+<div class="mb-12">
+<h1 class="text-2xl font-bold text-[#8C4D33] italic font-serif tracking-tight">Plated</h1>
+<p class="font-serif text-sm uppercase tracking-widest text-stone-500">Service Portal</p>
+</div>
+<nav class="flex-1 space-y-2">
+<a class="flex items-center px-4 py-3 text-stone-500 hover:bg-stone-50 transition-all duration-300 rounded-lg group" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="grid_view">grid_view</span>
+<span class="font-serif tracking-tight">Overview</span>
+</a>
+<a class="flex items-center px-4 py-3 text-stone-500 hover:bg-stone-50 transition-all duration-300 rounded-lg group" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="restaurant_menu">restaurant_menu</span>
+<span class="font-serif tracking-tight">Menu Designer</span>
+</a>
+<!-- Active State: Item Library -->
+<a class="flex items-center px-4 py-3 border-l-4 border-[#8C4D33] bg-stone-50 text-[#8C4D33] font-semibold transition-all duration-300 rounded-r-lg group" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="inventory_2" style="font-variation-settings: 'FILL' 1;">inventory_2</span>
+<span class="font-serif tracking-tight">Item Library</span>
+</a>
+</nav>
+<div class="mt-auto pt-8 border-t border-stone-100 space-y-2">
+<button class="w-full bg-[#8C4D33] text-white py-3 rounded-lg font-label-md mb-6 hover:opacity-90 transition-opacity active:scale-95">
+                Add New Item
+            </button>
+<a class="flex items-center px-4 py-2 text-stone-500 hover:bg-stone-50 transition-all duration-300 rounded-lg" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="contact_support">contact_support</span>
+<span class="font-serif tracking-tight text-sm">Help Center</span>
+</a>
+<a class="flex items-center px-4 py-2 text-stone-500 hover:bg-stone-50 transition-all duration-300 rounded-lg" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="logout">logout</span>
+<span class="font-serif tracking-tight text-sm">Log Out</span>
+</a>
+</div>
+</aside>
+<!-- TopAppBar -->
+<header class="fixed top-0 right-0 w-[calc(100%-18rem)] h-16 z-40 bg-[#F8F3EF]/90 backdrop-blur-md border-b border-[#EAE0D5] flex justify-between items-center px-12">
+<div class="flex items-center flex-1">
+<div class="relative w-full max-w-md">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" data-icon="search">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-white/50 border-none rounded-lg focus:ring-1 focus:ring-[#8C4D33] text-sm font-body-sm" placeholder="Search menu items..." type="text"/>
+</div>
+</div>
+<div class="flex items-center space-x-6">
+<div class="flex items-center space-x-4">
+<button class="text-stone-500 hover:text-[#8C4D33] transition-colors active:translate-y-px">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="text-stone-500 hover:text-[#8C4D33] transition-colors active:translate-y-px">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+</div>
+<div class="h-8 w-px bg-[#EAE0D5]"></div>
+<div class="flex items-center space-x-4">
+<button class="font-serif text-sm uppercase tracking-widest text-stone-500 hover:text-stone-800 transition-opacity">Save Draft</button>
+<button class="bg-[#8C4D33] text-white px-6 py-2 rounded-full font-label-md hover:opacity-90 transition-opacity active:translate-y-px">
+                    Publish Changes
+                </button>
+<img alt="Server profile" class="w-10 h-10 rounded-full border-2 border-white object-cover" data-alt="professional chef portrait in clean white uniform with soft kitchen background and warm natural lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAa9SDMOMI4kU8Mn6Du4Vz20lqK4aVeZWPRAEmYkq9zsWa8QdFCMEaX2O4-b3yyR-RCO5TjsOeW8M-knYwIvWHV5Kt2JSO1nVYceFfDv1OzOpkiPW-mkNnofEn6QfX7rWt_AbdB7cJ6nUvmwa4y-aUdjqoK7w-kDGJ9GYXmXhXKOBi-lFJuWPeR4Gda2uIDRp6K8wElVZDsAUMGgpcg3Jvo9RtMMncR6h6gInLMLc25D1JynR2s6HjuLCVzrwrX9TACARmKAhdlNI4"/>
+</div>
+</div>
+</header>
+<!-- Main Content -->
+<main class="ml-72 pt-24 px-12 pb-12 min-h-screen">
+<div class="max-w-7xl mx-auto">
+<!-- Breadcrumbs & Title -->
+<div class="mb-10 flex justify-between items-end">
+<div>
+<nav class="flex items-center space-x-2 text-stone-400 font-label-sm uppercase mb-2">
+<span>Inventory</span>
+<span class="material-symbols-outlined text-xs" data-icon="chevron_right">chevron_right</span>
+<span class="text-[#8C4D33]">Item Library</span>
+</nav>
+<h2 class="font-headline-xl text-primary">Item Library</h2>
+<p class="text-stone-500 font-body-md mt-1">Manage 48 global items across all active menus.</p>
+</div>
+<div class="flex space-x-3">
+<button class="flex items-center px-4 py-2 bg-white border border-[#EAE0D5] rounded-lg text-stone-600 font-label-md hover:bg-stone-50 transition-all">
+<span class="material-symbols-outlined mr-2 text-xl" data-icon="filter_list">filter_list</span>
+                        Filter
+                    </button>
+<button class="flex items-center px-4 py-2 bg-white border border-[#EAE0D5] rounded-lg text-stone-600 font-label-md hover:bg-stone-50 transition-all">
+<span class="material-symbols-outlined mr-2 text-xl" data-icon="download">download</span>
+                        Export
+                    </button>
+</div>
+</div>
+<!-- Bento Grid Layout for Featured Items / Categories -->
+<div class="grid grid-cols-12 gap-6 mb-10">
+<!-- Large Featured Card -->
+<div class="col-span-8 card-surface rounded-xl p-8 flex flex-col md:flex-row gap-8 items-center">
+<div class="flex-1">
+<span class="inline-block px-3 py-1 bg-primary/10 text-primary rounded-full font-label-sm mb-4">BEST SELLER</span>
+<h3 class="font-headline-lg text-stone-800 mb-2">Mediterranean Garden Salad</h3>
+<p class="text-stone-500 font-body-md mb-6 leading-relaxed">
+                            A vibrant mix of organic baby kale, heirloom tomatoes, kalamata olives, and house-made citrus vinaigrette. Featured in 4 active seasonal menus.
+                        </p>
+<div class="flex items-center space-x-8">
+<div>
+<p class="text-stone-400 font-label-sm uppercase mb-1">Base Price</p>
+<p class="text-2xl font-headline-xl text-primary">$18.50</p>
+</div>
+<div>
+<p class="text-stone-400 font-label-sm uppercase mb-1">In Stock</p>
+<p class="text-2xl font-headline-xl text-stone-800">142 units</p>
+</div>
+</div>
+</div>
+<div class="w-64 h-64 rounded-xl overflow-hidden shadow-sm">
+<img alt="Garden Salad" class="w-full h-full object-cover" data-alt="vibrant fresh garden salad with cherry tomatoes, feta, and greens in a white bowl on a rustic wooden table with soft morning light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCuCpO4B3HdNCUrR8q8jzN1uEGqYidkqyPf0Q4pVtspbDvfXD73sZn7Z8yjyamT5Er0XTaTz3ZvCvgoVlsVZigj7AaOl5J12O92HS7C2zfXR785TvDnZbAVrUp2ANdCJA5cMpJxWf6JRsBWnSyatFZzpzi_8r3KlPhAJ-lWpeDtKRVd4GuQDQ6d3d5S42J-F3ByOUdWcmdjibK-k4w_fA9cfTCVhVw-uPdyYkvzen_MoPeuoA5vz9d7fEVWca76Uw4NpLZ2gE28GzI"/>
+</div>
+</div>
+<!-- Small Info Card -->
+<div class="col-span-4 card-surface rounded-xl p-6 flex flex-col justify-between bg-stone-50/50">
+<div>
+<h4 class="font-label-md text-stone-800 mb-4">Stock Alerts</h4>
+<div class="space-y-4">
+<div class="flex items-center justify-between p-3 bg-white rounded-lg border border-stone-100">
+<div class="flex items-center">
+<span class="w-2 h-2 rounded-full bg-error mr-3"></span>
+<span class="text-body-sm font-medium">Pizza Dough</span>
+</div>
+<span class="text-error font-label-sm">LOW STOCK</span>
+</div>
+<div class="flex items-center justify-between p-3 bg-white rounded-lg border border-stone-100">
+<div class="flex items-center">
+<span class="w-2 h-2 rounded-full bg-amber-400 mr-3"></span>
+<span class="text-body-sm font-medium">Avocado</span>
+</div>
+<span class="text-amber-600 font-label-sm">RESTOCK SOON</span>
+</div>
+</div>
+</div>
+<button class="w-full text-center py-2 text-[#8C4D33] font-label-md border border-[#8C4D33]/20 rounded-lg hover:bg-[#8C4D33]/5 transition-colors">
+                        View All Alerts
+                    </button>
+</div>
+</div>
+<!-- List Controls & Category Chips -->
+<div class="flex items-center justify-between mb-6">
+<div class="flex space-x-2">
+<button class="px-6 py-2 bg-stone-800 text-white rounded-full font-label-md">All Items</button>
+<button class="px-6 py-2 bg-white text-stone-600 border border-stone-200 rounded-full font-label-md hover:border-[#8C4D33] transition-colors">Starters</button>
+<button class="px-6 py-2 bg-white text-stone-600 border border-stone-200 rounded-full font-label-md hover:border-[#8C4D33] transition-colors">Main Course</button>
+<button class="px-6 py-2 bg-white text-stone-600 border border-stone-200 rounded-full font-label-md hover:border-[#8C4D33] transition-colors">Desserts</button>
+<button class="px-6 py-2 bg-white text-stone-600 border border-stone-200 rounded-full font-label-md hover:border-[#8C4D33] transition-colors">Beverages</button>
+</div>
+<div class="flex items-center space-x-4">
+<span class="text-stone-400 text-sm">Sort by: <span class="text-stone-800 font-medium">Name A-Z</span></span>
+<button class="p-2 text-stone-400 hover:text-[#8C4D33]"><span class="material-symbols-outlined" data-icon="grid_on">grid_on</span></button>
+<button class="p-2 text-[#8C4D33] border-b-2 border-[#8C4D33]"><span class="material-symbols-outlined" data-icon="view_list">view_list</span></button>
+</div>
+</div>
+<!-- Items Table/List -->
+<div class="card-surface rounded-xl overflow-hidden">
+<table class="w-full text-left">
+<thead class="bg-stone-50 border-b border-stone-200">
+<tr>
+<th class="px-6 py-4 font-label-sm text-stone-500 uppercase tracking-wider">Item Name</th>
+<th class="px-6 py-4 font-label-sm text-stone-500 uppercase tracking-wider">Category</th>
+<th class="px-6 py-4 font-label-sm text-stone-500 uppercase tracking-wider">Base Price</th>
+<th class="px-6 py-4 font-label-sm text-stone-500 uppercase tracking-wider">Status</th>
+<th class="px-6 py-4 font-label-sm text-stone-500 uppercase tracking-wider text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-stone-100">
+<!-- Item Row 1 -->
+<tr class="hover:bg-stone-50/50 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center">
+<div class="w-12 h-12 rounded-lg overflow-hidden mr-4 border border-stone-100">
+<img alt="Chicken Wrap" class="w-full h-full object-cover" data-alt="gourmet chicken wrap with grilled chicken, fresh lettuce, and tomatoes sliced diagonally on a clean marble surface" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDW6qQN-B_n3qJzggHNkwOl26vuN9hQdWCD74Bvtphjyw7oEUQ3hhlQv_6Y8AlR1kFKmkJdfA2fTGGMgMeeckO5_TTYqf1q1VaL6vdfReFaYifPBhIdBUwDMQ-BMH649uSrvxMYX3eW33tf8-ruuHGge4M5Wrx1oKbLDdWM4PzdOwgnOtVlEpDaMu19jBFmERIT8qmtRptIu2Mn9CkMyZv6rzjkrcSv8X2kqLm58M-9JQfV4zuFF3BbrJH3ovBJ39kq2NO2YWK60as"/>
+</div>
+<div>
+<p class="font-label-md text-stone-800">Classic Chicken Wraps</p>
+<p class="text-xs text-stone-400">SKU: CW-001</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 bg-stone-100 text-stone-600 rounded text-xs font-medium uppercase tracking-tight">Main Course</span>
+</td>
+<td class="px-6 py-4 font-body-md text-stone-700">$16.00</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    Active
+                                </span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="p-2 text-stone-400 hover:text-[#8C4D33] transition-colors">
+<span class="material-symbols-outlined" data-icon="edit">edit</span>
+</button>
+<button class="p-2 text-stone-400 hover:text-[#8C4D33] transition-colors">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Item Row 2 -->
+<tr class="hover:bg-stone-50/50 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center">
+<div class="w-12 h-12 rounded-lg overflow-hidden mr-4 border border-stone-100">
+<img alt="Pizza" class="w-full h-full object-cover" data-alt="authentic neapolitan pizza with fresh basil and mozzarella bubbling in a wood-fired oven aesthetic" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC3Us45bVvHSh_4ph91DuYnUHTA6nNmT77LJ2uKeZA7qnTsuvI73td9RnJ5Df3b8YoIfkk9EoBKFUleJ1LxhQHkZtVRrUAcS9s3c4uQpO8PEvfP7R3-nJ9M22iSk0LCxd0OwnN9yZd3urGCfo9RlMXnCF_OKX4myvtjKijJi9fqIZqZc7LBrE_ENE6PRHvdp0LZx7L66aNQ7ePS5fTAZ8tiz7LTsfCAvPHmRcMc_IMOtmbHci-U1T-xWYbPVtm9h-8fTRDMbNFfp1g"/>
+</div>
+<div>
+<p class="font-label-md text-stone-800">Artisan Margherita Pizza</p>
+<p class="text-xs text-stone-400">SKU: PZ-042</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 bg-stone-100 text-stone-600 rounded text-xs font-medium uppercase tracking-tight">Main Course</span>
+</td>
+<td class="px-6 py-4 font-body-md text-stone-700">$22.00</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    Active
+                                </span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="p-2 text-stone-400 hover:text-[#8C4D33] transition-colors">
+<span class="material-symbols-outlined" data-icon="edit">edit</span>
+</button>
+<button class="p-2 text-stone-400 hover:text-[#8C4D33] transition-colors">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Item Row 3 -->
+<tr class="hover:bg-stone-50/50 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center">
+<div class="w-12 h-12 rounded-lg overflow-hidden mr-4 border border-stone-100">
+<img alt="Garden Salad" class="w-full h-full object-cover" data-alt="close-up of a vibrant spring garden salad with edible flowers and balsamic glaze on a white porcelain plate" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDoTsRYD-5RGFVqk4wkiNcyo6pSCrCBElqvZij_rt04uZe7tSr6S3ygP2YQGniEPSyIXIfm56Xq1Wfl-J_RUmwM_72oz_STNVMqfK_tW9veTbUv_i0poFKJqTDG6-7sddRkxR_PLvWUUVRkDiMTl0Sw1eRk4vDfMKsHODbA_v9scjiEl27WAV-xYW3x0GeqEQjVc1MvB9lsTjXGvjE66S-dZSW7hHT3y2CLQqJxgtLW26GUSY6msKuujuXTs9JHSBwHVDYZnO2QLtM"/>
+</div>
+<div>
+<p class="font-label-md text-stone-800">Seasonal Garden Salad</p>
+<p class="text-xs text-stone-400">SKU: SL-015</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 bg-stone-100 text-stone-600 rounded text-xs font-medium uppercase tracking-tight">Starters</span>
+</td>
+<td class="px-6 py-4 font-body-md text-stone-700">$14.50</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
+                                    On Hold
+                                </span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="p-2 text-stone-400 hover:text-[#8C4D33] transition-colors">
+<span class="material-symbols-outlined" data-icon="edit">edit</span>
+</button>
+<button class="p-2 text-stone-400 hover:text-[#8C4D33] transition-colors">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Item Row 4 -->
+<tr class="hover:bg-stone-50/50 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center">
+<div class="w-12 h-12 rounded-lg overflow-hidden mr-4 border border-stone-100">
+<img alt="Dessert" class="w-full h-full object-cover" data-alt="decadent chocolate lava cake with a molten center and a dusting of powdered sugar on a dark ceramic plate" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC4VxX0m5kTgPUC_-8c1hf_zYXEzQwzxPYrsnTQvL_oGRCkMsW9XVoFDCjpbZV_0uFnKJochmQA3V_wz_uCO7LR7VF0okzbbPWgFgxMUKC8MERpR1fp9Od7eL05AIwpw-4VfLWr27X_f112gfwwQGA5G6PlO57F7ewiiuM-lYlVh9nWo9WNEePU6mGlRfuB6VMfG357E9njkM0wiO-ggxoQOIj2K-xqfIrw6zs6pJdC0YUsZkXGf7qScXIB6ZDjJv7RRUGbsGKcF7E"/>
+</div>
+<div>
+<p class="font-label-md text-stone-800">Chocolate Lava Cake</p>
+<p class="text-xs text-stone-400">SKU: DS-088</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 bg-stone-100 text-stone-600 rounded text-xs font-medium uppercase tracking-tight">Desserts</span>
+</td>
+<td class="px-6 py-4 font-body-md text-stone-700">$12.00</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                    Out of Stock
+                                </span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="p-2 text-stone-400 hover:text-[#8C4D33] transition-colors">
+<span class="material-symbols-outlined" data-icon="edit">edit</span>
+</button>
+<button class="p-2 text-stone-400 hover:text-[#8C4D33] transition-colors">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="bg-stone-50 px-6 py-4 border-t border-stone-200 flex items-center justify-between">
+<span class="text-sm text-stone-500 font-body-sm">Showing 1-10 of 48 items</span>
+<div class="flex space-x-2">
+<button class="p-2 border border-stone-200 rounded-lg bg-white text-stone-400 hover:text-[#8C4D33] disabled:opacity-50" disabled="">
+<span class="material-symbols-outlined" data-icon="chevron_left">chevron_left</span>
+</button>
+<button class="px-3 py-1 border border-[#8C4D33] rounded-lg bg-[#8C4D33] text-white font-label-md">1</button>
+<button class="px-3 py-1 border border-stone-200 rounded-lg bg-white text-stone-600 font-label-md hover:bg-stone-50">2</button>
+<button class="px-3 py-1 border border-stone-200 rounded-lg bg-white text-stone-600 font-label-md hover:bg-stone-50">3</button>
+<button class="p-2 border border-stone-200 rounded-lg bg-white text-stone-400 hover:text-[#8C4D33]">
+<span class="material-symbols-outlined" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- FAB for quick access -->
+<div class="fixed bottom-8 right-8 z-50">
+<button class="w-14 h-14 bg-[#8C4D33] text-white rounded-full shadow-lg flex items-center justify-center hover:scale-110 active:scale-95 transition-all group">
+<span class="material-symbols-outlined text-2xl" data-icon="add">add</span>
+<span class="absolute right-full mr-4 bg-stone-800 text-white px-3 py-1.5 rounded-lg text-xs font-label-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Create New Item</span>
+</button>
+</div>
+</body></html>

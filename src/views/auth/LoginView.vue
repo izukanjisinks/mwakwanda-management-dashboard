@@ -187,7 +187,7 @@ function handlePasswordChanged() {
     :orgs="authStore.pendingOrgs"
     :loading="authStore.loading"
     @select="handleOrgSelect"
-    @dismiss="authStore.requiresOrgSelection = false"
+    @dismiss="authStore.dismissOrgSelection()"
   />
 
   <!-- Change Password Dialog -->

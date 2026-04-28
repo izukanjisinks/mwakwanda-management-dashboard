@@ -90,6 +90,11 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  function dismissOrgSelection() {
+    requiresOrgSelection.value = false
+    pendingOrgs.value = []
+  }
+
   return {
     user,
     token,
@@ -105,5 +110,6 @@ export const useAuthStore = defineStore('auth', () => {
     fetchCurrentUser,
     clearAuth,
     setToken,
+    dismissOrgSelection,
   }
 })
