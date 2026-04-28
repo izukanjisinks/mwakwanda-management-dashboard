@@ -19,6 +19,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   select: [orgId: string]
+  dismiss: []
 }>()
 
 const selected = ref<string | null>(null)
@@ -30,7 +31,7 @@ function handleSelect(orgId: string) {
 </script>
 
 <template>
-  <Dialog :open="open">
+  <Dialog :open="open" @update:open="!$event && emit('dismiss')">
     <DialogContent class="sm:max-w-sm" :show-close="false">
       <DialogHeader>
         <DialogTitle>Select Organisation</DialogTitle>
