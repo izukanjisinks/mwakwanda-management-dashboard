@@ -9,11 +9,11 @@ export const useBookingsStore = defineStore('bookings', () => {
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  async function fetchBookings(page = 1, pageSize = 20) {
+  async function fetchBookings(page = 1, pageSize = 20, status?: string) {
     loading.value = true
     error.value = null
     try {
-      const res = await bookingApi.list({ page, page_size: pageSize })
+      const res = await bookingApi.list({ page, page_size: pageSize, status })
       bookings.value = res.data ?? []
       total.value = res.total
     } catch (err: any) {

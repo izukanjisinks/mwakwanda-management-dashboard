@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Document, Page, View, Text } from '@ceereals/vue-pdf'
+import { Document, Page, View, Text, Image } from '@ceereals/vue-pdf'
 import type { Style } from '@ceereals/vue-pdf'
 import type { Invoice } from '@/types/invoice'
+import { useAuthStore } from '@/stores/auth'
 
 const props = defineProps<{ invoice: Invoice }>()
+
+const authStore = useAuthStore()
+const orgName = computed(() => authStore.user?.org_name || 'Lodge Management')
 
 function fmt(amount: number) {
   return `ZMW ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -34,6 +38,7 @@ const s = {
 
   // Header
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28, paddingBottom: 20, borderBottomWidth: 2, borderBottomColor: '#d97706' } as Style,
+  orgLogo: { width: 48, height: 48, borderRadius: 4, marginBottom: 6, objectFit: 'contain' } as Style,
   lodgeName: { fontSize: 20, fontFamily: 'Helvetica-Bold', color: '#92400e' } as Style,
   lodgeSub: { fontSize: 9, color: '#78716c', marginTop: 3 } as Style,
   invoiceTitle: { fontSize: 22, fontFamily: 'Helvetica-Bold', textAlign: 'right', color: '#1a1a1a' } as Style,
@@ -56,19 +61,21 @@ const s = {
   tableRow: { flexDirection: 'row', padding: 9, borderBottomWidth: 1, borderBottomColor: '#f5f5f4' } as Style,
   tableRowAlt: { flexDirection: 'row', padding: 9, backgroundColor: '#fafaf9', borderBottomWidth: 1, borderBottomColor: '#f5f5f4' } as Style,
   colDesc: { flex: 1 } as Style,
-  colQty: { width: 50, textAlign: 'center' } as Style,
-  colPrice: { width: 90, textAlign: 'right' } as Style,
-  colTotal: { width: 90, textAlign: 'right' } as Style,
+  colDate: { width: 70, textAlign: 'center' } as Style,
+  colQty: { width: 40, textAlign: 'center' } as Style,
+  colPrice: { width: 80, textAlign: 'right' } as Style,
+  colTotal: { width: 80, textAlign: 'right' } as Style,
 
   // Totals
-  totalsSection: { marginTop: 20, alignItems: 'flex-end' } as Style,
-  totalRow: { flexDirection: 'row', paddingVertical: 4 } as Style,
-  totalLabel: { width: 140, textAlign: 'right', paddingRight: 16, color: '#6b7280' } as Style,
-  totalValue: { width: 110, textAlign: 'right' } as Style,
-  totalBold: { width: 110, textAlign: 'right', fontFamily: 'Helvetica-Bold' } as Style,
-  grandRow: { flexDirection: 'row', backgroundColor: '#92400e', paddingVertical: 10, paddingHorizontal: 14, borderRadius: 4, marginTop: 8 } as Style,
-  grandLabel: { flex: 1, textAlign: 'right', paddingRight: 16, color: '#ffffff', fontSize: 12, fontFamily: 'Helvetica-Bold' } as Style,
-  grandValue: { width: 110, textAlign: 'right', color: '#ffffff', fontSize: 12, fontFamily: 'Helvetica-Bold' } as Style,
+  totalsSection: { marginTop: 20, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'stretch', gap: 12 } as Style,
+  subtotalsBlock: { flexDirection: 'column', justifyContent: 'center', gap: 4 } as Style,
+  totalRow: { flexDirection: 'row', paddingVertical: 2 } as Style,
+  totalLabel: { width: 120, textAlign: 'right', paddingRight: 16, color: '#6b7280' } as Style,
+  totalValue: { width: 100, textAlign: 'right' } as Style,
+  totalBold: { width: 100, textAlign: 'right', fontFamily: 'Helvetica-Bold' } as Style,
+  grandRow: { flexDirection: 'column', backgroundColor: '#92400e', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 4, justifyContent: 'center', alignItems: 'flex-end' } as Style,
+  grandLabel: { color: '#fde68a', fontSize: 8, fontFamily: 'Helvetica-Bold', textTransform: 'uppercase', marginBottom: 4 } as Style,
+  grandValue: { color: '#ffffff', fontSize: 16, fontFamily: 'Helvetica-Bold' } as Style,
 
   // Notes
   notesSection: { marginTop: 24, padding: 12, backgroundColor: '#fafaf9', borderRadius: 4, borderLeftWidth: 3, borderLeftColor: '#d97706' } as Style,
@@ -88,7 +95,8 @@ const s = {
       <!-- Header -->
       <View :style="s.header">
         <View>
-          <Text :style="s.lodgeName">Lodge Management</Text>
+          <Image v-if="authStore.user?.org_logo_url" :src="authStore.user.org_logo_url" :style="s.orgLogo" />
+          <Text :style="s.lodgeName">{{ orgName }}</Text>
           <Text :style="s.lodgeSub">Hospitality &amp; Accommodation</Text>
         </View>
         <View>
@@ -120,6 +128,7 @@ const s = {
       <!-- Line items table -->
       <View :style="s.tableHeader">
         <Text :style="[s.thText, s.colDesc]">Description</Text>
+        <Text :style="[s.thText, s.colDate]">Date</Text>
         <Text :style="[s.thText, s.colQty]">Qty</Text>
         <Text :style="[s.thText, s.colPrice]">Unit Price</Text>
         <Text :style="[s.thText, s.colTotal]">Total</Text>
@@ -130,6 +139,7 @@ const s = {
         :style="i % 2 === 0 ? s.tableRow : s.tableRowAlt"
       >
         <Text :style="s.colDesc">{{ item.description }}</Text>
+        <Text :style="[s.colDate, { fontSize: 9, textAlign: 'center', color: '#6b7280' }]">{{ fmtDate(item.created_at) }}</Text>
         <Text :style="s.colQty">{{ item.quantity }}</Text>
         <Text :style="s.colPrice">{{ fmt(item.unit_price) }}</Text>
         <Text :style="s.colTotal">{{ fmt(item.total) }}</Text>
@@ -137,14 +147,18 @@ const s = {
 
       <!-- Totals -->
       <View :style="s.totalsSection">
-        <View :style="s.totalRow">
-          <Text :style="s.totalLabel">Subtotal</Text>
-          <Text :style="s.totalBold">{{ fmt(invoice.subtotal) }}</Text>
+        <!-- Subtotal + tax rows -->
+        <View :style="s.subtotalsBlock">
+          <View :style="s.totalRow">
+            <Text :style="s.totalLabel">Subtotal</Text>
+            <Text :style="s.totalBold">{{ fmt(invoice.subtotal) }}</Text>
+          </View>
+          <View :style="s.totalRow">
+            <Text :style="s.totalLabel">VAT ({{ invoice.tax_rate }}%)</Text>
+            <Text :style="s.totalValue">{{ fmt(invoice.tax_amount) }}</Text>
+          </View>
         </View>
-        <View :style="s.totalRow">
-          <Text :style="s.totalLabel">VAT ({{ invoice.tax_rate }}%)</Text>
-          <Text :style="s.totalValue">{{ fmt(invoice.tax_amount) }}</Text>
-        </View>
+        <!-- Total Due block — same row -->
         <View :style="s.grandRow">
           <Text :style="s.grandLabel">Total Due</Text>
           <Text :style="s.grandValue">{{ fmt(invoice.total_amount) }}</Text>
@@ -159,7 +173,7 @@ const s = {
 
       <!-- Footer -->
       <View :style="s.footer" fixed>
-        <Text :style="s.footerText">Lodge Management System — {{ invoice.invoice_number }}</Text>
+        <Text :style="s.footerText">{{ orgName }} — {{ invoice.invoice_number }}</Text>
         <Text :style="s.footerText">Thank you for your business.</Text>
       </View>
 

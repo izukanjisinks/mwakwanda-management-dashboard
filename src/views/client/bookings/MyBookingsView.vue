@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { useBookingsStore } from '@/stores/bookings'
-import { useAuthStore } from '@/stores/auth'
 import type { BookingStatus } from '@/types/booking'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import { Badge } from '@/components/ui/badge'
@@ -15,7 +14,6 @@ import {
 } from '@/components/ui/table'
 
 const store = useBookingsStore()
-const authStore = useAuthStore()
 
 onMounted(() => store.fetchBookings())
 
@@ -48,6 +46,7 @@ function nights(checkIn: string, checkOut: string) {
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead>Booking #</TableHead>
             <TableHead>Room</TableHead>
             <TableHead>Check-In</TableHead>
             <TableHead>Check-Out</TableHead>
@@ -60,7 +59,7 @@ function nights(checkIn: string, checkOut: string) {
         <TableBody>
           <template v-if="store.loading">
             <TableRow v-for="i in 4" :key="i">
-              <TableCell colspan="7">
+              <TableCell colspan="8">
                 <div class="h-4 rounded bg-muted animate-pulse" />
               </TableCell>
             </TableRow>
@@ -68,7 +67,7 @@ function nights(checkIn: string, checkOut: string) {
 
           <template v-else-if="bookings.length === 0">
             <TableRow>
-              <TableCell colspan="7" class="py-16 text-center text-muted-foreground">
+              <TableCell colspan="8" class="py-16 text-center text-muted-foreground">
                 You have no bookings yet.
               </TableCell>
             </TableRow>
@@ -76,6 +75,7 @@ function nights(checkIn: string, checkOut: string) {
 
           <template v-else>
             <TableRow v-for="booking in bookings" :key="booking.id">
+              <TableCell class="font-mono text-sm">{{ booking.booking_number }}</TableCell>
               <TableCell class="font-medium">{{ booking.room_name }}</TableCell>
               <TableCell>{{ formatDate(booking.check_in) }}</TableCell>
               <TableCell>{{ formatDate(booking.check_out) }}</TableCell>

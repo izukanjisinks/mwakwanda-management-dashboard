@@ -50,16 +50,22 @@ export interface OrderItem {
   order_id: string
   menu_item_id: string
   menu_item?: MenuItem
+  item_name?: string
   quantity: number
   unit_price?: number
+  subtotal?: number
   total?: number
   notes?: string
+  created_at?: string
 }
 
 export interface Order {
   id: string
   order_number: string
   booking_id?: string
+  booking_number?: string
+  room_name?: string
+  client_name?: string
   type: 'in_house' | 'walk_in'
   notes?: string
   total?: number

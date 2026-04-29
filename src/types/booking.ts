@@ -4,6 +4,7 @@ export type ClientType = 'individual' | 'corporate'
 
 export interface Booking {
   id: string
+  booking_number: string
   user_id: string
   room_id: string
   room_name: string
