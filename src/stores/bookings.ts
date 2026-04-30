@@ -9,11 +9,11 @@ export const useBookingsStore = defineStore('bookings', () => {
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  async function fetchBookings(page = 1, pageSize = 20, status?: string) {
+  async function fetchBookings(page = 1, pageSize = 10, status?: string, overstayed?: boolean) {
     loading.value = true
     error.value = null
     try {
-      const res = await bookingApi.list({ page, page_size: pageSize, status })
+      const res = await bookingApi.list({ page, page_size: pageSize, status, overstayed })
       bookings.value = res.data ?? []
       total.value = res.total
     } catch (err: any) {
@@ -44,11 +44,17 @@ export const useBookingsStore = defineStore('bookings', () => {
     return updated
   }
 
+  async function clearOverstayed(id: string): Promise<void> {
+    const updated = await bookingApi.clearOverstayed(id)
+    const idx = bookings.value.findIndex(b => b.id === id)
+    if (idx !== -1) bookings.value[idx] = updated
+  }
+
   async function deleteBooking(id: string): Promise<void> {
     await bookingApi.delete(id)
     bookings.value = bookings.value.filter(b => b.id !== id)
     total.value--
   }
 
-  return { bookings, total, loading, error, fetchBookings, createBooking, updateBooking, updateStatus, deleteBooking }
+  return { bookings, total, loading, error, fetchBookings, createBooking, updateBooking, updateStatus, clearOverstayed, deleteBooking }
 })

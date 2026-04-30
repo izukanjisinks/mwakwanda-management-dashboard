@@ -10,6 +10,7 @@ import {
   Building2,
   BarChart3,
   ShieldCheck,
+  Settings,
   LogOut,
   ChevronUp,
   User2,
@@ -98,6 +99,7 @@ const adminNav = [
     label: 'System',
     items: [
       { title: 'System Users', icon: ShieldCheck, routeName: 'users' },
+      { title: 'Settings', icon: Settings, routeName: 'settings' },
     ],
   },
 ]

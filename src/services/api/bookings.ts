@@ -7,6 +7,7 @@ export interface BookingListParams extends Record<string, string | number | bool
   status?: string
   client_type?: string
   client_id?: string
+  overstayed?: boolean
 }
 
 export const bookingApi = {
@@ -24,6 +25,9 @@ export const bookingApi = {
 
   updateStatus: (id: string, payload: BookingStatusUpdate) =>
     apiClient.patch<Booking>(`/bookings/${id}/status`, payload),
+
+  clearOverstayed: (id: string) =>
+    apiClient.patch<Booking>(`/bookings/${id}/clear-overstayed`),
 
   delete: (id: string) =>
     apiClient.delete<void>(`/bookings/${id}`),

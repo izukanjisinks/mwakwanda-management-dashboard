@@ -19,6 +19,7 @@ export interface Booking {
   meal_cost?: number
   total_amount: number
   status: BookingStatus
+  overstayed: boolean
   special_requests?: string
   created_at: string
   updated_at: string

@@ -3,7 +3,6 @@ import type {
   Menu,
   MenuItem,
   Order,
-  PaginatedMenus,
   PaginatedOrders,
   MenuPayload,
   MenuItemPayload,
@@ -12,10 +11,9 @@ import type {
   AddOrderItemsPayload,
 } from '@/types/menu'
 
-export interface MenuListParams extends Record<string, string | number | boolean | undefined> {
+export interface MenuItemsParams extends Record<string, string | number | boolean | undefined> {
   page?: number
   page_size?: number
-  is_active?: boolean
 }
 
 export interface OrderListParams extends Record<string, string | number | boolean | undefined> {
@@ -26,31 +24,22 @@ export interface OrderListParams extends Record<string, string | number | boolea
 }
 
 export const menusApi = {
-  // ── Menus ──────────────────────────────────────────────────────────────────
-  list: (params?: MenuListParams) =>
-    apiClient.get<PaginatedMenus>('/menus', { params }),
+  // ── Single org menu ────────────────────────────────────────────────────────
+  getMenu: (params?: MenuItemsParams) =>
+    apiClient.get<Menu>('/menu'),
 
-  get: (id: string) =>
-    apiClient.get<Menu>(`/menus/${id}`),
-
-  create: (payload: MenuPayload) =>
-    apiClient.post<Menu>('/menus', payload),
-
-  update: (id: string, payload: Partial<MenuPayload>) =>
-    apiClient.put<Menu>(`/menus/${id}`, payload),
-
-  delete: (id: string) =>
-    apiClient.delete<void>(`/menus/${id}`),
+  upsertMenu: (payload: Partial<MenuPayload>) =>
+    apiClient.put<Menu>('/menu', payload),
 
   // ── Menu Items ─────────────────────────────────────────────────────────────
-  createItem: (menuId: string, payload: MenuItemPayload) =>
-    apiClient.post<MenuItem>(`/menus/${menuId}/items`, payload),
+  createItem: (payload: MenuItemPayload) =>
+    apiClient.post<MenuItem>('/menu/items', payload),
 
-  updateItem: (menuId: string, itemId: string, payload: Partial<MenuItemPayload>) =>
-    apiClient.put<MenuItem>(`/menus/${menuId}/items/${itemId}`, payload),
+  updateItem: (itemId: string, payload: Partial<MenuItemPayload>) =>
+    apiClient.put<MenuItem>(`/menu/items/${itemId}`, payload),
 
-  deleteItem: (menuId: string, itemId: string) =>
-    apiClient.delete<void>(`/menus/${menuId}/items/${itemId}`),
+  deleteItem: (itemId: string) =>
+    apiClient.delete<void>(`/menu/items/${itemId}`),
 
   // ── Orders ─────────────────────────────────────────────────────────────────
   listOrders: (params?: OrderListParams) =>
@@ -67,4 +56,7 @@ export const menusApi = {
 
   addOrderItems: (orderId: string, payload: AddOrderItemsPayload) =>
     apiClient.post<Order>(`/orders/${orderId}/items`, payload),
+
+  closeAllOrders: () =>
+    apiClient.patch<void>('/orders/close-all'),
 }

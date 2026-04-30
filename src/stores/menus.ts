@@ -2,14 +2,16 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { menusApi } from '@/services/api/menus'
 import type { Menu, MenuItem, Order, MenuPayload, MenuItemPayload, PlaceInHouseOrderPayload, PlaceWalkInOrderPayload, AddOrderItemsPayload } from '@/types/menu'
-import type { MenuListParams, OrderListParams } from '@/services/api/menus'
+import type { OrderListParams } from '@/services/api/menus'
 
 export const useMenusStore = defineStore('menus', () => {
-  // ── Menus state ────────────────────────────────────────────────────────────
-  const menus = ref<Menu[]>([])
-  const menusTotal = ref(0)
-  const menusLoading = ref(false)
-  const menusError = ref<string | null>(null)
+  // ── Single org menu state ──────────────────────────────────────────────────
+  const menu = ref<Menu | null>(null)
+  const menuLoading = ref(false)
+  const menuError = ref<string | null>(null)
+  const itemsPage = ref(1)
+  const itemsTotal = ref(0)
+  const itemsPageSize = 10
 
   // ── Orders state ───────────────────────────────────────────────────────────
   const orders = ref<Order[]>([])
@@ -18,67 +20,50 @@ export const useMenusStore = defineStore('menus', () => {
   const ordersError = ref<string | null>(null)
 
   // ── Menu actions ───────────────────────────────────────────────────────────
-  async function fetchMenus(params?: MenuListParams) {
-    menusLoading.value = true
-    menusError.value = null
+  async function fetchMenu(page = 1) {
+    menuLoading.value = true
+    menuError.value = null
     try {
-      const res = await menusApi.list(params)
-      menus.value = res.data ?? []
-      menusTotal.value = res.total
+      const res = await menusApi.getMenu({ page, page_size: itemsPageSize })
+      menu.value = res
+      itemsPage.value = res.items?.page ?? 1
+      itemsTotal.value = res.items?.total ?? 0
     } catch (err: any) {
-      menusError.value = err?.error?.message ?? 'Failed to load menus.'
+      menuError.value = err?.error?.message ?? 'Failed to load menu.'
     } finally {
-      menusLoading.value = false
+      menuLoading.value = false
     }
   }
 
-  async function createMenu(payload: MenuPayload): Promise<Menu> {
-    const menu = await menusApi.create(payload)
-    menus.value.unshift(menu)
-    menusTotal.value++
-    return menu
-  }
-
-  async function updateMenu(id: string, payload: Partial<MenuPayload>): Promise<Menu> {
-    const updated = await menusApi.update(id, payload)
-    const idx = menus.value.findIndex(m => m.id === id)
-    if (idx !== -1) menus.value[idx] = updated
+  async function upsertMenu(payload: Partial<MenuPayload>): Promise<Menu> {
+    const updated = await menusApi.upsertMenu(payload)
+    if (menu.value) menu.value = { ...menu.value, ...updated }
     return updated
   }
 
-  async function deleteMenu(id: string): Promise<void> {
-    await menusApi.delete(id)
-    menus.value = menus.value.filter(m => m.id !== id)
-    menusTotal.value--
-  }
-
   // ── Menu item actions ──────────────────────────────────────────────────────
-  async function createMenuItem(menuId: string, payload: MenuItemPayload): Promise<MenuItem> {
-    const item = await menusApi.createItem(menuId, payload)
-    const menu = menus.value.find(m => m.id === menuId)
-    if (menu) {
-      if (!menu.items) menu.items = []
-      menu.items.push(item)
+  async function createMenuItem(payload: MenuItemPayload): Promise<MenuItem> {
+    const item = await menusApi.createItem(payload)
+    // Refresh current page so total and list stay in sync
+    await fetchMenu(itemsPage.value)
+    return item
+  }
+
+  async function updateMenuItem(itemId: string, payload: Partial<MenuItemPayload>): Promise<MenuItem> {
+    const item = await menusApi.updateItem(itemId, payload)
+    if (menu.value?.items) {
+      const idx = menu.value.items.data.findIndex(i => i.id === itemId)
+      if (idx !== -1) menu.value.items.data[idx] = item
     }
     return item
   }
 
-  async function updateMenuItem(menuId: string, itemId: string, payload: Partial<MenuItemPayload>): Promise<MenuItem> {
-    const item = await menusApi.updateItem(menuId, itemId, payload)
-    const menu = menus.value.find(m => m.id === menuId)
-    if (menu?.items) {
-      const idx = menu.items.findIndex(i => i.id === itemId)
-      if (idx !== -1) menu.items[idx] = item
-    }
-    return item
-  }
-
-  async function deleteMenuItem(menuId: string, itemId: string): Promise<void> {
-    await menusApi.deleteItem(menuId, itemId)
-    const menu = menus.value.find(m => m.id === menuId)
-    if (menu?.items) {
-      menu.items = menu.items.filter(i => i.id !== itemId)
-    }
+  async function deleteMenuItem(itemId: string): Promise<void> {
+    await menusApi.deleteItem(itemId)
+    // Refresh — item may have been last on page, so go back a page if needed
+    const newTotal = itemsTotal.value - 1
+    const maxPage = Math.max(1, Math.ceil(newTotal / itemsPageSize))
+    await fetchMenu(Math.min(itemsPage.value, maxPage))
   }
 
   // ── Order actions ──────────────────────────────────────────────────────────
@@ -117,11 +102,15 @@ export const useMenusStore = defineStore('menus', () => {
     return updated
   }
 
+  async function closeAllOrders(): Promise<void> {
+    await menusApi.closeAllOrders()
+  }
+
   return {
-    menus, menusTotal, menusLoading, menusError,
+    menu, menuLoading, menuError, itemsPage, itemsTotal, itemsPageSize,
     orders, ordersTotal, ordersLoading, ordersError,
-    fetchMenus, createMenu, updateMenu, deleteMenu,
+    fetchMenu, upsertMenu,
     createMenuItem, updateMenuItem, deleteMenuItem,
-    fetchOrders, placeInHouseOrder, placeWalkInOrder, addOrderItems,
+    fetchOrders, placeInHouseOrder, placeWalkInOrder, addOrderItems, closeAllOrders,
   }
 })

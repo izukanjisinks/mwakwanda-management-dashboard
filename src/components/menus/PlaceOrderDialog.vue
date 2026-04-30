@@ -3,7 +3,6 @@ import { ref, computed, watch } from 'vue'
 import { Loader2, Minus, Plus, ShoppingCart, Search } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { useMenusStore } from '@/stores/menus'
-import { menusApi } from '@/services/api/menus'
 import { bookingApi } from '@/services/api/bookings'
 import type { MenuItem, OrderItemInput } from '@/types/menu'
 import type { Booking } from '@/types/booking'
@@ -19,13 +18,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 
 const props = defineProps<{
   open: boolean
@@ -66,18 +58,7 @@ watch(
       bookingSearch.value = ''
       selectedBookingId.value = ''
       bookings.value = []
-      // Always fetch menus with items when dialog opens
-      await store.fetchMenus()
-      // Fetch full item data for each active menu that has no items loaded
-      const activeMenus = store.menus.filter(m => m.is_active)
-      await Promise.all(
-        activeMenus
-          .filter(m => !m.items)
-          .map(m => menusApi.get(m.id).then(full => {
-            const idx = store.menus.findIndex(x => x.id === m.id)
-            if (idx !== -1) store.menus[idx] = full
-          }).catch(() => {}))
-      )
+      await store.fetchMenu(1)
     }
   },
 )
@@ -119,22 +100,15 @@ function goBack() {
 // ── Cart helpers ────────────────────────────────────────────────────────────
 function addToCart(item: MenuItem) {
   const existing = cart.value.get(item.id)
-  if (existing) {
-    cart.value.set(item.id, { item, qty: existing.qty + 1 })
-  } else {
-    cart.value.set(item.id, { item, qty: 1 })
-  }
+  cart.value.set(item.id, { item, qty: (existing?.qty ?? 0) + 1 })
   cart.value = new Map(cart.value)
 }
 
 function removeFromCart(item: MenuItem) {
   const existing = cart.value.get(item.id)
   if (!existing) return
-  if (existing.qty <= 1) {
-    cart.value.delete(item.id)
-  } else {
-    cart.value.set(item.id, { item, qty: existing.qty - 1 })
-  }
+  if (existing.qty <= 1) cart.value.delete(item.id)
+  else cart.value.set(item.id, { item, qty: existing.qty - 1 })
   cart.value = new Map(cart.value)
 }
 
@@ -154,32 +128,23 @@ const cartCount = computed(() => {
   return n
 })
 
-// ── Item list ───────────────────────────────────────────────────────────────
-const allItems = computed(() => {
-  const items: MenuItem[] = []
-  for (const menu of store.menus) {
-    if (menu.is_active && menu.items) {
-      items.push(...menu.items.filter(i => i.is_available))
-    }
-  }
-  return items
-})
+// ── Item list grouped by category ───────────────────────────────────────────
+const availableItems = computed(() =>
+  (store.menu?.items?.data ?? []).filter(i => i.is_available),
+)
 
-const filteredItems = computed(() => {
+const itemsByCategory = computed(() => {
   const q = itemSearch.value.toLowerCase().trim()
-  if (!q) return allItems.value
-  return allItems.value.filter(i => i.name.toLowerCase().includes(q) || (i.description ?? '').toLowerCase().includes(q))
-})
-
-const itemsByMenu = computed(() => {
-  const q = itemSearch.value.toLowerCase().trim()
-  const result: { menuName: string; items: MenuItem[] }[] = []
-  for (const menu of store.menus) {
-    if (!menu.is_active || !menu.items) continue
-    const items = menu.items.filter(i => i.is_available && (!q || i.name.toLowerCase().includes(q) || (i.description ?? '').toLowerCase().includes(q)))
-    if (items.length > 0) result.push({ menuName: menu.name, items })
+  const filtered = availableItems.value.filter(
+    i => !q || i.name.toLowerCase().includes(q) || (i.description ?? '').toLowerCase().includes(q),
+  )
+  const groups = new Map<string, MenuItem[]>()
+  for (const item of filtered) {
+    const cat = item.category ?? 'other'
+    if (!groups.has(cat)) groups.set(cat, [])
+    groups.get(cat)!.push(item)
   }
-  return result
+  return Array.from(groups.entries()).map(([category, items]) => ({ category, items }))
 })
 
 // ── Booking filter ──────────────────────────────────────────────────────────
@@ -233,6 +198,10 @@ const stepLabels: Record<Step, string> = {
   booking: 'Select Booking',
   items: 'Select Items',
   review: 'Review & Place',
+}
+
+function formatCategory(cat: string) {
+  return cat.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
 const canProceedFromBooking = computed(() => !!selectedBookingId.value)
@@ -315,17 +284,17 @@ const canProceedFromItems = computed(() => cart.value.size > 0)
           </div>
         </div>
 
-        <div v-if="store.menusLoading" class="flex flex-col gap-2">
+        <div v-if="store.menuLoading" class="flex flex-col gap-2">
           <div v-for="i in 4" :key="i" class="h-14 rounded-lg bg-muted animate-pulse" />
         </div>
 
-        <div v-else-if="itemsByMenu.length === 0" class="py-8 text-center text-sm text-muted-foreground">
+        <div v-else-if="itemsByCategory.length === 0" class="py-8 text-center text-sm text-muted-foreground">
           No available items found.
         </div>
 
         <div v-else class="flex flex-col gap-4 max-h-72 overflow-y-auto pr-1">
-          <div v-for="group in itemsByMenu" :key="group.menuName">
-            <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">{{ group.menuName }}</p>
+          <div v-for="group in itemsByCategory" :key="group.category">
+            <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">{{ formatCategory(group.category) }}</p>
             <div class="flex flex-col gap-1.5">
               <div
                 v-for="item in group.items"

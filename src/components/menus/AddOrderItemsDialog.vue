@@ -3,7 +3,6 @@ import { ref, computed, watch } from 'vue'
 import { Loader2, Minus, Plus, Search, ShoppingCart } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { useMenusStore } from '@/stores/menus'
-import { menusApi } from '@/services/api/menus'
 import type { MenuItem } from '@/types/menu'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -39,16 +38,7 @@ watch(
     if (!val) return
     cart.value = new Map()
     itemSearch.value = ''
-    // Ensure menus with items are loaded
-    await store.fetchMenus()
-    await Promise.all(
-      store.menus
-        .filter(m => m.is_active && !m.items)
-        .map(m => menusApi.get(m.id).then(full => {
-          const idx = store.menus.findIndex(x => x.id === m.id)
-          if (idx !== -1) store.menus[idx] = full
-        }).catch(() => {}))
-    )
+    await store.fetchMenu(1)
   },
 )
 
@@ -83,25 +73,31 @@ const cartTotal = computed(() => {
   return t
 })
 
-// ── Menu item groups ────────────────────────────────────────────────────────
-const itemsByMenu = computed(() => {
+// ── Item list grouped by category ───────────────────────────────────────────
+const itemsByCategory = computed(() => {
   const q = itemSearch.value.toLowerCase().trim()
-  const result: { menuName: string; items: MenuItem[] }[] = []
-  for (const menu of store.menus) {
-    if (!menu.is_active || !menu.items) continue
-    const items = menu.items.filter(
-      i => i.is_available && (!q || i.name.toLowerCase().includes(q) || (i.description ?? '').toLowerCase().includes(q))
-    )
-    if (items.length > 0) result.push({ menuName: menu.name, items })
+  const available = (store.menu?.items?.data ?? []).filter(i => i.is_available)
+  const filtered = available.filter(
+    i => !q || i.name.toLowerCase().includes(q) || (i.description ?? '').toLowerCase().includes(q),
+  )
+  const groups = new Map<string, MenuItem[]>()
+  for (const item of filtered) {
+    const cat = item.category ?? 'other'
+    if (!groups.has(cat)) groups.set(cat, [])
+    groups.get(cat)!.push(item)
   }
-  return result
+  return Array.from(groups.entries()).map(([category, items]) => ({ category, items }))
 })
+
+function formatCategory(cat: string) {
+  return cat.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
 
 // ── Submit ──────────────────────────────────────────────────────────────────
 async function handleAdd() {
   adding.value = true
   try {
-    const updated = await store.addOrderItems(props.orderId, {
+    await store.addOrderItems(props.orderId, {
       items: Array.from(cart.value.values()).map(({ item, qty }) => ({
         menu_item_id: item.id,
         quantity: qty,
@@ -139,18 +135,18 @@ async function handleAdd() {
       </div>
 
       <!-- Item list -->
-      <div v-if="store.menusLoading" class="flex flex-col gap-2">
+      <div v-if="store.menuLoading" class="flex flex-col gap-2">
         <div v-for="i in 4" :key="i" class="h-14 rounded-lg bg-muted animate-pulse" />
       </div>
 
-      <div v-else-if="itemsByMenu.length === 0" class="py-8 text-center text-sm text-muted-foreground">
+      <div v-else-if="itemsByCategory.length === 0" class="py-8 text-center text-sm text-muted-foreground">
         No available items found.
       </div>
 
       <div v-else class="flex flex-col gap-4 max-h-72 overflow-y-auto pr-1">
-        <div v-for="group in itemsByMenu" :key="group.menuName">
+        <div v-for="group in itemsByCategory" :key="group.category">
           <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-            {{ group.menuName }}
+            {{ formatCategory(group.category) }}
           </p>
           <div class="flex flex-col gap-1.5">
             <div

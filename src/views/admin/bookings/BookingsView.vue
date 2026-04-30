@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { Plus, Pencil, Trash2, Search, ChevronLeft, ChevronRight } from 'lucide-vue-next'
+import { Plus, Pencil, Trash2, Search, ChevronLeft, ChevronRight, CircleAlert } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { useBookingsStore } from '@/stores/bookings'
+import { useAuthStore } from '@/stores/auth'
 import type { Booking, BookingStatus } from '@/types/booking'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import BookingDialog from '@/components/bookings/BookingDialog.vue'
@@ -34,27 +35,42 @@ import {
 } from '@/components/ui/dialog'
 
 const store = useBookingsStore()
+const authStore = useAuthStore()
+
+const canClearOverstayed = computed(() =>
+  authStore.userRole === 'admin' || authStore.userRole === 'manager'
+)
 
 const dialogOpen = ref(false)
 const selectedBooking = ref<Booking | null>(null)
 const deleteDialogOpen = ref(false)
 const bookingToDelete = ref<Booking | null>(null)
+const overstayDialogOpen = ref(false)
+const overstayBooking = ref<Booking | null>(null)
+const clearingOverstay = ref(false)
 const search = ref('')
-const statusFilter = ref<BookingStatus | 'all'>('all')
+const statusFilter = ref<BookingStatus | 'all' | 'overstayed'>('all')
 const deleting = ref(false)
 
 const page = ref(1)
-const pageSize = 20
+const pageSize = 10
 
 function loadBookings() {
-  store.fetchBookings(page.value, pageSize, statusFilter.value === 'all' ? undefined : statusFilter.value)
+  const isOverstayed = statusFilter.value === 'overstayed'
+  store.fetchBookings(
+    page.value,
+    pageSize,
+    isOverstayed ? undefined : (statusFilter.value === 'all' ? undefined : statusFilter.value as BookingStatus),
+    isOverstayed ? true : undefined,
+  )
 }
 
 onMounted(loadBookings)
 watch(page, loadBookings)
 
-function setStatus(val: BookingStatus | 'all') {
-  statusFilter.value = val
+function setStatus(val: string | null) {
+  if (!val) return
+  statusFilter.value = val as BookingStatus | 'all' | 'overstayed'
   page.value = 1
   loadBookings()
 }
@@ -69,8 +85,6 @@ const filtered = computed(() => {
     b.room_name.toLowerCase().includes(q),
   )
 })
-
-const paginated = filtered
 
 const statusConfig: Record<BookingStatus, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
   pending:     { label: 'Pending',     variant: 'outline' },
@@ -104,6 +118,11 @@ function confirmDelete(booking: Booking) {
   deleteDialogOpen.value = true
 }
 
+function openOverstayDialog(booking: Booking) {
+  overstayBooking.value = booking
+  overstayDialogOpen.value = true
+}
+
 async function handleDelete() {
   if (!bookingToDelete.value) return
   deleting.value = true
@@ -128,6 +147,21 @@ async function handleStatusChange(booking: Booking, status: BookingStatus) {
     toast.error('Failed to update booking status.')
   }
 }
+
+async function handleClearOverstayed() {
+  if (!overstayBooking.value) return
+  clearingOverstay.value = true
+  try {
+    await store.clearOverstayed(overstayBooking.value.id)
+    toast.success(`Overstayed flag cleared for ${overstayBooking.value.client_name}.`)
+    overstayDialogOpen.value = false
+    overstayBooking.value = null
+  } catch {
+    toast.error('Failed to clear overstayed flag.')
+  } finally {
+    clearingOverstay.value = false
+  }
+}
 </script>
 
 <template>
@@ -141,8 +175,8 @@ async function handleStatusChange(booking: Booking, status: BookingStatus) {
           <Search class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
           <Input v-model="search" placeholder="Search bookings..." class="pl-9" />
         </div>
-        <Select :model-value="statusFilter" @update:model-value="(v) => setStatus(v as BookingStatus | 'all')">
-          <SelectTrigger class="w-40">
+        <Select :model-value="statusFilter" @update:model-value="(v) => setStatus(v as string | null)">
+          <SelectTrigger class="w-44">
             <SelectValue placeholder="All statuses" />
           </SelectTrigger>
           <SelectContent>
@@ -152,6 +186,12 @@ async function handleStatusChange(booking: Booking, status: BookingStatus) {
             <SelectItem value="checked_in">Checked In</SelectItem>
             <SelectItem value="checked_out">Checked Out</SelectItem>
             <SelectItem value="cancelled">Cancelled</SelectItem>
+            <SelectItem value="overstayed">
+              <span class="flex items-center gap-1.5">
+                <CircleAlert class="size-3.5 text-amber-500" />
+                Overstayed
+              </span>
+            </SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -175,7 +215,7 @@ async function handleStatusChange(booking: Booking, status: BookingStatus) {
             <TableHead>Guests</TableHead>
             <TableHead>Total (ZMW)</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead class="w-24 text-right">Actions</TableHead>
+            <TableHead class="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -196,7 +236,7 @@ async function handleStatusChange(booking: Booking, status: BookingStatus) {
           </template>
 
           <template v-else>
-            <TableRow v-for="booking in paginated" :key="booking.id">
+            <TableRow v-for="booking in filtered" :key="booking.id">
               <TableCell class="font-mono text-sm">{{ booking.booking_number }}</TableCell>
               <TableCell>
                 <div class="font-medium">{{ booking.client_name }}</div>
@@ -223,7 +263,16 @@ async function handleStatusChange(booking: Booking, status: BookingStatus) {
                 </Select>
               </TableCell>
               <TableCell class="text-right">
-                <div class="flex justify-end gap-1">
+                <div class="flex justify-end items-center gap-1">
+                  <button
+                    v-if="booking.overstayed"
+                    type="button"
+                    class="size-8 flex items-center justify-center rounded-md text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors"
+                    title="Overstay details"
+                    @click="openOverstayDialog(booking)"
+                  >
+                    <CircleAlert class="size-4" />
+                  </button>
                   <Button variant="ghost" size="icon" class="size-8" @click="openEdit(booking)">
                     <Pencil class="size-4" />
                   </Button>
@@ -253,12 +302,90 @@ async function handleStatusChange(booking: Booking, status: BookingStatus) {
     </div>
   </div>
 
+  <!-- Booking create/edit dialog -->
   <BookingDialog
     v-model:open="dialogOpen"
     :booking="selectedBooking"
     @saved="dialogOpen = false"
   />
 
+  <!-- Overstay confirmation dialog -->
+  <Dialog v-model:open="overstayDialogOpen">
+    <DialogContent class="max-w-md gap-0 p-0 overflow-hidden">
+      <!-- Header -->
+      <DialogHeader class="px-6 py-4 border-b">
+        <DialogTitle class="text-primary text-lg font-semibold">Confirm Guest Overstay</DialogTitle>
+      </DialogHeader>
+
+      <div v-if="overstayBooking" class="px-6 py-5 space-y-4">
+        <!-- Description -->
+        <p class="text-sm text-muted-foreground leading-relaxed">
+          Our records indicate that <strong class="text-foreground">{{ overstayBooking.client_name }}</strong>
+          in <strong class="text-foreground">{{ overstayBooking.room_name }}</strong> has exceeded their
+          scheduled checkout date. Would you like to confirm this overstay?
+        </p>
+
+        <!-- Details card -->
+        <div class="rounded-xl border bg-muted/30 p-4 space-y-3">
+          <!-- Guest name row -->
+          <div class="flex items-center gap-3">
+            <div class="size-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <CircleAlert class="size-4 text-primary" />
+            </div>
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Guest Name</p>
+              <p class="text-sm font-semibold text-foreground">{{ overstayBooking.client_name }}</p>
+            </div>
+          </div>
+
+          <div class="border-t pt-3 grid grid-cols-2 gap-3">
+            <!-- Room -->
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-0.5">Room</p>
+              <p class="text-sm font-medium">{{ overstayBooking.room_name }}</p>
+            </div>
+            <!-- Scheduled check-out -->
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-0.5">Scheduled Out</p>
+              <p class="text-sm font-medium text-destructive">{{ formatDate(overstayBooking.check_out) }}</p>
+            </div>
+            <!-- Booking # -->
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-0.5">Booking #</p>
+              <p class="text-sm font-mono">{{ overstayBooking.booking_number }}</p>
+            </div>
+            <!-- Nights -->
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-0.5">Nights Booked</p>
+              <p class="text-sm font-medium">{{ nights(overstayBooking) }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer — full-width stacked buttons -->
+      <div class="px-6 pb-6 pt-2 flex flex-col gap-2">
+        <Button
+          v-if="canClearOverstayed"
+          class="w-full py-5 bg-emerald-600 hover:bg-emerald-700 text-white"
+          :disabled="clearingOverstay"
+          @click="handleClearOverstayed"
+        >
+          Confirm Overstay
+        </Button>
+        <Button
+          variant="ghost"
+          class="w-full py-5 text-primary hover:bg-primary/5"
+          :disabled="clearingOverstay"
+          @click="overstayDialogOpen = false"
+        >
+          Cancel
+        </Button>
+      </div>
+    </DialogContent>
+  </Dialog>
+
+  <!-- Delete confirmation dialog -->
   <Dialog v-model:open="deleteDialogOpen">
     <DialogContent class="max-w-sm">
       <DialogHeader>

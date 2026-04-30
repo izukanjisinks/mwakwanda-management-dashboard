@@ -1,11 +1,19 @@
+export interface PaginatedMenuItems {
+  data: MenuItem[]
+  page: number
+  page_size: number
+  total: number
+}
+
 export interface Menu {
   id: string
+  org_id: string
   name: string
   description?: string
   is_active: boolean
   created_at: string
   updated_at: string
-  items?: MenuItem[]
+  items?: PaginatedMenuItems
 }
 
 export type MenuCategory =
@@ -72,13 +80,6 @@ export interface Order {
   items: OrderItem[]
   created_at: string
   updated_at: string
-}
-
-export interface PaginatedMenus {
-  data: Menu[]
-  page: number
-  page_size: number
-  total: number
 }
 
 export interface PaginatedOrders {

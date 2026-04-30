@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Confirm Guest Overstay - Lumina Hospitality Hub</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-on-surface": "#eff1f3",
+                        "primary": "#00288e",
+                        "on-surface-variant": "#444653",
+                        "primary-fixed": "#dde1ff",
+                        "on-primary-fixed": "#001453",
+                        "secondary-fixed": "#89f5e7",
+                        "surface-dim": "#d8dadc",
+                        "on-primary-fixed-variant": "#173bab",
+                        "surface-container-highest": "#e0e3e5",
+                        "surface-container-low": "#f2f4f6",
+                        "background": "#f7f9fb",
+                        "on-tertiary-fixed-variant": "#3a485c",
+                        "on-primary": "#ffffff",
+                        "on-tertiary-container": "#aebcd5",
+                        "on-secondary-fixed": "#00201d",
+                        "on-error-container": "#93000a",
+                        "on-secondary-container": "#006f66",
+                        "surface-variant": "#e0e3e5",
+                        "primary-fixed-dim": "#b8c4ff",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary": "#006a61",
+                        "surface-container-high": "#e6e8ea",
+                        "surface-tint": "#3755c3",
+                        "surface-bright": "#f7f9fb",
+                        "tertiary-fixed-dim": "#b9c7e0",
+                        "primary-container": "#1e40af",
+                        "inverse-primary": "#b8c4ff",
+                        "outline": "#757684",
+                        "inverse-surface": "#2d3133",
+                        "tertiary-container": "#3e4c60",
+                        "on-secondary": "#ffffff",
+                        "on-tertiary": "#ffffff",
+                        "tertiary": "#273549",
+                        "on-tertiary-fixed": "#0d1c2f",
+                        "on-primary-container": "#a8b8ff",
+                        "surface": "#f7f9fb",
+                        "secondary-container": "#86f2e4",
+                        "surface-container": "#eceef0",
+                        "error-container": "#ffdad6",
+                        "on-background": "#191c1e",
+                        "error": "#ba1a1a",
+                        "on-surface": "#191c1e",
+                        "outline-variant": "#c4c5d5",
+                        "on-secondary-fixed-variant": "#005049",
+                        "tertiary-fixed": "#d5e3fd",
+                        "secondary-fixed-dim": "#6bd8cb",
+                        "on-error": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "unit-md": "16px",
+                        "unit-sm": "8px",
+                        "unit-xl": "48px",
+                        "unit-lg": "24px",
+                        "sidebar-width": "260px",
+                        "container-max": "1440px",
+                        "gutter": "24px",
+                        "unit-xs": "4px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-xl": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "status-badge": ["Inter"],
+                        "label-bold": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "headline-xl": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "headline-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "status-badge": ["12px", {"lineHeight": "12px", "fontWeight": "500"}],
+                        "label-bold": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body class="bg-background font-body-md text-on-surface antialiased min-h-screen flex items-center justify-center p-gutter">
+<!-- Modal Overlay Background -->
+<div class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-0"></div>
+<!-- Main Dialog Container (Level 2 Elevation) -->
+<main class="relative z-10 w-full max-w-md bg-surface-container-lowest rounded-xl shadow-[0px_10px_15px_rgba(0,0,0,0.1)] border border-outline-variant overflow-hidden">
+<!-- Header Section -->
+<div class="px-unit-lg py-unit-md flex items-center justify-between border-b border-surface-container-highest">
+<h1 class="font-headline-md text-headline-md text-primary">Confirm Guest Overstay</h1>
+<button class="text-on-surface-variant hover:bg-surface-container-high p-1 rounded-lg transition-colors cursor-pointer">
+<span class="material-symbols-outlined" data-icon="close">close</span>
+</button>
+</div>
+<!-- Body Content -->
+<div class="p-unit-lg space-y-unit-lg">
+<p class="font-body-lg text-body-lg text-on-surface-variant">
+                Our records indicate that the guest in Room 123 has exceeded their scheduled checkout time. Would you like to confirm this overstay?
+            </p>
+<!-- Details Card (Level 1 Surface) -->
+<div class="bg-surface-container-low border border-outline-variant rounded-xl p-unit-md space-y-unit-sm">
+<div class="flex items-start gap-unit-md">
+<div class="bg-primary-fixed text-on-primary-fixed p-2 rounded-lg">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+</div>
+<div>
+<p class="font-label-bold text-label-bold text-on-surface-variant uppercase">Guest Name</p>
+<p class="font-body-lg text-body-lg font-semibold text-on-surface">Alexander Wright</p>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-unit-md pt-unit-sm">
+<div class="flex items-start gap-unit-md">
+<div class="text-primary-fixed-dim">
+<span class="material-symbols-outlined" data-icon="bed">bed</span>
+</div>
+<div>
+<p class="font-label-bold text-label-bold text-on-surface-variant uppercase">Room</p>
+<p class="font-body-md text-body-md font-medium">123</p>
+</div>
+</div>
+<div class="flex items-start gap-unit-md">
+<div class="text-primary-fixed-dim">
+<span class="material-symbols-outlined" data-icon="schedule">schedule</span>
+</div>
+<div>
+<p class="font-label-bold text-label-bold text-on-surface-variant uppercase">Scheduled Out</p>
+<p class="font-body-md text-body-md font-medium">11:00 AM Today</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Image/Visual Context (Asymmetric Layout Decoration) -->
+<div class="relative h-24 w-full rounded-xl overflow-hidden grayscale opacity-40">
+<img alt="Hotel corridor luxury" class="w-full h-full object-cover" data-alt="Modern hotel corridor with soft atmospheric lighting, architectural lines, and premium carpet texture in professional blue tones" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAb_N9Kb1QpLtBqyDgBuHTQQUrLRpJ3PRoqSEp982Dd5qcgbYk2CWsiAPV6jBB9SXEfbugNhgDkXqxrMjaN24fkvNR0z1lgA0p2P5VCvQCIeUlWpHGvqVQvYHp720p9RCQEYtWFLzLlFmgcy_5eLvAosN6UTzRsVnRqdhe8J1bkQSeMQIJamp0N_u91Hq6kAcaBWU7m7WNjaQfinwfI3vfly9iouvaHO8_ihYWzkAmbDUbQ7H5rdQjEBhs15ersOwXDj8Y88UrIsns"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-lowest to-transparent"></div>
+</div>
+</div>
+<!-- Action Footer -->
+<div class="px-unit-lg pb-unit-lg pt-2 space-y-unit-sm">
+<!-- Primary Action: Confirm (Success) -->
+<button class="w-full bg-secondary text-on-secondary font-label-bold py-4 rounded-xl flex items-center justify-center gap-unit-sm hover:brightness-110 active:opacity-80 transition-all cursor-pointer shadow-sm">
+<span class="material-symbols-outlined" data-icon="check_circle">check_circle</span>
+                Confirm Overstay
+            </button>
+<!-- Secondary Action: Cancel -->
+<button class="w-full bg-transparent text-primary font-label-bold py-3 rounded-xl hover:bg-primary-fixed/30 transition-colors cursor-pointer">
+                Cancel
+            </button>
+</div>
+</main>
+<!-- Contextual Information (Bento grid style background element for depth) -->
+<div class="fixed bottom-gutter right-gutter max-w-xs space-y-unit-md opacity-20 pointer-events-none select-none hidden lg:block">
+<div class="bg-white border border-outline-variant p-unit-md rounded-xl shadow-sm">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-primary" data-icon="info">info</span>
+<p class="font-label-bold text-primary">POLICY REMINDER</p>
+</div>
+<p class="text-xs text-on-surface-variant">Overstaying guests are charged a late checkout fee equivalent to 50% of the daily rate after 12:00 PM.</p>
+</div>
+</div>
+</body></html>
