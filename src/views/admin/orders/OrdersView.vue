@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { Plus, ChevronLeft, ChevronRight, ShoppingBag } from 'lucide-vue-next'
+import { Plus, ChevronLeft, ChevronRight, ShoppingBag, Trash2 } from 'lucide-vue-next'
 import { useMenusStore } from '@/stores/menus'
 import type { Order } from '@/types/menu'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
@@ -89,10 +89,24 @@ async function refreshSheet() {
   try {
     const full = await menusApi.getOrder(sheetOrder.value.id)
     sheetOrder.value = full
-    // Also update the row in the orders list
     const idx = store.orders.findIndex(o => o.id === full.id)
     if (idx !== -1) store.orders[idx] = full
   } catch {}
+}
+
+const removingItemId = ref<string | null>(null)
+
+async function removeItem(itemId: string) {
+  if (!sheetOrder.value) return
+  removingItemId.value = itemId
+  try {
+    const updated = await store.removeOrderItem(sheetOrder.value.id, itemId)
+    sheetOrder.value = updated
+  } catch {
+    // silently keep current state
+  } finally {
+    removingItemId.value = null
+  }
 }
 </script>
 
@@ -272,7 +286,7 @@ async function refreshSheet() {
               <div
                 v-for="oi in sheetOrder.items"
                 :key="oi.id"
-                class="rounded-lg border bg-card px-4 py-3 flex items-center justify-between gap-3"
+                class="rounded-lg border bg-card px-4 py-3 flex items-center gap-3"
               >
                 <div class="flex-1 min-w-0">
                   <p class="text-sm font-medium">{{ oi.item_name ?? oi.menu_item?.name ?? `Item ${oi.menu_item_id.slice(0, 8)}` }}</p>
@@ -282,6 +296,18 @@ async function refreshSheet() {
                   <p class="text-sm font-semibold">ZMW {{ (oi.subtotal ?? oi.total ?? 0).toLocaleString() }}</p>
                   <p class="text-xs text-muted-foreground">× {{ oi.quantity }} @ ZMW {{ (oi.unit_price ?? 0).toLocaleString() }}</p>
                 </div>
+                <button
+                  type="button"
+                  class="shrink-0 size-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                  :disabled="removingItemId === oi.id"
+                  @click.stop="removeItem(oi.id)"
+                >
+                  <Trash2 v-if="removingItemId !== oi.id" class="size-3.5" />
+                  <svg v-else class="size-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                </button>
               </div>
             </div>
           </div>

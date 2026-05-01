@@ -98,7 +98,15 @@ export const useMenusStore = defineStore('menus', () => {
   async function addOrderItems(orderId: string, payload: AddOrderItemsPayload): Promise<Order> {
     const updated = await menusApi.addOrderItems(orderId, payload)
     const idx = orders.value.findIndex(o => o.id === orderId)
-    if (idx !== -1) orders.value[idx] = updated
+    if (idx !== -1) orders.value.splice(idx, 1, updated)
+    return updated
+  }
+
+  async function removeOrderItem(orderId: string, itemId: string): Promise<Order> {
+    await menusApi.removeOrderItem(orderId, itemId)
+    const updated = await menusApi.getOrder(orderId)
+    const idx = orders.value.findIndex(o => o.id === orderId)
+    if (idx !== -1) orders.value.splice(idx, 1, updated)
     return updated
   }
 
@@ -111,6 +119,6 @@ export const useMenusStore = defineStore('menus', () => {
     orders, ordersTotal, ordersLoading, ordersError,
     fetchMenu, upsertMenu,
     createMenuItem, updateMenuItem, deleteMenuItem,
-    fetchOrders, placeInHouseOrder, placeWalkInOrder, addOrderItems, closeAllOrders,
+    fetchOrders, placeInHouseOrder, placeWalkInOrder, addOrderItems, removeOrderItem, closeAllOrders,
   }
 })

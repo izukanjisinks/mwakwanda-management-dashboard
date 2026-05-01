@@ -57,6 +57,9 @@ export const menusApi = {
   addOrderItems: (orderId: string, payload: AddOrderItemsPayload) =>
     apiClient.post<Order>(`/orders/${orderId}/items`, payload),
 
+  removeOrderItem: (orderId: string, itemId: string) =>
+    apiClient.delete<Order>(`/orders/${orderId}/items/${itemId}`),
+
   closeAllOrders: () =>
     apiClient.patch<void>('/orders/close-all'),
 }
