@@ -246,7 +246,7 @@ function categoryLabel(cat?: MenuCategory) {
       <!-- ── Add Item Form ──────────────────────────────────────────────────── -->
       <div v-if="canWrite" class="rounded-xl border bg-card p-6">
         <div class="mb-5">
-          <h3 class="font-semibold text-base">Add Item</h3>
+          <h3 class="font-semibold text-base">Add Menu Item</h3>
           <p class="text-sm text-muted-foreground mt-0.5">Fill in the details below and click Add Item.</p>
         </div>
 
