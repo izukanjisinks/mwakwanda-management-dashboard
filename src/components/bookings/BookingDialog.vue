@@ -13,6 +13,13 @@ import { Calendar } from '@/components/ui/calendar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { ArrowRight, ArrowLeft, Check, Loader2, Plus, Trash2, ChevronDown, ChevronUp, UserPlus, Search, X, CalendarIcon } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { useBookingsStore } from '@/stores/bookings'
@@ -64,6 +71,7 @@ const form = ref({
   full_name: '',
   email: '',
   phone: '',
+  id_type: 'nrc' as 'nrc' | 'passport',
   id_passport_number: '',
   notes: '',
   // Corporate fields
@@ -103,6 +111,7 @@ function clearClientSearch() {
   form.value.full_name = ''
   form.value.email = ''
   form.value.phone = ''
+  form.value.id_type = 'nrc'
   form.value.id_passport_number = ''
   form.value.notes = ''
   form.value.company_name = ''
@@ -119,12 +128,12 @@ interface GuestRow {
   full_name: string
   email: string
   phone: string
+  id_type: 'nrc' | 'passport'
   id_number: string
   room_id: string
   check_in: string
   check_out: string
   collapsed: boolean
-  // popover open state
   checkInOpen: boolean
   checkOutOpen: boolean
 }
@@ -133,7 +142,7 @@ let guestSeq = 0
 function makeGuest(): GuestRow {
   return {
     id: ++guestSeq,
-    full_name: '', email: '', phone: '', id_number: '',
+    full_name: '', email: '', phone: '', id_type: 'nrc' as 'nrc' | 'passport', id_number: '',
     room_id: '', check_in: '', check_out: '',
     collapsed: false, checkInOpen: false, checkOutOpen: false,
   }
@@ -233,14 +242,35 @@ watch(() => form.value.client_type, () => {
 })
 
 // ── Validation ────────────────────────────────────────────────────────────────
+const NRC_PATTERN = /^\d{6}\/\d{2}\/\d{1}$/
+const PASSPORT_PATTERN = /^[A-Z]{1,2}[0-9]{6,9}$/i
+
+function validateIdNumber(type: 'nrc' | 'passport', value: string): string {
+  if (!value.trim()) return ''
+  if (type === 'nrc' && !NRC_PATTERN.test(value)) return 'Invalid NRC format. Expected: 123456/78/1'
+  if (type === 'passport' && !PASSPORT_PATTERN.test(value.toUpperCase())) return 'Invalid passport format. Expected: AA123456 or A12345678'
+  return ''
+}
+
 function validateStep1(): string {
   if (form.value.client_type === 'individual') {
     if (!form.value.full_name.trim()) return 'Full name is required.'
+    const idErr = validateIdNumber(form.value.id_type, form.value.id_passport_number)
+    if (idErr) return idErr
     if (!form.value.check_in) return 'Check-in date is required.'
     if (!form.value.check_out) return 'Check-out date is required.'
     if (nights.value === 0) return 'Check-out must be after check-in.'
   } else {
     if (!form.value.company_name.trim()) return 'Company name is required.'
+  }
+  return ''
+}
+
+function validateStep2(): string {
+  for (const [i, g] of guests.value.entries()) {
+    const label = g.full_name || `Guest ${i + 1}`
+    const idErr = validateIdNumber(g.id_type, g.id_number)
+    if (idErr) return `${label}: ${idErr}`
   }
   return ''
 }
@@ -251,6 +281,10 @@ function goNext() {
     const err = validateStep1()
     if (err) { error.value = err; return }
     if (isEdit.value) { handleSave(); return }
+  }
+  if (isStep('guests')) {
+    const err = validateStep2()
+    if (err) { error.value = err; return }
   }
   if (step.value >= totalSteps.value) { handleSave(); return }
   step.value++
@@ -404,7 +438,7 @@ function formatDate(d: string) {
               <Search class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
               <Input
                 v-model="clientSearch"
-                :placeholder="form.client_type === 'individual' ? 'Search by NRC or passport number' : 'Search by organisation name'"
+                :placeholder="form.client_type === 'individual' ? 'Search by NRC or passport number…' : 'Search by organisation name…'"
                 class="pl-9 pr-9"
               />
               <button
@@ -445,8 +479,22 @@ function formatDate(d: string) {
               </div>
             </div>
             <div class="grid gap-2">
-              <Label>NRC / Passport Number</Label>
-              <Input v-model="form.id_passport_number" placeholder="e.g. 123456/78/1 or A12345678" />
+              <Label>ID Number</Label>
+              <div class="grid grid-cols-[1fr_2fr] gap-2">
+                <Select v-model="form.id_type">
+                  <SelectTrigger class="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="nrc">NRC</SelectItem>
+                    <SelectItem value="passport">Passport</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input
+                  v-model="form.id_passport_number"
+                  :placeholder="form.id_type === 'nrc' ? '123456/78/1' : 'AA123456'"
+                />
+              </div>
             </div>
           </template>
 
@@ -545,15 +593,16 @@ function formatDate(d: string) {
             <!-- Room -->
             <div class="grid gap-2">
               <Label>Room *</Label>
-              <select
-                v-model="form.room_id"
-                class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-              >
-                <option value="">Select a room</option>
-                <option v-for="room in availableRooms" :key="room.id" :value="room.id">
-                  {{ room.name }}
-                </option>
-              </select>
+              <Select v-model="form.room_id">
+                <SelectTrigger class="w-full">
+                  <SelectValue placeholder="Select a room" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="room in availableRooms" :key="room.id" :value="room.id">
+                    {{ room.name }}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </template>
         </div>
@@ -635,8 +684,23 @@ function formatDate(d: string) {
                       <Input v-model="guest.phone" type="tel" placeholder="Phone" class="h-8 text-sm" />
                     </div>
                     <div class="grid gap-1">
-                      <Label class="text-xs text-muted-foreground uppercase tracking-wider">ID (NRC/Passport)</Label>
-                      <Input v-model="guest.id_number" placeholder="ID number" class="h-8 text-sm" />
+                      <Label class="text-xs text-muted-foreground uppercase tracking-wider">ID Number</Label>
+                      <div class="grid grid-cols-[1fr_2fr] gap-1.5">
+                        <Select v-model="guest.id_type">
+                          <SelectTrigger class="h-8 text-sm w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="nrc">NRC</SelectItem>
+                            <SelectItem value="passport">Passport</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          v-model="guest.id_number"
+                          :placeholder="guest.id_type === 'nrc' ? '123456/78/1' : 'AA123456'"
+                          class="h-8 text-sm"
+                        />
+                      </div>
                     </div>
                     <button
                       type="button"
@@ -652,15 +716,16 @@ function formatDate(d: string) {
                   <div class="grid grid-cols-3 gap-3">
                     <div class="grid gap-1">
                       <Label class="text-xs text-muted-foreground uppercase tracking-wider">Room</Label>
-                      <select
-                        v-model="guest.room_id"
-                        class="h-8 w-full rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                      >
-                        <option value="">Select a room</option>
-                        <option v-for="room in availableRooms" :key="room.id" :value="room.id">
-                          {{ room.name }}
-                        </option>
-                      </select>
+                      <Select v-model="guest.room_id">
+                        <SelectTrigger class="h-8 text-sm w-full">
+                          <SelectValue placeholder="Select a room" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem v-for="room in availableRooms" :key="room.id" :value="room.id">
+                            {{ room.name }}
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div class="grid gap-1">
                       <Label class="text-xs text-muted-foreground uppercase tracking-wider">Check-In</Label>
