@@ -10,7 +10,7 @@ const loading = ref(true)
 
 onMounted(async () => {
   try {
-    const res = await auditLogsApi.list({ page: 1, page_size: 20 })
+    const res = await auditLogsApi.list({ page: 1, page_size: 4 })
     logs.value = Array.isArray(res) ? res : (res as any).data ?? []
   } catch {
     // silently leave empty
