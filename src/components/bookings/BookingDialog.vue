@@ -191,6 +191,7 @@ interface GuestRow {
   collapsed: boolean
   checkInOpen: boolean
   checkOutOpen: boolean
+  clientId: string
 }
 
 let guestSeq = 0
@@ -200,6 +201,45 @@ function makeGuest(): GuestRow {
     full_name: '', email: '', phone: '', id_type: 'nrc' as 'nrc' | 'passport', id_number: '',
     room_id: '', check_in: '', check_out: '',
     collapsed: false, checkInOpen: false, checkOutOpen: false,
+    clientId: '',
+  }
+}
+
+// ── Guest lookup (shared search bar in header) ────────────────────────────────
+const guestLookupQuery = ref('')
+const guestLookupLoading = ref(false)
+const guestLookupNotFound = ref(false)
+let guestLookupTimer: ReturnType<typeof setTimeout> | null = null
+
+function onGuestLookupInput() {
+  guestLookupNotFound.value = false
+  guestLookupLoading.value = false
+  if (guestLookupTimer) clearTimeout(guestLookupTimer)
+  if (!guestLookupQuery.value.trim()) return
+  guestLookupTimer = setTimeout(runGuestLookup, 500)
+}
+
+async function runGuestLookup() {
+  const query = guestLookupQuery.value.trim()
+  if (!query) return
+  guestLookupLoading.value = true
+  try {
+    const client = await individualClientApi.lookup(query)
+    const first = guests.value[0]
+    const isBlank = first && !first.full_name && !first.email && !first.phone && !first.id_number && !first.room_id
+    const guest = isBlank ? first : makeGuest()
+    guest.full_name = client.full_name
+    guest.email = client.email
+    guest.phone = client.phone
+    guest.id_number = client.id_passport_number
+    guest.id_type = /^\d{6}\/\d{2}\/\d{1}$/.test(client.id_passport_number) ? 'nrc' : 'passport'
+    guest.clientId = client.id
+    if (!isBlank) guests.value.push(guest)
+    guestLookupQuery.value = ''
+  } catch {
+    guestLookupNotFound.value = true
+  } finally {
+    guestLookupLoading.value = false
   }
 }
 
@@ -408,11 +448,15 @@ async function handleSave() {
           },
         }),
         guests: guests.value.map(g => ({
-          ...(g.id_number ? { client_id: undefined } : {}),
-          full_name: g.full_name,
-          email: g.email || undefined,
-          phone: g.phone || undefined,
-          id_number: g.id_number || undefined,
+          ...(g.clientId
+            ? { client_id: g.clientId }
+            : {
+                full_name: g.full_name,
+                email: g.email || undefined,
+                phone: g.phone || undefined,
+                id_number: g.id_number || undefined,
+              }
+          ),
           room_id: g.room_id,
           check_in: new Date(g.check_in).toISOString(),
           check_out: new Date(g.check_out).toISOString(),
@@ -578,7 +622,7 @@ function formatDate(d: string) {
               <div class="grid grid-cols-[1fr_2fr] gap-2">
                 <Select v-model="form.id_type">
                   <SelectTrigger class="w-full">
-                    <SelectValue />
+                    <SelectValue :placeholder="form.id_type === 'nrc' ? 'NRC' : 'Passport'" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="nrc">NRC</SelectItem>
@@ -713,12 +757,23 @@ function formatDate(d: string) {
           </div>
 
           <!-- Guest list header -->
-          <div class="flex items-center justify-between shrink-0">
-            <div class="flex items-center gap-2 text-sm font-medium">
+          <div class="flex items-center gap-3 shrink-0">
+            <div class="flex items-center gap-2 text-sm font-medium shrink-0">
               <UserPlus class="size-4 text-muted-foreground" />
               <span>Guest List <span class="text-muted-foreground font-normal">({{ guests.length }})</span></span>
             </div>
-            <Button variant="outline" size="sm" @click="addGuest">
+            <div class="relative flex-1">
+              <Search class="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+              <Input
+                v-model="guestLookupQuery"
+                placeholder="Look up by NRC or passport…"
+                class="h-8 text-sm pl-8 pr-8"
+                @input="onGuestLookupInput"
+              />
+              <Loader2 v-if="guestLookupLoading" class="absolute right-2.5 top-1/2 -translate-y-1/2 size-3.5 animate-spin text-muted-foreground" />
+              <span v-else-if="guestLookupNotFound" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">Not found</span>
+            </div>
+            <Button variant="outline" size="sm" class="shrink-0" @click="addGuest">
               <Plus class="size-3.5 mr-1.5" />
               Add Guest
             </Button>
@@ -764,8 +819,9 @@ function formatDate(d: string) {
 
                 <!-- Expanded fields -->
                 <div v-if="!guest.collapsed" class="px-4 py-4 bg-muted/5 flex flex-col gap-3">
-                  <!-- Guest details row -->
-                  <div class="grid grid-cols-[1fr_1fr_1fr_1fr_2.5rem] gap-3 items-end">
+                  <!-- Guest details + identity in a shared 4-col grid -->
+                  <div class="grid grid-cols-[1fr_1fr_1fr_2.5rem] gap-x-3 gap-y-2">
+                    <!-- Row 1: name / email / phone / (delete placeholder) -->
                     <div class="grid gap-1">
                       <Label class="text-xs text-muted-foreground uppercase tracking-wider">Full Name</Label>
                       <Input v-model="guest.full_name" placeholder="Full name" class="h-8 text-sm" />
@@ -778,37 +834,43 @@ function formatDate(d: string) {
                       <Label class="text-xs text-muted-foreground uppercase tracking-wider">Phone</Label>
                       <Input v-model="guest.phone" type="tel" placeholder="Phone" class="h-8 text-sm" />
                     </div>
+                    <div />
+
+                    <!-- Row 2: id-type / id-number (spans 2 cols) / delete -->
                     <div class="grid gap-1">
-                      <Label class="text-xs text-muted-foreground uppercase tracking-wider">ID Number</Label>
-                      <div class="grid grid-cols-[1fr_2fr] gap-1.5">
-                        <Select v-model="guest.id_type">
-                          <SelectTrigger class="h-8 text-sm w-full">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="nrc">NRC</SelectItem>
-                            <SelectItem value="passport">Passport</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Input
-                          v-model="guest.id_number"
-                          :placeholder="guest.id_type === 'nrc' ? '123456/78/1' : 'AA123456'"
-                          class="h-8 text-sm"
-                        />
-                      </div>
+                      <Label class="text-xs text-muted-foreground uppercase tracking-wider">ID Type</Label>
+                      <Select v-model="guest.id_type">
+                        <SelectTrigger class="h-8 text-sm w-full">
+                          <SelectValue :placeholder="guest.id_type === 'nrc' ? 'NRC' : 'Passport'" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="nrc">NRC</SelectItem>
+                          <SelectItem value="passport">Passport</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                    <button
-                      type="button"
-                      class="size-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-30"
-                      :disabled="guests.length === 1"
-                      @click="removeGuest(guest.id)"
-                    >
-                      <Trash2 class="size-4" />
-                    </button>
+                    <div class="col-span-2 grid gap-1">
+                      <Label class="text-xs text-muted-foreground uppercase tracking-wider">ID Number</Label>
+                      <Input
+                        v-model="guest.id_number"
+                        :placeholder="guest.id_type === 'nrc' ? '123456/78/1' : 'AA123456'"
+                        class="h-8 text-sm"
+                      />
+                    </div>
+                    <div class="flex items-end">
+                      <button
+                        type="button"
+                        class="size-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-30"
+                        :disabled="guests.length === 1"
+                        @click="removeGuest(guest.id)"
+                      >
+                        <Trash2 class="size-4" />
+                      </button>
+                    </div>
                   </div>
 
                   <!-- Room + dates row -->
-                  <div class="grid grid-cols-3 gap-3">
+                  <div class="grid grid-cols-[1fr_1fr_1fr_2.5rem] gap-x-3">
                     <div class="grid gap-1">
                       <Label class="text-xs text-muted-foreground uppercase tracking-wider">Room</Label>
                       <Select v-model="guest.room_id">
@@ -872,6 +934,7 @@ function formatDate(d: string) {
                         </PopoverContent>
                       </Popover>
                     </div>
+                    <div />
                   </div>
                 </div>
               </div>
