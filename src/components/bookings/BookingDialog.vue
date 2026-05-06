@@ -98,11 +98,22 @@ async function runClientSearch(query: string) {
         clientFound.value = true
       } else {
         clientNotFound.value = true
+        form.value.company_name = ''
+        form.value.contact_person = ''
+        form.value.company_email = ''
+        form.value.company_phone = ''
+        form.value.company_reg_number = ''
+        form.value.industry = ''
       }
     }
   } catch {
     // 404 from individual lookup means no match
     clientNotFound.value = true
+    form.value.client_id = ''
+    form.value.full_name = ''
+    form.value.email = ''
+    form.value.phone = ''
+    form.value.id_passport_number = ''
   } finally {
     clientSearchLoading.value = false
   }
