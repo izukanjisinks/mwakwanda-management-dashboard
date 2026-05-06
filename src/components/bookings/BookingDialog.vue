@@ -574,7 +574,7 @@ function formatDate(d: string) {
               </div>
             </div>
             <div class="grid gap-2">
-              <Label>ID Number</Label>
+              <Label>Identity</Label>
               <div class="grid grid-cols-[1fr_2fr] gap-2">
                 <Select v-model="form.id_type">
                   <SelectTrigger class="w-full">
