@@ -75,6 +75,7 @@ export interface Order {
   room_name?: string
   client_name?: string
   type: 'in_house' | 'walk_in'
+  status?: 'open' | 'closed'
   notes?: string
   total?: number
   items: OrderItem[]

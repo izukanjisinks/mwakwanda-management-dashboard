@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { Plus, Pencil, Trash2, Search, ChevronLeft, ChevronRight, CircleAlert } from 'lucide-vue-next'
+import { Plus, Pencil, Trash2, Search, ChevronLeft, ChevronRight, CircleAlert, CalendarIcon } from 'lucide-vue-next'
+import type { DateValue } from '@internationalized/date'
+import { CalendarDate } from '@internationalized/date'
 import { toast } from 'vue-sonner'
 import { useBookingsStore } from '@/stores/bookings'
 import { useAuthStore } from '@/stores/auth'
@@ -10,6 +12,8 @@ import BookingDialog from '@/components/bookings/BookingDialog.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Calendar } from '@/components/ui/calendar'
 import {
   Select,
   SelectContent,
@@ -52,6 +56,39 @@ const search = ref('')
 const statusFilter = ref<BookingStatus | 'all' | 'overstayed'>('all')
 const deleting = ref(false)
 
+// ── Date range filter ─────────────────────────────────────────────────────────
+const maxDate = new CalendarDate(2035, 1, 1)
+
+function toCalendarDate(iso: string): DateValue | undefined {
+  if (!iso) return undefined
+  const d = new Date(iso)
+  return new CalendarDate(d.getFullYear(), d.getMonth() + 1, d.getDate())
+}
+
+function fromCalendarDate(dv: DateValue): string {
+  return `${dv.year}-${String(dv.month).padStart(2, '0')}-${String(dv.day).padStart(2, '0')}`
+}
+
+function formatDisplayDate(iso: string) {
+  if (!iso) return ''
+  return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+const filterFrom = ref('')
+const filterTo = ref('')
+const fromOpen = ref(false)
+const toOpen = ref(false)
+
+const fromDate = computed({
+  get: () => toCalendarDate(filterFrom.value),
+  set: (dv) => { if (dv) { filterFrom.value = fromCalendarDate(dv); fromOpen.value = false } },
+})
+
+const toDate = computed({
+  get: () => toCalendarDate(filterTo.value),
+  set: (dv) => { if (dv) { filterTo.value = fromCalendarDate(dv); toOpen.value = false } },
+})
+
 const page = ref(1)
 const pageSize = 10
 
@@ -62,11 +99,14 @@ function loadBookings() {
     pageSize,
     isOverstayed ? undefined : (statusFilter.value === 'all' ? undefined : statusFilter.value as BookingStatus),
     isOverstayed ? true : undefined,
+    filterFrom.value || undefined,
+    filterTo.value || undefined,
   )
 }
 
 onMounted(loadBookings)
 watch(page, loadBookings)
+watch([filterFrom, filterTo], () => { page.value = 1; loadBookings() })
 
 function setStatus(val: string | null) {
   if (!val) return
@@ -169,9 +209,9 @@ async function handleClearOverstayed() {
 
   <div class="flex flex-col gap-6 p-6">
     <!-- Toolbar -->
-    <div class="flex flex-wrap items-center justify-between gap-4">
-      <div class="flex items-center gap-3 flex-1 min-w-0">
-        <div class="relative max-w-xs w-full">
+    <div class="flex items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="relative w-52">
           <Search class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
           <Input v-model="search" placeholder="Search bookings..." class="pl-9" />
         </div>
@@ -194,7 +234,51 @@ async function handleClearOverstayed() {
             </SelectItem>
           </SelectContent>
         </Select>
+        <div class="flex items-center gap-2">
+          <Popover v-model:open="fromOpen">
+            <PopoverTrigger as-child>
+              <button
+                type="button"
+                class="h-9 min-w-36 rounded-md border border-input bg-background px-3 text-sm text-left flex items-center gap-2 hover:bg-muted/40 transition-colors"
+                :class="!filterFrom && 'text-muted-foreground'"
+              >
+                <CalendarIcon class="size-4 shrink-0" />
+                {{ filterFrom ? formatDisplayDate(filterFrom) : 'From date' }}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent class="w-auto p-0" align="start">
+              <Calendar v-model="fromDate" layout="month-and-year" :max-value="toDate ?? maxDate" class="rounded-md" />
+            </PopoverContent>
+          </Popover>
+
+          <span class="text-muted-foreground text-sm">→</span>
+
+          <Popover v-model:open="toOpen">
+            <PopoverTrigger as-child>
+              <button
+                type="button"
+                class="h-9 min-w-36 rounded-md border border-input bg-background px-3 text-sm text-left flex items-center gap-2 hover:bg-muted/40 transition-colors"
+                :class="!filterTo && 'text-muted-foreground'"
+              >
+                <CalendarIcon class="size-4 shrink-0" />
+                {{ filterTo ? formatDisplayDate(filterTo) : 'To date' }}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent class="w-auto p-0" align="start">
+              <Calendar v-model="toDate" layout="month-and-year" :min-value="fromDate" :max-value="maxDate" class="rounded-md" />
+            </PopoverContent>
+          </Popover>
+
+          <Button
+            v-if="filterFrom || filterTo"
+            variant="ghost" size="sm"
+            @click="filterFrom = ''; filterTo = ''; page = 1; loadBookings()"
+          >
+            Clear
+          </Button>
+        </div>
       </div>
+
       <Button @click="openCreate">
         <Plus class="size-4 mr-2" />
         New Booking

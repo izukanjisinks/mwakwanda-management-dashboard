@@ -24,7 +24,8 @@ import { ArrowRight, ArrowLeft, Check, Loader2, Plus, Trash2, ChevronDown, Chevr
 import { toast } from 'vue-sonner'
 import { useBookingsStore } from '@/stores/bookings'
 import { useRoomsStore } from '@/stores/rooms'
-import type { Booking, BookingPayload, BookingUpdatePayload, ClientType } from '@/types/booking'
+import { individualClientApi, corporateClientApi } from '@/services/api/clients'
+import type { Booking, BookingUpdatePayload, ClientType } from '@/types/booking'
 
 const props = defineProps<{
   open: boolean
@@ -57,9 +58,63 @@ function fromCalendarDate(dv: DateValue): string {
   return `${dv.year}-${String(dv.month).padStart(2, '0')}-${String(dv.day).padStart(2, '0')}`
 }
 
-// ── Step 1 ────────────────────────────────────────────────────────────────────
+// ── Step 1: client search ─────────────────────────────────────────────────────
 const clientSearch = ref('')
 const clientFound = ref(false)
+const clientSearchLoading = ref(false)
+const clientNotFound = ref(false)
+
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+
+async function runClientSearch(query: string) {
+  if (!query.trim()) {
+    clientFound.value = false
+    clientNotFound.value = false
+    return
+  }
+  clientSearchLoading.value = true
+  clientFound.value = false
+  clientNotFound.value = false
+  try {
+    if (form.value.client_type === 'individual') {
+      const client = await individualClientApi.lookup(query.trim())
+      form.value.client_id = client.id
+      form.value.full_name = client.full_name
+      form.value.email = client.email
+      form.value.phone = client.phone
+      form.value.id_passport_number = client.id_passport_number
+      clientFound.value = true
+    } else {
+      const res = await corporateClientApi.search(query.trim())
+      const client = res[0]
+      if (client) {
+        form.value.client_id = client.id
+        form.value.company_name = client.company_name
+        form.value.contact_person = client.contact_person
+        form.value.company_email = client.email
+        form.value.company_phone = client.phone
+        form.value.company_reg_number = client.company_reg_number
+        form.value.industry = client.industry ?? ''
+        clientFound.value = true
+      } else {
+        clientNotFound.value = true
+      }
+    }
+  } catch {
+    // 404 from individual lookup means no match
+    clientNotFound.value = true
+  } finally {
+    clientSearchLoading.value = false
+  }
+}
+
+function onClientSearchInput() {
+  clientFound.value = false
+  clientNotFound.value = false
+  form.value.client_id = ''
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => runClientSearch(clientSearch.value), 500)
+}
 
 // Individual date picker open state
 const checkInOpen = ref(false)
@@ -337,24 +392,59 @@ async function handleSave() {
         guests: guests.value.length,
         special_requests: form.value.special_requests || undefined,
       }
+      console.log('[booking] update payload', payload)
       saved = await bookingsStore.updateBooking(props.booking.id, payload)
+    } else if (form.value.client_type === 'corporate') {
+      const payload = {
+        client_type: 'corporate',
+        ...(form.value.client_id ? { client_id: form.value.client_id } : {
+          client: {
+            company_name: form.value.company_name,
+            contact_person: form.value.contact_person,
+            email: form.value.company_email,
+            phone: form.value.company_phone,
+            company_reg_number: form.value.company_reg_number,
+            industry: form.value.industry || undefined,
+          },
+        }),
+        guests: guests.value.map(g => ({
+          ...(g.id_number ? { client_id: undefined } : {}),
+          full_name: g.full_name,
+          email: g.email || undefined,
+          phone: g.phone || undefined,
+          id_number: g.id_number || undefined,
+          room_id: g.room_id,
+          check_in: new Date(g.check_in).toISOString(),
+          check_out: new Date(g.check_out).toISOString(),
+        })),
+      }
+      console.log('[booking] corporate create payload', JSON.stringify(payload, null, 2))
+      saved = await bookingsStore.createBooking(payload as any)
     } else {
-      const payload: BookingPayload = {
+      const payload = {
+        client_type: 'individual',
+        ...(form.value.client_id ? { client_id: form.value.client_id } : {
+          client: {
+            full_name: form.value.full_name,
+            email: form.value.email || undefined,
+            phone: form.value.phone || undefined,
+            id_passport_number: form.value.id_passport_number || undefined,
+          },
+        }),
         room_id: form.value.room_id,
-        client_id: form.value.client_id,
-        client_type: form.value.client_type,
         check_in: new Date(form.value.check_in).toISOString(),
         check_out: new Date(form.value.check_out).toISOString(),
-        guests: guests.value.length,
-        special_requests: form.value.special_requests || undefined,
+        guests: 1,
       }
-      saved = await bookingsStore.createBooking(payload)
+      console.log('[booking] individual create payload', JSON.stringify(payload, null, 2))
+      saved = await bookingsStore.createBooking(payload as any)
     }
     toast.success(isEdit.value ? 'Booking updated successfully.' : 'Booking created successfully.')
     emit('saved', saved)
     emit('update:open', false)
   } catch (err: any) {
-    error.value = err?.error?.message ?? 'Failed to save booking.'
+    console.error('[booking] save error', err)
+    error.value = err?.error?.message ?? err?.message ?? 'Failed to save booking.'
     toast.error(error.value)
   } finally {
     saving.value = false
@@ -435,11 +525,13 @@ function formatDate(d: string) {
           <div class="grid gap-2">
             <Label>Search Client</Label>
             <div class="relative">
-              <Search class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+              <Search v-if="!clientSearchLoading" class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+              <Loader2 v-else class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground animate-spin pointer-events-none" />
               <Input
                 v-model="clientSearch"
                 :placeholder="form.client_type === 'individual' ? 'Search by NRC or passport number…' : 'Search by organisation name…'"
                 class="pl-9 pr-9"
+                @input="onClientSearchInput"
               />
               <button
                 v-if="clientSearch"
@@ -452,6 +544,9 @@ function formatDate(d: string) {
             </div>
             <p v-if="clientFound" class="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
               Client found — details prefilled below.
+            </p>
+            <p v-else-if="clientNotFound" class="text-xs text-muted-foreground">
+              No client found — fill in the details below to create one.
             </p>
           </div>
 

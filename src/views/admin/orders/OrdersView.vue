@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { Plus, ChevronLeft, ChevronRight, ShoppingBag, Trash2 } from 'lucide-vue-next'
+import { Plus, ChevronLeft, ChevronRight, ShoppingBag, Trash2, X } from 'lucide-vue-next'
 import { useMenusStore } from '@/stores/menus'
 import type { Order } from '@/types/menu'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
@@ -8,6 +8,7 @@ import PlaceOrderDialog from '@/components/menus/PlaceOrderDialog.vue'
 import AddOrderItemsDialog from '@/components/menus/AddOrderItemsDialog.vue'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 import {
   Table,
   TableBody,
@@ -31,7 +32,10 @@ const pageSize = 10
 
 function setPage(n: number) { page.value = n }
 
+const statusFilter = ref<'open' | 'closed'>('open')
 const typeFilter = ref<'all' | 'in_house' | 'walk_in'>('all')
+const dateFrom = ref('')
+const dateTo = ref('')
 const placeOrderOpen = ref(false)
 
 const sheetOpen = ref(false)
@@ -40,8 +44,13 @@ const sheetLoading = ref(false)
 
 const addItemsOpen = ref(false)
 
-const tabs = [
-  { value: 'all', label: 'All Orders' },
+const statusTabs = [
+  { value: 'open', label: 'Active' },
+  { value: 'closed', label: 'Closed' },
+] as const
+
+const typeTabs = [
+  { value: 'all', label: 'All' },
   { value: 'in_house', label: 'In-House' },
   { value: 'walk_in', label: 'Walk-In' },
 ] as const
@@ -50,15 +59,32 @@ function loadOrders() {
   store.fetchOrders({
     page: page.value,
     page_size: pageSize,
+    status: statusFilter.value,
     type: typeFilter.value === 'all' ? undefined : typeFilter.value,
+    from: dateFrom.value || undefined,
+    to: dateTo.value || undefined,
   })
+}
+
+function clearDateRange() {
+  dateFrom.value = ''
+  dateTo.value = ''
+  setPage(1)
+  loadOrders()
 }
 
 onMounted(loadOrders)
 
 watch(page, loadOrders)
 
-function setTab(val: typeof typeFilter.value) {
+function setStatusTab(val: typeof statusFilter.value) {
+  statusFilter.value = val
+  typeFilter.value = 'all'
+  setPage(1)
+  loadOrders()
+}
+
+function setTypeTab(val: typeof typeFilter.value) {
   typeFilter.value = val
   setPage(1)
   loadOrders()
@@ -115,22 +141,68 @@ async function removeItem(itemId: string) {
 
   <div class="flex flex-col gap-6 p-6">
     <!-- Toolbar -->
-    <div class="flex items-center justify-between gap-4">
-      <!-- Tabs -->
-      <div class="flex items-center gap-1 rounded-lg border bg-muted/40 p-1">
+    <div class="flex items-center justify-between gap-4 flex-wrap">
+      <div class="flex items-center gap-2">
+        <!-- Status tabs: Active / Closed -->
+        <div class="flex items-center gap-1 rounded-lg border bg-muted/40 p-1">
+          <button
+            v-for="tab in statusTabs"
+            :key="tab.value"
+            type="button"
+            :class="[
+              'rounded-md px-3 py-1.5 text-sm font-medium transition-all',
+              statusFilter === tab.value
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
+            ]"
+            @click="setStatusTab(tab.value)"
+          >
+            {{ tab.label }}
+          </button>
+        </div>
+
+        <!-- Type tabs: All / In-House / Walk-In -->
+        <div class="flex items-center gap-1 rounded-lg border bg-muted/40 p-1">
+          <button
+            v-for="tab in typeTabs"
+            :key="tab.value"
+            type="button"
+            :class="[
+              'rounded-md px-3 py-1.5 text-sm font-medium transition-all',
+              typeFilter === tab.value
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
+            ]"
+            @click="setTypeTab(tab.value)"
+          >
+            {{ tab.label }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Date range -->
+      <div class="flex items-center gap-2">
+        <Input
+          v-model="dateFrom"
+          type="date"
+          class="h-9 w-36 text-sm"
+          @change="setPage(1); loadOrders()"
+        />
+        <span class="text-muted-foreground text-sm">—</span>
+        <Input
+          v-model="dateTo"
+          type="date"
+          class="h-9 w-36 text-sm"
+          :min="dateFrom || undefined"
+          @change="setPage(1); loadOrders()"
+        />
         <button
-          v-for="tab in tabs"
-          :key="tab.value"
+          v-if="dateFrom || dateTo"
           type="button"
-          :class="[
-            'rounded-md px-3 py-1.5 text-sm font-medium transition-all',
-            typeFilter === tab.value
-              ? 'bg-background text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground',
-          ]"
-          @click="setTab(tab.value)"
+          class="size-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          @click="clearDateRange"
         >
-          {{ tab.label }}
+          <X class="size-4" />
         </button>
       </div>
 
