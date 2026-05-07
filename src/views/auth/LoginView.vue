@@ -57,12 +57,12 @@ function handlePasswordChanged() {
 
           <!-- Logo & Title -->
           <div class="flex flex-col items-center gap-4 text-center mb-8">
-            <div class="flex items-center gap-2">
+            <!-- <div class="flex items-center gap-2">
               <Trees class="h-8 w-8 text-primary" />
               <span class="font-serif text-2xl font-semibold tracking-tight text-foreground">
                 Pine Ridge Lodge
               </span>
-            </div>
+            </div> -->
             <div>
               <h1 class="font-serif text-3xl font-bold tracking-tight text-foreground">
                 Welcome Back
@@ -164,8 +164,17 @@ function handlePasswordChanged() {
       <!-- Gradient overlay -->
       <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
 
+      <!-- Centered Logo Overlay -->
+      <div class="absolute inset-0 flex items-center justify-center">
+        <img
+          src="@/assets/logo/MwakwandaDarkBackgroundLogo.svg"
+          alt="Lodge Logo"
+          class="h-120 w-120 object-contain drop-shadow-2xl"
+        />
+      </div>
+
       <!-- Quote overlay -->
-      <div class="absolute inset-0 flex flex-col justify-end p-12">
+      <!-- <div class="absolute inset-0 flex flex-col justify-end p-12">
         <div class="max-w-lg">
           <blockquote class="space-y-4">
             <p class="font-serif text-2xl font-medium leading-relaxed text-white/95">
@@ -176,7 +185,7 @@ function handlePasswordChanged() {
             </footer>
           </blockquote>
         </div>
-      </div>
+      </div> -->
     </div>
 
   </div>
