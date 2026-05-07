@@ -11,7 +11,7 @@ export const useMenusStore = defineStore('menus', () => {
   const menuError = ref<string | null>(null)
   const itemsPage = ref(1)
   const itemsTotal = ref(0)
-  const itemsPageSize = 10
+  const itemsPageSize = 6
 
   // ── Orders state ───────────────────────────────────────────────────────────
   const orders = ref<Order[]>([])
