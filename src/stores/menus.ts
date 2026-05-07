@@ -20,11 +20,11 @@ export const useMenusStore = defineStore('menus', () => {
   const ordersError = ref<string | null>(null)
 
   // ── Menu actions ───────────────────────────────────────────────────────────
-  async function fetchMenu(page = 1) {
+  async function fetchMenu(page = 1, category?: string) {
     menuLoading.value = true
     menuError.value = null
     try {
-      const res = await menusApi.getMenu({ page, page_size: itemsPageSize })
+      const res = await menusApi.getMenu({ page, page_size: itemsPageSize, category: category || undefined })
       menu.value = res
       itemsPage.value = res.items?.page ?? 1
       itemsTotal.value = res.items?.total ?? 0
@@ -42,10 +42,11 @@ export const useMenusStore = defineStore('menus', () => {
   }
 
   // ── Menu item actions ──────────────────────────────────────────────────────
+  const currentCategory = ref<string | undefined>(undefined)
+
   async function createMenuItem(payload: MenuItemPayload): Promise<MenuItem> {
     const item = await menusApi.createItem(payload)
-    // Refresh current page so total and list stay in sync
-    await fetchMenu(itemsPage.value)
+    await fetchMenu(itemsPage.value, currentCategory.value)
     return item
   }
 
@@ -60,10 +61,9 @@ export const useMenusStore = defineStore('menus', () => {
 
   async function deleteMenuItem(itemId: string): Promise<void> {
     await menusApi.deleteItem(itemId)
-    // Refresh — item may have been last on page, so go back a page if needed
     const newTotal = itemsTotal.value - 1
     const maxPage = Math.max(1, Math.ceil(newTotal / itemsPageSize))
-    await fetchMenu(Math.min(itemsPage.value, maxPage))
+    await fetchMenu(Math.min(itemsPage.value, maxPage), currentCategory.value)
   }
 
   // ── Order actions ──────────────────────────────────────────────────────────
@@ -115,7 +115,7 @@ export const useMenusStore = defineStore('menus', () => {
   }
 
   return {
-    menu, menuLoading, menuError, itemsPage, itemsTotal, itemsPageSize,
+    menu, menuLoading, menuError, itemsPage, itemsTotal, itemsPageSize, currentCategory,
     orders, ordersTotal, ordersLoading, ordersError,
     fetchMenu, upsertMenu,
     createMenuItem, updateMenuItem, deleteMenuItem,

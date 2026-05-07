@@ -42,14 +42,18 @@ const canWrite = ['admin', 'manager'].includes(authStore.userRole ?? '')
 
 // ── Load menu + paginated items ────────────────────────────────────────────
 const page = ref(1)
+const categoryFilter = ref<MenuCategory | 'all'>('all')
 
 function loadMenu(p = page.value) {
   page.value = p
-  store.fetchMenu(p)
+  const cat = categoryFilter.value === 'all' ? undefined : categoryFilter.value
+  store.currentCategory = cat
+  store.fetchMenu(p, cat)
 }
 
 onMounted(() => loadMenu(1))
-watch(page, (p) => store.fetchMenu(p))
+watch(page, () => loadMenu())
+watch(categoryFilter, () => { page.value = 1; loadMenu(1) })
 
 const totalPages = computed(() => Math.max(1, Math.ceil(store.itemsTotal / store.itemsPageSize)))
 const items = computed(() => store.menu?.items?.data ?? [])
@@ -104,13 +108,15 @@ async function handleAddItem() {
 
   savingItem.value = true
   try {
-    await store.createMenuItem({
+    const payload = {
       name: itemForm.value.name.trim(),
       description: itemForm.value.description.trim() || undefined,
       price: priceNum,
       category: itemForm.value.category || undefined,
       is_available: itemForm.value.is_available,
-    })
+    }
+    console.log('[menu] create item payload', payload)
+    await store.createMenuItem(payload)
     resetItemForm()
     toast.success('Item added.')
   } catch (err: any) {
@@ -192,18 +198,6 @@ async function handleDeleteItem() {
   }
 }
 
-// ── Category filter (client-side on current page) ──────────────────────────
-const categoryFilter = ref<MenuCategory | 'all'>('all')
-
-const filteredItems = computed(() => {
-  if (categoryFilter.value === 'all') return items.value
-  return items.value.filter(i => i.category === categoryFilter.value)
-})
-
-const usedCategories = computed(() => {
-  const cats = new Set(items.value.map(i => i.category).filter(Boolean))
-  return MENU_CATEGORIES.filter(c => cats.has(c.value))
-})
 
 function categoryLabel(cat?: MenuCategory) {
   return MENU_CATEGORIES.find(c => c.value === cat)?.label ?? '—'
@@ -310,28 +304,23 @@ function categoryLabel(cat?: MenuCategory) {
 
       <!-- ── Items Table ─────────────────────────────────────────────────────── -->
       <div class="flex flex-col gap-4">
-        <!-- Category filter chips -->
-        <div v-if="items.length > 0" class="flex items-center gap-2 flex-wrap">
-          <button
-            type="button"
-            :class="['px-4 py-1.5 rounded-full text-sm font-medium transition-all border', categoryFilter === 'all' ? 'bg-foreground text-background border-foreground' : 'bg-background text-muted-foreground border-border hover:border-primary/40']"
-            @click="categoryFilter = 'all'"
-          >
-            All Items
-          </button>
-          <button
-            v-for="cat in usedCategories"
-            :key="cat.value"
-            type="button"
-            :class="['px-4 py-1.5 rounded-full text-sm font-medium transition-all border', categoryFilter === cat.value ? 'bg-foreground text-background border-foreground' : 'bg-background text-muted-foreground border-border hover:border-primary/40']"
-            @click="categoryFilter = cat.value"
-          >
-            {{ cat.label }}
-          </button>
+        <!-- Category filter -->
+        <div class="flex items-center gap-3">
+          <Select v-model="categoryFilter">
+            <SelectTrigger class="w-48">
+              <SelectValue placeholder="All Items" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Items</SelectItem>
+              <SelectItem v-for="cat in MENU_CATEGORIES" :key="cat.value" :value="cat.value">
+                {{ cat.label }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <!-- Empty -->
-        <div v-if="filteredItems.length === 0 && !store.menuLoading" class="rounded-xl border bg-card flex flex-col items-center justify-center py-20 text-center gap-3">
+        <div v-if="items.length === 0 && !store.menuLoading" class="rounded-xl border bg-card flex flex-col items-center justify-center py-20 text-center gap-3">
           <PackageOpen class="size-9 text-muted-foreground/30" />
           <div>
             <p class="text-sm font-medium text-muted-foreground">No items yet</p>
@@ -362,7 +351,7 @@ function categoryLabel(cat?: MenuCategory) {
               </template>
 
               <template v-else>
-                <template v-for="item in filteredItems" :key="item.id">
+                <template v-for="item in items" :key="item.id">
                   <!-- Display row -->
                   <TableRow v-if="editingItem?.id !== item.id" :class="['transition-colors', !item.is_available && 'opacity-50']">
                     <TableCell>

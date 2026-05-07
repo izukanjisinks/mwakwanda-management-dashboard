@@ -29,7 +29,7 @@ export interface OrderListParams extends Record<string, string | number | boolea
 export const menusApi = {
   // ── Single org menu ────────────────────────────────────────────────────────
   getMenu: (params?: MenuItemsParams) =>
-    apiClient.get<Menu>('/menu'),
+    apiClient.get<Menu>('/menu', { params }),
 
   upsertMenu: (payload: Partial<MenuPayload>) =>
     apiClient.put<Menu>('/menu', payload),
