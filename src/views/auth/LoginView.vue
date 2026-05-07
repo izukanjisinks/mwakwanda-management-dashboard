@@ -57,12 +57,17 @@ function handlePasswordChanged() {
 
           <!-- Logo & Title -->
           <div class="flex flex-col items-center gap-4 text-center mb-8">
-            <!-- <div class="flex items-center gap-2">
-              <Trees class="h-8 w-8 text-primary" />
+            <div class="flex items-center gap-2 lg:hidden">
+                <img
+                  src="@/assets/logo/MwakwandaLogoBrownLetters.svg"
+                  alt="Lodge Logo"
+                  class="h-75 w-75 object-contain drop-shadow-lg"/>
+
+              <!-- <Trees class="h-8 w-8 text-primary" />
               <span class="font-serif text-2xl font-semibold tracking-tight text-foreground">
                 Pine Ridge Lodge
-              </span>
-            </div> -->
+              </span> -->
+            </div>
             <div>
               <h1 class="font-serif text-3xl font-bold tracking-tight text-foreground">
                 Welcome Back
