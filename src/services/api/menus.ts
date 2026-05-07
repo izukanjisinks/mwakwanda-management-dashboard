@@ -20,6 +20,9 @@ export interface OrderListParams extends Record<string, string | number | boolea
   page?: number
   page_size?: number
   type?: 'in_house' | 'walk_in'
+  status?: 'open' | 'closed'
+  from?: string
+  to?: string
   booking_id?: string
 }
 

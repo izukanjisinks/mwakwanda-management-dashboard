@@ -22,6 +22,9 @@ export const individualClientApi = {
   get: (id: string) =>
     apiClient.get<IndividualClient>(`/clients/individual/${id}`),
 
+  lookup: (id_number: string) =>
+    apiClient.get<IndividualClient>('/clients/individual/lookup', { params: { id_number } }),
+
   create: (payload: IndividualClientPayload) =>
     apiClient.post<IndividualClient>('/clients/individual', payload),
 
@@ -38,6 +41,9 @@ export const corporateClientApi = {
 
   get: (id: string) =>
     apiClient.get<CorporateClient>(`/clients/corporate/${id}`),
+
+  search: (query: string) =>
+    apiClient.get<CorporateClient[]>('/clients/corporate/search', { params: { search: query } }),
 
   create: (payload: CorporateClientPayload) =>
     apiClient.post<CorporateClient>('/clients/corporate', payload),

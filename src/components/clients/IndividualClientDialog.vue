@@ -11,17 +11,10 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { useIndividualClientsStore } from '@/stores/clients'
-import type { IndividualClient, ClientStatus } from '@/types/client'
+import type { IndividualClient } from '@/types/client'
 
 const props = defineProps<{
   open: boolean
@@ -44,8 +37,6 @@ const form = ref({
   email: '',
   phone: '',
   id_passport_number: '',
-  nationality: '',
-  status: 'active' as ClientStatus,
   notes: '',
 })
 
@@ -58,8 +49,6 @@ watch(() => props.open, (open) => {
       email: props.client.email,
       phone: props.client.phone,
       id_passport_number: props.client.id_passport_number,
-      nationality: props.client.nationality ?? '',
-      status: props.client.status,
       notes: props.client.notes ?? '',
     }
   } else {
@@ -68,8 +57,6 @@ watch(() => props.open, (open) => {
       email: '',
       phone: '',
       id_passport_number: '',
-      nationality: '',
-      status: 'active',
       notes: '',
     }
   }
@@ -84,7 +71,7 @@ async function handleSave() {
 
   saving.value = true
   try {
-    const payload = { ...form.value, notes: form.value.notes || undefined }
+    const payload = { ...form.value, notes: form.value.notes.trim() || undefined }
     let saved: IndividualClient
     if (isEdit.value && props.client) {
       saved = await store.updateClient(props.client.id, payload)
@@ -137,30 +124,10 @@ async function handleSave() {
           </div>
         </div>
 
-        <!-- ID/Passport & Nationality -->
-        <div class="grid grid-cols-2 gap-4">
-          <div class="grid gap-2">
-            <Label for="id_number">ID / Passport No. *</Label>
-            <Input id="id_number" v-model="form.id_passport_number" placeholder="NRC-123456/78/1" />
-          </div>
-          <div class="grid gap-2">
-            <Label for="nationality">Nationality</Label>
-            <Input id="nationality" v-model="form.nationality" placeholder="e.g. Zambian" />
-          </div>
-        </div>
-
-        <!-- Status -->
+        <!-- ID/Passport -->
         <div class="grid gap-2">
-          <Label>Status</Label>
-          <Select v-model="form.status">
-            <SelectTrigger>
-              <SelectValue placeholder="Select status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="inactive">Inactive</SelectItem>
-            </SelectContent>
-          </Select>
+          <Label for="id_number">ID / Passport No. *</Label>
+          <Input id="id_number" v-model="form.id_passport_number" placeholder="NRC-123456/78/1" />
         </div>
 
         <!-- Notes -->

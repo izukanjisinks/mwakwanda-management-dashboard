@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
-import { CalendarClock, UtensilsCrossed, ShieldCheck, ChevronRight } from 'lucide-vue-next'
+import { CalendarClock, UtensilsCrossed, ShieldCheck, ChevronRight, ScrollText } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { useSettingsStore } from '@/stores/settings'
 import { useMenusStore } from '@/stores/menus'
+import { useRouter } from 'vue-router'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,6 +17,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 
+const router = useRouter()
 const store = useSettingsStore()
 const menusStore = useMenusStore()
 
@@ -235,12 +237,36 @@ async function save() {
             </p>
           </div>
 
-          <!-- Navigate link -->
           <button
             type="button"
             class="flex items-center justify-between pt-1 border-t text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             <span class="font-medium">Policy Settings</span>
+            <ChevronRight class="size-3.5" />
+          </button>
+        </div>
+
+        <!-- System Logs -->
+        <div class="rounded-xl border bg-card flex flex-col p-5 gap-4">
+          <div class="flex items-start justify-between gap-2">
+            <div class="size-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <ScrollText class="size-4 text-primary" />
+            </div>
+          </div>
+
+          <div class="flex-1">
+            <p class="font-semibold text-sm mb-1.5">System Logs</p>
+            <p class="text-xs text-muted-foreground leading-relaxed">
+              View a full audit trail of automated system actions, including overstay detections and daily order resets.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            class="flex items-center justify-between pt-1 border-t text-xs text-muted-foreground hover:text-foreground transition-colors"
+            @click="router.push({ name: 'audit-logs' })"
+          >
+            <span class="font-medium">View Logs</span>
             <ChevronRight class="size-3.5" />
           </button>
         </div>

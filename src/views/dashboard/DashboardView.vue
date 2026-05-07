@@ -8,7 +8,6 @@ import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import StatCard from '@/components/dashboard/StatCard.vue'
 import RoomAvailability from '@/components/dashboard/RoomAvailability.vue'
 import RevenueChart from '@/components/dashboard/RevenueChart.vue'
-import ReservationsChart from '@/components/dashboard/ReservationsChart.vue'
 import BookingTable from '@/components/dashboard/BookingTable.vue'
 import OverallRating from '@/components/dashboard/OverallRating.vue'
 import ActivityFeed from '@/components/dashboard/ActivityFeed.vue'
@@ -32,7 +31,6 @@ onMounted(() => {
 const roomSummary = computed(() => dashboardStore.stats?.room_summary)
 const statCards = computed(() => dashboardStore.stats?.stat_cards)
 const revenueData = computed(() => dashboardStore.stats?.revenue_by_month ?? [])
-const reservationsData = computed(() => dashboardStore.stats?.reservations_by_day ?? [])
 const recentBookings = computed(() => dashboardStore.stats?.recent_bookings ?? [])
 </script>
 
@@ -60,11 +58,6 @@ const recentBookings = computed(() => dashboardStore.stats?.recent_bookings ?? [
             :not-ready="roomSummary?.not_ready ?? 0"
           />
           <RevenueChart :data="revenueData" />
-        </div>
-
-        <!-- Charts row 2 -->
-        <div class="grid gap-6">
-          <ReservationsChart :data="reservationsData" />
         </div>
 
         <!-- Booking table -->

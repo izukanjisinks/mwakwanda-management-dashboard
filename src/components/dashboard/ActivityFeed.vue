@@ -1,64 +1,114 @@
 <script setup lang="ts">
-import { MoreHorizontal } from 'lucide-vue-next'
-import { Card, CardContent, CardHeader, CardTitle, CardAction } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { ref, onMounted } from 'vue'
+import { CalendarClock, UtensilsCrossed } from 'lucide-vue-next'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { auditLogsApi } from '@/services/api/audit-logs'
+import type { AuditLog, OverstayedPayload, OrdersClosedPayload } from '@/types/audit-log'
 
-type ActivityType = 'check-in' | 'check-out' | 'cleaning' | 'maintenance' | 'setup'
+const logs = ref<AuditLog[]>([])
+const loading = ref(true)
 
-interface Activity {
-  id: string
-  title: string
-  description: string
-  time: string
-  type: ActivityType
+onMounted(async () => {
+  try {
+    const res = await auditLogsApi.list({ page: 1, page_size: 4 })
+    logs.value = Array.isArray(res) ? res : (res as any).data ?? []
+  } catch {
+    // silently leave empty
+  } finally {
+    loading.value = false
+  }
+})
+
+function formatTime(iso: string) {
+  return new Date(iso).toLocaleString('en-GB', {
+    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+  })
 }
 
-const activities: Activity[] = [
-  { id: '1', title: 'Conference Room Setup', description: 'Events Team set up Conference Room B for 10 AM meeting, including AV equipment and refreshments.', time: '10:00 AM', type: 'setup' },
-  { id: '2', title: 'Guest Check-Out', description: 'Sarah Johnson completed check-out process and updated room availability for Room 305.', time: '9:45 AM', type: 'check-out' },
-  { id: '3', title: 'Room Cleaning Completed', description: 'Maria Gonzalez cleaned and prepared Room 204 for new guests.', time: '9:30 AM', type: 'cleaning' },
-  { id: '4', title: 'Maintenance Request Logged', description: 'Broken toilet in Room 109, maintenance request assigned to technician.', time: '9:15 AM', type: 'maintenance' },
-  { id: '5', title: 'Guest Check-In', description: 'New guest Mr. Roberts checked into Suite 401 for a 3-night stay.', time: '9:00 AM', type: 'check-in' },
-]
+function asOverstayed(log: AuditLog): OverstayedPayload {
+  return log.payload as OverstayedPayload
+}
 
-const typeColors: Record<ActivityType, string> = {
-  'check-in': 'bg-accent',
-  'check-out': 'bg-chart-3',
-  'cleaning': 'bg-primary',
-  'maintenance': 'bg-destructive',
-  'setup': 'bg-chart-5',
+function asOrdersClosed(log: AuditLog): OrdersClosedPayload {
+  return log.payload as OrdersClosedPayload
 }
 </script>
 
 <template>
   <Card class="flex flex-col flex-1">
     <CardHeader class="pb-2">
-      <CardTitle class="text-base font-medium">Recent Activities</CardTitle>
-      <CardAction>
-        <Button variant="ghost" size="icon" class="size-8">
-          <MoreHorizontal class="size-4" />
-        </Button>
-      </CardAction>
+      <CardTitle class="text-base font-medium">Recent Activity</CardTitle>
     </CardHeader>
     <CardContent class="flex-1">
-      <div class="relative space-y-8">
+      <!-- Loading -->
+      <div v-if="loading" class="flex flex-col gap-4">
+        <div v-for="i in 4" :key="i" class="flex gap-3 pl-6">
+          <div class="h-4 w-4 rounded-full bg-muted animate-pulse shrink-0" />
+          <div class="flex flex-col gap-1.5 flex-1">
+            <div class="h-3 w-24 bg-muted animate-pulse rounded" />
+            <div class="h-3 w-full bg-muted animate-pulse rounded" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Empty -->
+      <div v-else-if="logs.length === 0" class="flex flex-col items-center justify-center py-10 text-center gap-2">
+        <p class="text-sm text-muted-foreground">No recent activity.</p>
+      </div>
+
+      <!-- Feed -->
+      <div v-else class="relative space-y-6">
         <!-- Timeline line -->
         <div class="absolute left-[7px] top-2 h-[calc(100%-16px)] w-0.5 bg-border" />
 
         <div
-          v-for="activity in activities"
-          :key="activity.id"
+          v-for="log in logs"
+          :key="log.id"
           class="relative flex gap-3 pl-6"
         >
-          <!-- Timeline dot -->
+          <!-- Dot -->
           <div
-            :class="cn('absolute left-0 top-1 size-4 rounded-full border-2 border-background', typeColors[activity.type])"
+            :class="[
+              'absolute left-0 top-1 size-4 rounded-full border-2 border-background flex items-center justify-center',
+              log.action === 'booking.overstayed' ? 'bg-amber-500' : 'bg-primary',
+            ]"
           />
-          <div class="flex flex-col gap-1">
-            <span class="text-xs text-muted-foreground">{{ activity.time }}</span>
-            <span class="text-sm font-medium">{{ activity.title }}</span>
-            <p class="text-xs text-muted-foreground leading-relaxed">{{ activity.description }}</p>
+
+          <div class="flex flex-col gap-0.5">
+            <span class="text-xs text-muted-foreground">{{ formatTime(log.created_at) }}</span>
+
+            <!-- booking.overstayed -->
+            <template v-if="log.action === 'booking.overstayed'">
+              <div class="flex items-center gap-1.5">
+                <CalendarClock class="size-3.5 text-amber-500 shrink-0" />
+                <span class="text-sm font-medium">Overstay detected</span>
+              </div>
+              <p class="text-xs text-muted-foreground leading-relaxed">
+                <span class="font-medium text-foreground">{{ asOverstayed(log).client_name }}</span>
+                in {{ asOverstayed(log).room_name }}
+                ({{ asOverstayed(log).booking_number }}) —
+                was due {{ asOverstayed(log).original_check_out }},
+                extended to {{ asOverstayed(log).extended_to }}.
+              </p>
+            </template>
+
+            <!-- orders.closed -->
+            <template v-else-if="log.action === 'orders.closed'">
+              <div class="flex items-center gap-1.5">
+                <UtensilsCrossed class="size-3.5 text-primary shrink-0" />
+                <span class="text-sm font-medium">Orders closed</span>
+              </div>
+              <p class="text-xs text-muted-foreground leading-relaxed">
+                <span class="font-medium text-foreground">{{ asOrdersClosed(log).orders_closed }}</span>
+                order{{ asOrdersClosed(log).orders_closed !== 1 ? 's' : '' }} automatically closed for the day.
+              </p>
+            </template>
+
+            <!-- fallback -->
+            <template v-else>
+              <span class="text-sm font-medium">{{ log.action }}</span>
+              <p class="text-xs text-muted-foreground">{{ log.actor_name }}</p>
+            </template>
           </div>
         </div>
       </div>

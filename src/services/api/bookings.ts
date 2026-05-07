@@ -8,6 +8,8 @@ export interface BookingListParams extends Record<string, string | number | bool
   client_type?: string
   client_id?: string
   overstayed?: boolean
+  from?: string
+  to?: string
 }
 
 export const bookingApi = {
