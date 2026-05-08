@@ -324,7 +324,10 @@ async function handleClearOverstayed() {
               <TableCell class="font-mono text-sm">{{ booking.booking_number }}</TableCell>
               <TableCell>
                 <div class="font-medium">{{ booking.client_name }}</div>
-                <div class="text-xs text-muted-foreground capitalize">{{ booking.client_type }}</div>
+                <div class="text-xs text-muted-foreground">
+                  <span v-if="booking.corporate_client_name">{{ booking.corporate_client_name }}</span>
+                  <span v-else class="capitalize">{{ booking.client_type }}</span>
+                </div>
               </TableCell>
               <TableCell>{{ booking.room_name }}</TableCell>
               <TableCell>{{ formatDate(booking.check_in) }}</TableCell>

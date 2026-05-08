@@ -10,6 +10,8 @@ export interface Booking {
   room_name: string
   client_id: string
   client_name: string
+  corporate_client_id?: string
+  corporate_client_name?: string
   client_type: ClientType
   check_in: string
   check_out: string
