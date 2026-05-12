@@ -16,26 +16,45 @@ const email = ref('')
 const password = ref('')
 const showPassword = ref(false)
 const showChangePasswordDialog = ref(false)
+const submitting = ref(false)
 
 async function handleSubmit() {
-  const success = await authStore.login({ email: email.value, password: password.value })
-  if (success) {
+  if (submitting.value) return
+  submitting.value = true
+
+  try {
+    const success = await authStore.login({ email: email.value, password: password.value })
+
+    if (!success) return
+
     if (authStore.user?.change_password) {
       showChangePasswordDialog.value = true
-    } else {
-      router.push({ name: 'dashboard' })
+      return
     }
+
+    await router.push({ name: 'dashboard' })
+  } finally {
+    submitting.value = false
   }
 }
 
 async function handleOrgSelect(orgId: string) {
-  const success = await authStore.login({ email: email.value, password: password.value, org_id: orgId })
-  if (success) {
+  if (submitting.value) return
+  submitting.value = true
+
+  try {
+    const success = await authStore.login({ email: email.value, password: password.value, org_id: orgId })
+
+    if (!success) return
+
     if (authStore.user?.change_password) {
       showChangePasswordDialog.value = true
-    } else {
-      router.push({ name: 'dashboard' })
+      return
     }
+
+    await router.push({ name: 'dashboard' })
+  } finally {
+    submitting.value = false
   }
 }
 
@@ -133,10 +152,10 @@ function handlePasswordChanged() {
 
             <Button
               type="submit"
-              :disabled="authStore.loading"
+              :disabled="authStore.loading || submitting"
               class="h-11 w-full text-base font-medium shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all"
             >
-              <span v-if="authStore.loading" class="flex items-center gap-2">
+              <span v-if="authStore.loading || submitting" class="flex items-center gap-2">
                 <Loader2 class="h-4 w-4 animate-spin" />
                 Signing in...
               </span>
@@ -166,7 +185,7 @@ function handlePasswordChanged() {
         class="absolute inset-0 h-full w-full object-cover"
       />
 
-      <!-- Gradient overlay -->
+      <!-- Gradient overlay -->git 
       <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
 
       <!-- Centered Logo Overlay -->
