@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, reactive, watch, computed } from 'vue'
 import type { DateValue } from '@internationalized/date'
 import { CalendarDate, getLocalTimeZone, today as getToday } from '@internationalized/date'
 import {
@@ -25,6 +25,9 @@ import { toast } from 'vue-sonner'
 import { useBookingsStore } from '@/stores/bookings'
 import { useRoomsStore } from '@/stores/rooms'
 import { individualClientApi, corporateClientApi } from '@/services/api/clients'
+import { bookingApi } from '@/services/api/bookings'
+import { roomApi } from '@/services/api/room'
+import type { Room } from '@/types/room'
 import type { Booking, BookingUpdatePayload, ClientType } from '@/types/booking'
 
 const props = defineProps<{
@@ -258,9 +261,155 @@ const guests = ref<GuestRow[]>([makeGuest()])
 
 const isEdit = computed(() => !!props.booking)
 
+const availableRoomsByDate = ref<Room[]>([])
+const availableRoomsLoading = ref(false)
+const availableRoomsError = ref('')
+const overlappingBookings = ref<Booking[]>([])
+const overlappingBookingsLoading = ref(false)
+const overlappingBookingsError = ref('')
+const guestAvailableRooms = reactive<Record<number, Room[]>>({})
+const guestAvailableRoomsLoading = reactive<Record<number, boolean>>({})
+const guestAvailableRoomsError = reactive<Record<number, string>>({})
+
 const availableRooms = computed(() =>
   roomsStore.rooms.filter(r => r.is_available || (isEdit.value && r.id === props.booking?.room_id)),
 )
+
+function datesOverlap(startA: string, endA: string, startB: string, endB: string) {
+  return new Date(startA) < new Date(endB) && new Date(startB) < new Date(endA)
+}
+
+function isRoomBlocked(roomId: string, checkIn: string, checkOut: string) {
+  return overlappingBookings.value.some(booking =>
+    booking.room_id === roomId &&
+    booking.id !== props.booking?.id &&
+    booking.status !== 'cancelled' &&
+    datesOverlap(checkIn, checkOut, booking.check_in, booking.check_out),
+  )
+}
+
+async function loadOverlappingBookings(checkIn: string, checkOut: string) {
+  overlappingBookingsError.value = ''
+  overlappingBookings.value = []
+
+  if (!checkIn || !checkOut || new Date(checkOut) <= new Date(checkIn)) {
+    return
+  }
+
+  overlappingBookingsLoading.value = true
+  try {
+    // No date filters here — the API's from/to typically filters by check_in range,
+    // which would miss bookings that started before checkIn but overlap our window
+    // (e.g. existing booking May 13–22 when creating a new booking May 14–21).
+    // datesOverlap() inside isRoomBlocked() handles the accurate overlap check.
+    const res = await bookingApi.list({ page: 1, page_size: 1000 })
+    overlappingBookings.value = res.data ?? []
+  } catch (err: any) {
+    overlappingBookingsError.value = err?.error?.message ?? 'Failed to load overlapping bookings.'
+    console.error('[booking] overlapping bookings error', err)
+  } finally {
+    overlappingBookingsLoading.value = false
+  }
+}
+
+const individualAvailableRooms = computed(() => {
+  if (!form.value.check_in || !form.value.check_out) {
+    return isEdit.value && props.booking?.room_id
+      ? roomsStore.rooms.filter(r => r.id === props.booking?.room_id)
+      : []
+  }
+
+  const result = availableRoomsByDate.value.filter(room =>
+    !isRoomBlocked(room.id, form.value.check_in, form.value.check_out),
+  )
+  if (isEdit.value && props.booking?.room_id && !result.some(r => r.id === props.booking?.room_id)) {
+    const currentRoom = roomsStore.rooms.find(r => r.id === props.booking?.room_id)
+    return currentRoom ? [...result, currentRoom] : result
+  }
+
+  return result
+})
+
+function getGuestAvailableRooms(guest: GuestRow): Room[] {
+  const rooms = guestAvailableRooms[guest.id] ?? []
+  if (guest.room_id && !rooms.some(r => r.id === guest.room_id)) {
+    const currentRoom = roomsStore.rooms.find(r => r.id === guest.room_id)
+    return currentRoom ? [...rooms, currentRoom] : rooms
+  }
+  return rooms
+}
+
+async function loadGuestAvailableRooms(guest: GuestRow) {
+  guestAvailableRoomsError[guest.id] = ''
+  const hasValidDates = guest.check_in && guest.check_out && new Date(guest.check_out) > new Date(guest.check_in)
+
+  if (!hasValidDates) {
+    guestAvailableRooms[guest.id] = []
+    guestAvailableRoomsLoading[guest.id] = false
+    if (!guest.check_in || !guest.check_out) {
+      guest.room_id = ''
+    }
+    return
+  }
+
+  guestAvailableRoomsLoading[guest.id] = true
+  try {
+    const [rooms, bookingsRes] = await Promise.all([
+      roomApi.listAvailable({ check_in: guest.check_in, check_out: guest.check_out }),
+      bookingApi.list({ page: 1, page_size: 1000 }),
+    ])
+    const allBookings = bookingsRes.data ?? []
+    // Filter out rooms that have a confirmed/active booking overlapping this guest's stay.
+    // This catches bookings that started before guest.check_in (which the API's from/to
+    // filter would otherwise miss).
+    guestAvailableRooms[guest.id] = rooms.filter(room =>
+      !allBookings.some(b =>
+        b.room_id === room.id &&
+        b.status !== 'cancelled' &&
+        datesOverlap(guest.check_in, guest.check_out, b.check_in, b.check_out),
+      ),
+    )
+    if (guest.room_id && !getGuestAvailableRooms(guest).some(r => r.id === guest.room_id)) {
+      guest.room_id = ''
+    }
+  } catch (err: any) {
+    guestAvailableRooms[guest.id] = []
+    guestAvailableRoomsError[guest.id] = err?.error?.message ?? 'Failed to load rooms for this guest.'
+    console.error('[booking] guest available rooms error', err)
+  } finally {
+    guestAvailableRoomsLoading[guest.id] = false
+  }
+}
+
+watch([
+  () => form.value.check_in,
+  () => form.value.check_out,
+], async ([checkIn, checkOut]) => {
+  availableRoomsError.value = ''
+
+  if (!checkIn || !checkOut || new Date(checkOut) <= new Date(checkIn)) {
+    availableRoomsByDate.value = []
+    if (!checkIn || !checkOut) {
+      form.value.room_id = ''
+    }
+    return
+  }
+
+  availableRoomsLoading.value = true
+  try {
+    await loadOverlappingBookings(checkIn, checkOut)
+    availableRoomsByDate.value = await roomApi.listAvailable({ check_in: checkIn, check_out: checkOut })
+    if (form.value.room_id && !individualAvailableRooms.value.some(r => r.id === form.value.room_id)) {
+      form.value.room_id = ''
+    }
+  } catch (err: any) {
+    availableRoomsByDate.value = []
+    availableRoomsError.value = err?.error?.message ?? 'Failed to load rooms for selected dates.'
+    console.error('[booking] available rooms error', err)
+  } finally {
+    availableRoomsLoading.value = false
+  }
+}, { immediate: true })
 
 const nights = computed(() => {
   if (!form.value.check_in || !form.value.check_out) return 0
@@ -372,11 +521,40 @@ function validateStep1(): string {
   return ''
 }
 
+function getRoomConflictError(guest: GuestRow): string {
+  if (!guest.room_id || !guest.check_in || !guest.check_out) return ''
+  const conflict = guests.value.find(g =>
+    g.id !== guest.id &&
+    g.room_id === guest.room_id &&
+    g.check_in && g.check_out &&
+    datesOverlap(guest.check_in, guest.check_out, g.check_in, g.check_out),
+  )
+  if (!conflict) return ''
+  const room = roomsStore.rooms.find(r => r.id === guest.room_id)
+  const name = conflict.full_name || 'another guest'
+  return `${room?.name ?? 'This room'} is already assigned to ${name} for overlapping dates.`
+}
+
+function getFilteredGuestRooms(guest: GuestRow): Room[] {
+  return getGuestAvailableRooms(guest).filter(room => {
+    if (!guest.check_in || !guest.check_out) return true
+    return !guests.value.some(
+      g =>
+        g.id !== guest.id &&
+        g.room_id === room.id &&
+        g.check_in && g.check_out &&
+        datesOverlap(guest.check_in, guest.check_out, g.check_in, g.check_out),
+    )
+  })
+}
+
 function validateStep2(): string {
   for (const [i, g] of guests.value.entries()) {
     const label = g.full_name || `Guest ${i + 1}`
     const idErr = validateIdNumber(g.id_type, g.id_number)
     if (idErr) return `${label}: ${idErr}`
+    const roomErr = getRoomConflictError(g)
+    if (roomErr) return `${label}: ${roomErr}`
   }
   return ''
 }
@@ -418,6 +596,9 @@ function removeGuest(id: number) {
   if (guests.value.length === 1) return
   guests.value = guests.value.filter(g => g.id !== id)
   form.value.guests = guests.value.length
+  delete guestAvailableRooms[id]
+  delete guestAvailableRoomsLoading[id]
+  delete guestAvailableRoomsError[id]
 }
 
 function toggleGuest(id: number) {
@@ -429,6 +610,7 @@ function setGuestDate(guest: GuestRow, field: 'check_in' | 'check_out', dv: Date
   guest[field] = fromCalendarDate(dv)
   if (field === 'check_in') guest.checkInOpen = false
   else guest.checkOutOpen = false
+  loadGuestAvailableRooms(guest)
 }
 
 // ── Save ──────────────────────────────────────────────────────────────────────
@@ -743,16 +925,31 @@ function formatDate(d: string) {
             <!-- Room -->
             <div class="grid gap-2">
               <Label>Room *</Label>
-              <Select v-model="form.room_id">
+              <Select v-model="form.room_id" :disabled="!form.check_in || !form.check_out || availableRoomsLoading">
                 <SelectTrigger class="w-full">
                   <SelectValue placeholder="Select a room" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem v-for="room in availableRooms" :key="room.id" :value="room.id">
-                    {{ room.name }}
+                  <SelectItem v-for="room in individualAvailableRooms" :key="room.id" :value="room.id">
+                    <span class="flex items-center justify-between w-full gap-6">
+                      <span>{{ room.name }}</span>
+                      <span class="text-muted-foreground text-xs shrink-0">ZMW {{ room.price_per_night.toLocaleString() }}/night</span>
+                    </span>
                   </SelectItem>
                 </SelectContent>
               </Select>
+              <p v-if="!form.check_in || !form.check_out" class="text-xs text-muted-foreground">
+                Choose check-in and check-out dates first to see available rooms.
+              </p>
+              <p v-else-if="availableRoomsLoading" class="text-xs text-muted-foreground">
+                Loading available rooms...
+              </p>
+              <p v-else-if="individualAvailableRooms.length === 0" class="text-xs text-muted-foreground">
+                No rooms are available for the selected dates.
+              </p>
+              <p v-if="availableRoomsError" class="text-xs text-destructive">
+                {{ availableRoomsError }}
+              </p>
             </div>
           </template>
         </div>
@@ -884,16 +1081,37 @@ function formatDate(d: string) {
                   <div class="grid grid-cols-[1fr_1fr_1fr_2.5rem] gap-x-3">
                     <div class="grid gap-1">
                       <Label class="text-xs text-muted-foreground uppercase tracking-wider">Room</Label>
-                      <Select v-model="guest.room_id">
-                        <SelectTrigger class="h-8 text-sm w-full">
+                      <Select v-model="guest.room_id" :disabled="!guest.check_in || !guest.check_out || guestAvailableRoomsLoading[guest.id]">
+                        <SelectTrigger
+                          class="h-8 text-sm w-full"
+                          :class="{ 'border-destructive': !!getRoomConflictError(guest) }"
+                        >
                           <SelectValue placeholder="Select a room" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem v-for="room in availableRooms" :key="room.id" :value="room.id">
-                            {{ room.name }}
+                          <SelectItem v-for="room in getFilteredGuestRooms(guest)" :key="room.id" :value="room.id">
+                            <span class="flex items-center justify-between w-full gap-6">
+                              <span>{{ room.name }}</span>
+                              <span class="text-muted-foreground text-xs shrink-0">ZMW {{ room.price_per_night.toLocaleString() }}/night</span>
+                            </span>
                           </SelectItem>
                         </SelectContent>
                       </Select>
+                      <p v-if="getRoomConflictError(guest)" class="text-xs text-destructive font-medium">
+                        {{ getRoomConflictError(guest) }}
+                      </p>
+                      <p v-else-if="!guest.check_in || !guest.check_out" class="text-xs text-muted-foreground">
+                        Enter this guest's check-in and check-out dates first.
+                      </p>
+                      <p v-else-if="guestAvailableRoomsLoading[guest.id]" class="text-xs text-muted-foreground">
+                        Loading available rooms for this guest...
+                      </p>
+                      <p v-else-if="getFilteredGuestRooms(guest).length === 0" class="text-xs text-muted-foreground">
+                        No available rooms for these dates.
+                      </p>
+                      <p v-if="guestAvailableRoomsError[guest.id]" class="text-xs text-destructive">
+                        {{ guestAvailableRoomsError[guest.id] }}
+                      </p>
                     </div>
                     <div class="grid gap-1">
                       <Label class="text-xs text-muted-foreground uppercase tracking-wider">Check-In</Label>
