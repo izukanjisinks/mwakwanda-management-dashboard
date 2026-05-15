@@ -161,7 +161,7 @@ const typeLabel: Record<string, string> = {
               <TableCell>ZMW {{ room.price_per_night.toLocaleString() }}</TableCell>
               <TableCell>
                 <Badge :variant="room.is_available ? 'default' : 'secondary'">
-                  {{ room.is_available ? 'Available' : 'Unavailable' }}
+                  {{ room.is_available ? 'In Service' : 'Out of Service' }}
                 </Badge>
               </TableCell>
               <TableCell>
