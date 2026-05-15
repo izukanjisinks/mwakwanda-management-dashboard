@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { individualClientApi, corporateClientApi } from '@/services/api/clients'
+import { getApiError } from '@/utils/errors'
 import type {
   IndividualClient,
   IndividualClientPayload,
@@ -21,8 +22,8 @@ export const useIndividualClientsStore = defineStore('individualClients', () => 
       const res = await individualClientApi.list({ page, page_size: pageSize })
       clients.value = res.data ?? []
       total.value = res.total
-    } catch (err: any) {
-      error.value = err?.error?.message ?? 'Failed to load clients.'
+    } catch (err) {
+      error.value = getApiError(err, 'Failed to load clients.')
     } finally {
       loading.value = false
     }
@@ -64,8 +65,8 @@ export const useCorporateClientsStore = defineStore('corporateClients', () => {
       const res = await corporateClientApi.list({ page, page_size: pageSize })
       clients.value = res.data ?? []
       total.value = res.total
-    } catch (err: any) {
-      error.value = err?.error?.message ?? 'Failed to load clients.'
+    } catch (err) {
+      error.value = getApiError(err, 'Failed to load clients.')
     } finally {
       loading.value = false
     }

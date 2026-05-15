@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { dashboardApi } from '@/services/api/dashboard'
+import { getApiError } from '@/utils/errors'
 import type { DashboardStats } from '@/types/dashboard'
 
 export const useDashboardStore = defineStore('dashboard', () => {
@@ -13,8 +14,8 @@ export const useDashboardStore = defineStore('dashboard', () => {
     error.value = null
     try {
       stats.value = await dashboardApi.stats()
-    } catch (err: any) {
-      error.value = err?.error?.message ?? 'Failed to load dashboard stats.'
+    } catch (err) {
+      error.value = getApiError(err, 'Failed to load dashboard stats.')
     } finally {
       loading.value = false
     }

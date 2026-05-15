@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import { Loader2, Minus, Plus, Search, ShoppingCart } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import { getApiError } from '@/utils/errors'
 import { useMenusStore } from '@/stores/menus'
 import type { MenuItem } from '@/types/menu'
 import { Button } from '@/components/ui/button'
@@ -106,8 +107,8 @@ async function handleAdd() {
     toast.success('Items added to order.')
     emit('added')
     emit('update:open', false)
-  } catch (err: any) {
-    toast.error(err?.error?.message ?? 'Failed to add items.')
+  } catch (err) {
+    toast.error(getApiError(err, 'Failed to add items.'))
   } finally {
     adding.value = false
   }

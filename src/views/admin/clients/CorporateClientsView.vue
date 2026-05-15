@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { Plus, Pencil, Trash2, Search, ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import { getApiError } from '@/utils/errors'
 import { useCorporateClientsStore } from '@/stores/clients'
 import type { CorporateClient } from '@/types/client'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
@@ -80,8 +81,8 @@ async function handleDelete() {
   try {
     await store.deleteClient(clientToDelete.value.id)
     toast.success(`${name} deleted.`)
-  } catch {
-    toast.error('Failed to delete client.')
+  } catch (err) {
+    toast.error(getApiError(err, 'Failed to delete client.'))
   } finally {
     deleting.value = false
     deleteDialogOpen.value = false

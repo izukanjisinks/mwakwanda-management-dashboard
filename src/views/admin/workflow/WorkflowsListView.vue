@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/table'
 import { Plus, GitBranch, ChevronRight, Trash2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import { getApiError } from '@/utils/errors'
 import type { Workflow } from '@/types/workflow'
 
 const CONFIRM_KEYWORD = 'delete'
@@ -55,9 +56,9 @@ async function confirmDeleteWorkflow() {
     console.log('[deleteWorkflow] success')
     toast.success(`Workflow "${name}" deleted.`)
     deletingWorkflow.value = null
-  } catch (err: any) {
+  } catch (err) {
     console.error('[deleteWorkflow] error', err)
-    toast.error(err?.error?.message ?? 'Failed to delete workflow.')
+    toast.error(getApiError(err, 'Failed to delete workflow.'))
   }
 }
 

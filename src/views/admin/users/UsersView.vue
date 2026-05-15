@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { Plus, Pencil, Trash2, Search, ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import { getApiError } from '@/utils/errors'
 import { useUsersStore } from '@/stores/users'
 import { useAuthStore } from '@/stores/auth'
 import type { SystemUser, SystemUserRole } from '@/types/user'
@@ -94,8 +95,8 @@ async function handleDelete() {
   try {
     await store.deleteUser(userToDelete.value.id)
     toast.success(`${name} removed from the system.`)
-  } catch {
-    toast.error('Failed to delete user.')
+  } catch (err) {
+    toast.error(getApiError(err, 'Failed to delete user.'))
   } finally {
     deleting.value = false
     deleteDialogOpen.value = false

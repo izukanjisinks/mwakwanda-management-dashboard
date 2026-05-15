@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { usersApi } from '@/services/api/users'
+import { getApiError } from '@/utils/errors'
 import type { SystemUser, SystemUserPayload } from '@/types/user'
 
 export const useUsersStore = defineStore('users', () => {
@@ -16,8 +17,8 @@ export const useUsersStore = defineStore('users', () => {
       const res = await usersApi.list({ page, page_size: pageSize })
       users.value = res.data ?? []
       total.value = res.total
-    } catch (err: any) {
-      error.value = err?.error?.message ?? 'Failed to load users.'
+    } catch (err) {
+      error.value = getApiError(err, 'Failed to load users.')
     } finally {
       loading.value = false
     }

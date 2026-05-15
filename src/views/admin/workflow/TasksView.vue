@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { toast } from 'vue-sonner'
+import { getApiError } from '@/utils/errors'
 import { CheckCircle2, XCircle, Clock, CheckCheck, InboxIcon } from 'lucide-vue-next'
 import { useWorkflowStore } from '@/stores/workflow'
 import type { WorkflowTask } from '@/types/workflow'
@@ -40,7 +41,7 @@ async function handleConfirm(action: string, comments: string) {
     selectedTask.value = null
   } catch (err) {
     console.error('[processTask] error', err)
-    toast.error('Failed to process task.')
+    toast.error(getApiError(err, 'Failed to process task.'))
   }
 }
 

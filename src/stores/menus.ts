@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { menusApi } from '@/services/api/menus'
+import { getApiError } from '@/utils/errors'
 import type { Menu, MenuItem, Order, MenuPayload, MenuItemPayload, PlaceInHouseOrderPayload, PlaceWalkInOrderPayload, AddOrderItemsPayload } from '@/types/menu'
 import type { OrderListParams } from '@/services/api/menus'
 
@@ -28,8 +29,8 @@ export const useMenusStore = defineStore('menus', () => {
       menu.value = res
       itemsPage.value = res.items?.page ?? 1
       itemsTotal.value = res.items?.total ?? 0
-    } catch (err: any) {
-      menuError.value = err?.error?.message ?? 'Failed to load menu.'
+    } catch (err) {
+      menuError.value = getApiError(err, 'Failed to load menu.')
     } finally {
       menuLoading.value = false
     }
@@ -74,8 +75,8 @@ export const useMenusStore = defineStore('menus', () => {
       const res = await menusApi.listOrders(params)
       orders.value = res.data ?? []
       ordersTotal.value = res.total
-    } catch (err: any) {
-      ordersError.value = err?.error?.message ?? 'Failed to load orders.'
+    } catch (err) {
+      ordersError.value = getApiError(err, 'Failed to load orders.')
     } finally {
       ordersLoading.value = false
     }

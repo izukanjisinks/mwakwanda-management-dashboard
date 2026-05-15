@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Loader2, CheckCircle2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import { getApiError } from '@/utils/errors'
 
 const router = useRouter()
 const bookingsStore = useBookingsStore()
@@ -85,8 +86,8 @@ async function handleSubmit() {
     })
     done.value = true
     toast.success('Booking request submitted successfully.')
-  } catch (err: any) {
-    error.value = err?.error?.message ?? 'Failed to submit booking request.'
+  } catch (err) {
+    error.value = getApiError(err, 'Failed to submit booking request.')
     toast.error(error.value)
     step.value = 2
   } finally {

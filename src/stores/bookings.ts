@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { bookingApi } from '@/services/api/bookings'
+import { getApiError } from '@/utils/errors'
 import type { Booking, BookingPayload, BookingUpdatePayload, BookingStatus } from '@/types/booking'
 
 export const useBookingsStore = defineStore('bookings', () => {
@@ -16,8 +17,8 @@ export const useBookingsStore = defineStore('bookings', () => {
       const res = await bookingApi.list({ page, page_size: pageSize, status, overstayed, from, to, corporate_client_id: corporateClientId })
       bookings.value = res.data ?? []
       total.value = res.total
-    } catch (err: any) {
-      error.value = err?.error?.message ?? 'Failed to load bookings.'
+    } catch (err) {
+      error.value = getApiError(err, 'Failed to load bookings.')
     } finally {
       loading.value = false
     }

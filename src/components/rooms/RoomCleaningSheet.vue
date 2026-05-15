@@ -9,6 +9,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'vue-sonner'
+import { getApiError } from '@/utils/errors'
 import { UserPlus, Trash2, Loader2 } from 'lucide-vue-next'
 import { useCleaningStore } from '@/stores/cleaning'
 import { useUsersStore } from '@/stores/users'
@@ -73,8 +74,8 @@ async function handleAssign() {
     toast.success(`${getCleaner(addStaffId.value)?.full_name} assigned to ${props.room.name}.`)
     addStaffId.value = ''
     addFrequency.value = 'daily'
-  } catch {
-    toast.error('Failed to assign staff.')
+  } catch (err) {
+    toast.error(getApiError(err, 'Failed to assign staff.'))
   } finally {
     saving.value = false
   }
@@ -86,8 +87,8 @@ async function handleUnassign(staffId: string) {
   try {
     await cleaningStore.unassign(props.room.id, staffId)
     toast.success(`${getCleaner(staffId)?.full_name} removed from ${props.room.name}.`)
-  } catch {
-    toast.error('Failed to remove assignment.')
+  } catch (err) {
+    toast.error(getApiError(err, 'Failed to remove assignment.'))
   } finally {
     removing.value = null
   }
@@ -98,8 +99,8 @@ async function handleFrequencyChange(staffId: string, frequency: CleaningFrequen
   try {
     await cleaningStore.updateFrequency(props.room.id, staffId, frequency)
     toast.success('Cleaning frequency updated.')
-  } catch {
-    toast.error('Failed to update frequency.')
+  } catch (err) {
+    toast.error(getApiError(err, 'Failed to update frequency.'))
   }
 }
 </script>

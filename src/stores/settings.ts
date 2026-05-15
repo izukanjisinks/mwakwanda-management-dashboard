@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { settingsApi } from '@/services/api/settings'
+import { getApiError } from '@/utils/errors'
 import type { OrgSettings, OrgSettingsPayload } from '@/types/settings'
 
 export const useSettingsStore = defineStore('settings', () => {
@@ -13,8 +14,8 @@ export const useSettingsStore = defineStore('settings', () => {
     error.value = null
     try {
       settings.value = await settingsApi.get()
-    } catch (err: any) {
-      error.value = err?.error?.message ?? 'Failed to load settings.'
+    } catch (err) {
+      error.value = getApiError(err, 'Failed to load settings.')
     } finally {
       loading.value = false
     }

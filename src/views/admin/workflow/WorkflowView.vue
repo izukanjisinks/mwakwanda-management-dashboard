@@ -6,6 +6,7 @@ import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
 import { MiniMap } from '@vue-flow/minimap'
 import { toast } from 'vue-sonner'
+import { getApiError } from '@/utils/errors'
 import { Plus, GitBranch, Save, Pencil, ArrowLeft } from 'lucide-vue-next'
 import { useWorkflowStore } from '@/stores/workflow'
 import type { WorkflowStep, WorkflowTransition } from '@/types/workflow'
@@ -118,8 +119,8 @@ async function handleSaveInfo() {
     await store.updateWorkflowInfo({ name: infoName.value, description: infoDescription.value })
     toast.success('Workflow info saved.')
     editingInfo.value = false
-  } catch {
-    toast.error('Failed to save workflow info.')
+  } catch (err) {
+    toast.error(getApiError(err, 'Failed to save workflow info.'))
   } finally {
     savingInfo.value = false
   }
@@ -135,9 +136,9 @@ async function handleStepSave(payload: any) {
       await store.addStep(fullPayload)
       toast.success('Step added.')
     }
-  } catch (err: any) {
+  } catch (err) {
     console.log('[handleStepSave] error:', err)
-    toast.error(err?.error?.message ?? 'Failed to save step.')
+    toast.error(getApiError(err, 'Failed to save step.'))
   } finally {
     editingStep.value = null
   }
@@ -155,8 +156,8 @@ async function handleTransitionSave(payload: any) {
       await store.addTransition({ ...payload, workflow_id: store.workflow!.id })
       toast.success('Transition added.')
     }
-  } catch {
-    toast.error('Failed to save transition.')
+  } catch (err) {
+    toast.error(getApiError(err, 'Failed to save transition.'))
   } finally {
     editingTransition.value = null
     pendingFromId.value = ''
@@ -175,7 +176,7 @@ async function confirmDeleteStep() {
     deletingStep.value = null
   } catch (err) {
     console.error('[deleteStep] error', err)
-    toast.error('Failed to delete step.')
+    toast.error(getApiError(err, 'Failed to delete step.'))
   }
 }
 
@@ -184,8 +185,8 @@ async function confirmDeleteTransition() {
   try {
     await store.deleteTransition(deletingTransition.value.id)
     toast.success('Transition deleted.')
-  } catch {
-    toast.error('Failed to delete transition.')
+  } catch (err) {
+    toast.error(getApiError(err, 'Failed to delete transition.'))
   } finally {
     deletingTransition.value = null
   }
