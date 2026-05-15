@@ -22,6 +22,10 @@ function getInitials(name: string | undefined | null) {
     <Separator orientation="vertical" class="h-6" />
     <h1 class="font-serif text-xl font-semibold">{{ title }}</h1>
 
+    <div v-if="$slots.actions" class="flex items-center gap-2">
+      <slot name="actions" />
+    </div>
+
     <div class="ml-auto flex items-center gap-4">
       <!-- Search -->
       <!-- <div class="relative hidden md:block">

@@ -24,6 +24,7 @@ export interface DashboardReservationPoint {
 
 export interface DashboardRecentBooking {
   id: string
+  booking_number: string
   client_name: string
   room_name: string
   room_type: string

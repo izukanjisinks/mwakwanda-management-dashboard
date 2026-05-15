@@ -5,8 +5,8 @@ import { useAuthStore } from '@/stores/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
 import ChangePasswordDialog from '@/components/auth/ChangePasswordDialog.vue'
+import OrgPickerDialog from '@/components/auth/OrgPickerDialog.vue'
 import { Trees, Eye, EyeOff, Loader2 } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -16,15 +16,45 @@ const email = ref('')
 const password = ref('')
 const showPassword = ref(false)
 const showChangePasswordDialog = ref(false)
+const submitting = ref(false)
 
 async function handleSubmit() {
-  const success = await authStore.login({ email: email.value, password: password.value })
-  if (success) {
+  if (submitting.value) return
+  submitting.value = true
+
+  try {
+    const success = await authStore.login({ email: email.value, password: password.value })
+
+    if (!success) return
+
     if (authStore.user?.change_password) {
       showChangePasswordDialog.value = true
-    } else {
-      router.push({ name: 'dashboard' })
+      return
     }
+
+    await router.push({ name: 'dashboard' })
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function handleOrgSelect(orgId: string) {
+  if (submitting.value) return
+  submitting.value = true
+
+  try {
+    const success = await authStore.login({ email: email.value, password: password.value, org_id: orgId })
+
+    if (!success) return
+
+    if (authStore.user?.change_password) {
+      showChangePasswordDialog.value = true
+      return
+    }
+
+    await router.push({ name: 'dashboard' })
+  } finally {
+    submitting.value = false
   }
 }
 
@@ -46,11 +76,16 @@ function handlePasswordChanged() {
 
           <!-- Logo & Title -->
           <div class="flex flex-col items-center gap-4 text-center mb-8">
-            <div class="flex items-center gap-2">
-              <Trees class="h-8 w-8 text-primary" />
+            <div class="flex items-center gap-2 lg:hidden">
+                <img
+                  src="@/assets/logo/MwakwandaLogoBrownLetters.svg"
+                  alt="Lodge Logo"
+                  class="h-75 w-75 object-contain drop-shadow-lg"/>
+
+              <!-- <Trees class="h-8 w-8 text-primary" />
               <span class="font-serif text-2xl font-semibold tracking-tight text-foreground">
                 Pine Ridge Lodge
-              </span>
+              </span> -->
             </div>
             <div>
               <h1 class="font-serif text-3xl font-bold tracking-tight text-foreground">
@@ -117,10 +152,10 @@ function handlePasswordChanged() {
 
             <Button
               type="submit"
-              :disabled="authStore.loading"
+              :disabled="authStore.loading || submitting"
               class="h-11 w-full text-base font-medium shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all"
             >
-              <span v-if="authStore.loading" class="flex items-center gap-2">
+              <span v-if="authStore.loading || submitting" class="flex items-center gap-2">
                 <Loader2 class="h-4 w-4 animate-spin" />
                 Signing in...
               </span>
@@ -150,11 +185,20 @@ function handlePasswordChanged() {
         class="absolute inset-0 h-full w-full object-cover"
       />
 
-      <!-- Gradient overlay -->
+      <!-- Gradient overlay -->git 
       <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
 
+      <!-- Centered Logo Overlay -->
+      <div class="absolute inset-0 flex items-center justify-center">
+        <img
+          src="@/assets/logo/MwakwandaDarkBackgroundLogo.svg"
+          alt="Lodge Logo"
+          class="h-120 w-120 object-contain drop-shadow-2xl"
+        />
+      </div>
+
       <!-- Quote overlay -->
-      <div class="absolute inset-0 flex flex-col justify-end p-12">
+      <!-- <div class="absolute inset-0 flex flex-col justify-end p-12">
         <div class="max-w-lg">
           <blockquote class="space-y-4">
             <p class="font-serif text-2xl font-medium leading-relaxed text-white/95">
@@ -165,10 +209,19 @@ function handlePasswordChanged() {
             </footer>
           </blockquote>
         </div>
-      </div>
+      </div> -->
     </div>
 
   </div>
+
+  <!-- Org Picker Dialog -->
+  <OrgPickerDialog
+    :open="authStore.requiresOrgSelection"
+    :orgs="authStore.pendingOrgs"
+    :loading="authStore.loading"
+    @select="handleOrgSelect"
+    @dismiss="authStore.dismissOrgSelection()"
+  />
 
   <!-- Change Password Dialog -->
   <ChangePasswordDialog

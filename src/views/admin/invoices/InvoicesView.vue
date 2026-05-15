@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { Search, Eye, ChevronLeft, ChevronRight, FileText } from 'lucide-vue-next'
-import { usePagination } from '@/composables/usePagination'
 import { toast } from 'vue-sonner'
 import { useInvoicesStore } from '@/stores/invoices'
 import type { Invoice, InvoiceStatus } from '@/types/invoice'
@@ -36,20 +35,32 @@ const pdfInvoice = ref<Invoice | null>(null)
 const search = ref('')
 const statusFilter = ref<InvoiceStatus | 'all'>('all')
 
-onMounted(() => store.fetchInvoices())
+const page = ref(1)
+const pageSize = 10
+
+function loadInvoices() {
+  store.fetchInvoices(page.value, pageSize, statusFilter.value === 'all' ? undefined : statusFilter.value)
+}
+
+onMounted(loadInvoices)
+watch(page, loadInvoices)
+
+function setStatus(val: InvoiceStatus | 'all') {
+  statusFilter.value = val
+  page.value = 1
+  loadInvoices()
+}
+
+const totalPages = computed(() => Math.max(1, Math.ceil(store.total / pageSize)))
 
 const filtered = computed(() => {
-  let list = store.invoices
-  if (statusFilter.value !== 'all') list = list.filter(i => i.status === statusFilter.value)
   const q = search.value.toLowerCase().trim()
-  if (!q) return list
-  return list.filter(i =>
+  if (!q) return store.invoices
+  return store.invoices.filter(i =>
     i.client_name.toLowerCase().includes(q) ||
     i.invoice_number.toLowerCase().includes(q),
   )
 })
-
-const { page, totalPages, paginated, prev, next, goTo, pageNumbers } = usePagination(filtered)
 
 const statusConfig: Record<InvoiceStatus, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
   draft:     { label: 'Draft',     variant: 'outline' },
@@ -69,7 +80,6 @@ function openDetail(invoice: Invoice) {
   detailOpen.value = true
 }
 
-
 async function handleStatusChange(status: InvoiceStatus) {
   if (!selectedInvoice.value) return
   const paidDate = status === 'paid' ? new Date().toISOString().split('T')[0] : undefined
@@ -82,9 +92,8 @@ async function handleStatusChange(status: InvoiceStatus) {
   }
 }
 
-// Summary counts
 const summary = computed(() => ({
-  total: store.invoices.length,
+  total: store.total,
   outstanding: store.invoices.filter(i => i.status === 'issued' || i.status === 'overdue').length,
   paid: store.invoices.filter(i => i.status === 'paid').length,
   overdue: store.invoices.filter(i => i.status === 'overdue').length,
@@ -124,7 +133,7 @@ const summary = computed(() => ({
           <Search class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
           <Input v-model="search" placeholder="Search invoices..." class="pl-9" />
         </div>
-        <Select v-model="statusFilter">
+        <Select :model-value="statusFilter" @update:model-value="(v) => setStatus(v as InvoiceStatus | 'all')">
           <SelectTrigger class="w-40">
             <SelectValue placeholder="All statuses" />
           </SelectTrigger>
@@ -144,7 +153,7 @@ const summary = computed(() => ({
     <div class="rounded-xl border bg-card overflow-hidden">
       <Table>
         <TableHeader>
-          <TableRow>
+          <TableRow class="bg-muted/30">
             <TableHead>Invoice No.</TableHead>
             <TableHead>Client</TableHead>
             <TableHead>Type</TableHead>
@@ -174,7 +183,7 @@ const summary = computed(() => ({
 
           <template v-else>
             <TableRow
-              v-for="invoice in paginated"
+              v-for="invoice in filtered"
               :key="invoice.id"
               class="cursor-pointer"
               @click="openDetail(invoice)"
@@ -208,29 +217,21 @@ const summary = computed(() => ({
       </Table>
 
       <!-- Pagination -->
-      <div v-if="totalPages > 1" class="flex items-center justify-between px-10 py-3 border-t text-sm">
-        <p class="text-muted-foreground">Page {{ page }} of {{ totalPages }}</p>
-        <div class="flex items-center gap-1">
-          <button class="size-8 flex items-center justify-center rounded-md border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed" :disabled="page === 1" @click="prev"><ChevronLeft class="size-4" /></button>
-          <template v-for="p in pageNumbers" :key="p">
-            <span v-if="p === '...'" class="px-1 text-muted-foreground">…</span>
-            <button v-else :class="['size-8 flex items-center justify-center rounded-md border text-sm', p === page ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted']" @click="goTo(p as number)">{{ p }}</button>
-          </template>
-          <button class="size-8 flex items-center justify-center rounded-md border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed" :disabled="page === totalPages" @click="next"><ChevronRight class="size-4" /></button>
+      <div class="flex items-center justify-between px-6 py-3 border-t text-sm text-muted-foreground">
+        <span>{{ store.total }} invoice{{ store.total !== 1 ? 's' : '' }}</span>
+        <div class="flex items-center gap-2">
+          <Button variant="outline" size="icon" class="size-8" :disabled="page <= 1" @click="page--">
+            <ChevronLeft class="size-4" />
+          </Button>
+          <span>{{ page }} / {{ totalPages }}</span>
+          <Button variant="outline" size="icon" class="size-8" :disabled="page >= totalPages" @click="page++">
+            <ChevronRight class="size-4" />
+          </Button>
         </div>
       </div>
     </div>
   </div>
 
-  <InvoicePdfSheet
-    v-model:open="pdfSheetOpen"
-    :invoice="pdfInvoice"
-  />
-
-  <InvoiceDetailDialog
-    v-model:open="detailOpen"
-    :invoice="selectedInvoice"
-    @status-change="handleStatusChange"
-  />
-
+  <InvoicePdfSheet v-model:open="pdfSheetOpen" :invoice="pdfInvoice" />
+  <InvoiceDetailDialog v-model:open="detailOpen" :invoice="selectedInvoice" @status-change="handleStatusChange" />
 </template>

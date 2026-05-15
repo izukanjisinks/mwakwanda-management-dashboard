@@ -123,3 +123,10 @@
     @apply bg-background text-foreground font-sans antialiased;
   }
 }
+
+/* When any select / dropdown item is highlighted, muted child text inherits
+   the accent-foreground color so it stays readable against the green background. */
+[data-slot="select-item"][data-highlighted] .text-muted-foreground,
+[role="option"][data-highlighted] .text-muted-foreground {
+  color: inherit;
+}

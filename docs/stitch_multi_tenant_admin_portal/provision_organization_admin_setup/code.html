@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-highest": "#eae1da",
+                        "on-secondary-container": "#783916",
+                        "tertiary-container": "#464440",
+                        "surface-bright": "#fff8f4",
+                        "outline-variant": "#c2c8bf",
+                        "background": "#fff8f4",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "primary-fixed": "#c8ecc9",
+                        "primary-container": "#2d4b32",
+                        "on-primary-container": "#98ba9a",
+                        "on-primary-fixed-variant": "#2f4d34",
+                        "on-error-container": "#93000a",
+                        "tertiary-fixed": "#e6e2dc",
+                        "on-tertiary-container": "#b5b1ac",
+                        "secondary": "#904c27",
+                        "error": "#ba1a1a",
+                        "tertiary": "#2f2e2a",
+                        "on-secondary-fixed-variant": "#733512",
+                        "on-surface": "#1f1b17",
+                        "surface-variant": "#eae1da",
+                        "inverse-surface": "#34302b",
+                        "secondary-container": "#ffa67a",
+                        "on-primary-fixed": "#03210c",
+                        "on-surface-variant": "#424842",
+                        "inverse-on-surface": "#f8efe8",
+                        "surface-container-low": "#fbf2eb",
+                        "surface-dim": "#e1d8d2",
+                        "on-secondary-fixed": "#341000",
+                        "surface-container-high": "#f0e7df",
+                        "on-error": "#ffffff",
+                        "surface": "#fff8f4",
+                        "on-background": "#1f1b17",
+                        "primary": "#17341d",
+                        "on-tertiary": "#ffffff",
+                        "surface-tint": "#47664b",
+                        "on-tertiary-fixed": "#1d1b18",
+                        "error-container": "#ffdad6",
+                        "secondary-fixed-dim": "#ffb693",
+                        "surface-container": "#f5ece5",
+                        "inverse-primary": "#adcfae",
+                        "outline": "#737971",
+                        "secondary-fixed": "#ffdbcb",
+                        "tertiary-fixed-dim": "#cac6c0",
+                        "on-tertiary-fixed-variant": "#494642",
+                        "on-secondary": "#ffffff",
+                        "primary-fixed-dim": "#adcfae"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "lg": "40px",
+                        "gutter": "24px",
+                        "md": "24px",
+                        "xl": "64px",
+                        "xs": "8px",
+                        "sm": "16px",
+                        "base": "4px",
+                        "margin": "32px"
+                    },
+                    "fontFamily": {
+                        "headline-xl": ["Manrope"],
+                        "body-md": ["Manrope"],
+                        "body-lg": ["Manrope"],
+                        "headline-md": ["Manrope"],
+                        "label-md": ["Manrope"],
+                        "headline-lg": ["Manrope"],
+                        "label-sm": ["Manrope"]
+                    },
+                    "fontSize": {
+                        "headline-xl": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "body-md": ["14px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                        "body-lg": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                        "headline-md": ["20px", {"lineHeight": "1.4", "fontWeight": "600"}],
+                        "label-md": ["13px", {"lineHeight": "1.2", "letterSpacing": "0.01em", "fontWeight": "600"}],
+                        "headline-lg": ["24px", {"lineHeight": "1.3", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "label-sm": ["11px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "700"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #fff8f4;
+            font-family: 'Manrope', sans-serif;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="antialiased">
+<!-- NavigationDrawer (Shared Component) -->
+<aside class="fixed left-0 top-0 h-full w-[260px] bg-emerald-900 dark:bg-slate-950 border-r border-emerald-800 dark:border-slate-800 shadow-xl z-50 flex flex-col overflow-y-auto font-['Manrope'] antialiased">
+<div class="p-6">
+<span class="text-lg font-bold tracking-tight text-white">LodgeCentral Backoffice</span>
+</div>
+<nav class="flex-1 px-4 space-y-1">
+<div class="flex items-center gap-3 px-4 py-3 text-emerald-100/70 hover:bg-emerald-800/30 hover:text-white transition-colors cursor-pointer rounded-lg">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</div>
+<div class="flex items-center gap-3 px-4 py-3 text-emerald-100/70 hover:bg-emerald-800/30 hover:text-white transition-colors cursor-pointer rounded-lg">
+<span class="material-symbols-outlined" data-icon="domain">domain</span>
+<span class="font-label-md text-label-md">Organizations</span>
+</div>
+<div class="flex items-center gap-3 px-4 py-3 bg-emerald-800/50 text-white border-l-4 border-orange-600 cursor-pointer">
+<span class="material-symbols-outlined" data-icon="add_business">add_business</span>
+<span class="font-label-md text-label-md">Provisioning</span>
+</div>
+<div class="flex items-center gap-3 px-4 py-3 text-emerald-100/70 hover:bg-emerald-800/30 hover:text-white transition-colors cursor-pointer rounded-lg">
+<span class="material-symbols-outlined" data-icon="admin_panel_settings">admin_panel_settings</span>
+<span class="font-label-md text-label-md">Platform Admins</span>
+</div>
+</nav>
+<div class="mt-auto p-4 border-t border-emerald-800">
+<div class="flex items-center gap-3 px-4 py-3 text-emerald-100/50 hover:text-white cursor-pointer transition-colors">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+<span class="font-label-md text-label-md">Logout</span>
+</div>
+</div>
+</aside>
+<!-- Main Content Shell -->
+<div class="ml-[260px] min-h-screen flex flex-col">
+<!-- TopAppBar (Shared Component) -->
+<header class="w-full sticky top-0 z-40 bg-[#F4EFE9] dark:bg-slate-900 border-b border-stone-200 dark:border-slate-800 shadow-sm flex items-center justify-between px-8 py-4">
+<div class="flex items-center gap-4">
+<button class="hover:bg-stone-100 dark:hover:bg-slate-800 rounded-full p-2 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-emerald-900" data-icon="menu_open">menu_open</span>
+</button>
+<h1 class="text-emerald-900 dark:text-white font-black text-xl">System Overview</h1>
+</div>
+<div class="flex items-center gap-4">
+<span class="font-['Manrope'] text-sm font-semibold text-emerald-900 dark:text-emerald-50">Platform Administrator</span>
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container overflow-hidden">
+<img alt="Platform Administrator Profile" class="w-full h-full object-cover" data-alt="Professional portrait of a male platform administrator in a modern office setting with warm lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCtmSS5Dx6UC-36C3l0X6gx4jkPtcRbqiyRbePO6nG2AvUTySQUPwtltp2_DLZcPtucS98cG7kDvgn94PJMS3NC1V8wRQ11UGkk9gXEzAdjcPgeR01OmsPJoeKq-Zt_FPdwzDCNyFtz03-LFUHpxVtfsrPIF4D0Rk0qgn1hUy3Hkb2M2v3bc6YmDgmeUL1OONAklEm9N9KUtwK40-OygVHjc67jKmU_Q5a7mMa5pmhqCdg_-omJX531Wv6g-Ux7StdY6unTtyXsh3-Q"/>
+</div>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="flex-1 p-margin flex flex-col items-center">
+<!-- Breadcrumbs / Stepper Progress -->
+<div class="w-full max-w-4xl mb-xl">
+<div class="flex items-center justify-between">
+<div class="flex flex-col gap-2">
+<h2 class="font-headline-xl text-headline-xl text-primary">Provision New Organization</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Setup the administrative foundation for the new lodge portfolio.</p>
+</div>
+</div>
+<!-- Stepper Visual -->
+<div class="mt-md flex items-center gap-4">
+<div class="flex items-center gap-2 text-primary">
+<span class="w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center text-label-sm">1</span>
+<span class="font-label-md text-label-md">Organization Details</span>
+</div>
+<div class="h-px bg-outline-variant flex-1"></div>
+<div class="flex items-center gap-2 text-primary">
+<span class="w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center text-label-sm">2</span>
+<span class="font-label-md text-label-md">Admin User Setup</span>
+</div>
+<div class="h-px bg-outline-variant flex-1"></div>
+<div class="flex items-center gap-2 text-outline">
+<span class="w-8 h-8 rounded-full border-2 border-outline text-outline flex items-center justify-center text-label-sm">3</span>
+<span class="font-label-md text-label-md">Confirmation</span>
+</div>
+</div>
+</div>
+<!-- Provisioning Form Card -->
+<div class="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-12 gap-gutter">
+<!-- Info Section (Left) -->
+<div class="lg:col-span-4 space-y-md">
+<div class="p-md bg-surface-container-low rounded-xl border border-surface-container-highest">
+<span class="material-symbols-outlined text-secondary mb-base" data-icon="security" style="font-variation-settings: 'FILL' 1;">security</span>
+<h3 class="font-headline-md text-headline-md text-primary mb-xs">Security First</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">The first administrator will have full root access to the organization's settings, users, and billing data.</p>
+</div>
+<div class="p-md bg-surface-container-low rounded-xl border border-surface-container-highest">
+<span class="material-symbols-outlined text-secondary mb-base" data-icon="mail" style="font-variation-settings: 'FILL' 1;">mail</span>
+<h3 class="font-headline-md text-headline-md text-primary mb-xs">Notification</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">A temporary password and setup link will be sent automatically to the provided email address once provisioning is complete.</p>
+</div>
+</div>
+<!-- Form Section (Right) -->
+<div class="lg:col-span-8 bg-surface-container-lowest p-xl rounded-xl shadow-sm border border-surface-container-highest">
+<form class="space-y-md">
+<div class="space-y-base">
+<label class="font-label-md text-label-md text-on-surface-variant block">ADMINISTRATOR FULL NAME</label>
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline" data-icon="person">person</span>
+<input class="w-full pl-12 pr-4 py-3 bg-surface-container-low border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all font-body-md text-on-surface" placeholder="e.g. Alexander Thorne" type="text"/>
+</div>
+</div>
+<div class="space-y-base">
+<label class="font-label-md text-label-md text-on-surface-variant block">BUSINESS EMAIL ADDRESS</label>
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline" data-icon="alternate_email">alternate_email</span>
+<input class="w-full pl-12 pr-4 py-3 bg-surface-container-low border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all font-body-md text-on-surface" placeholder="a.thorne@lodgeluxury.com" type="email"/>
+</div>
+</div>
+<div class="pt-sm border-t border-surface-container-highest">
+<div class="flex items-start gap-3 p-sm bg-surface-bright rounded-lg">
+<span class="material-symbols-outlined text-secondary" data-icon="info" style="font-variation-settings: 'FILL' 1;">info</span>
+<div>
+<h4 class="font-label-md text-label-md text-secondary">AUTOMATED PROVISIONING</h4>
+<p class="font-body-md text-body-md text-on-surface-variant">By clicking "Create Organization", the system will generate a secure tenant, initialize default configurations, and dispatch an invitation email.</p>
+</div>
+</div>
+</div>
+<!-- Action Buttons -->
+<div class="flex items-center justify-between pt-md">
+<button class="flex items-center gap-2 px-md py-3 text-on-surface hover:bg-surface-container-high rounded-lg transition-colors font-label-md text-label-md" type="button">
+<span class="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+                                Back
+                            </button>
+<button class="flex items-center gap-3 px-xl py-3 bg-primary text-on-primary rounded-lg shadow-md hover:bg-primary-container hover:text-on-primary-container transition-all active:scale-95 font-label-md text-label-md" type="button">
+                                Create Organization
+                                <span class="material-symbols-outlined" data-icon="rocket_launch">rocket_launch</span>
+</button>
+</div>
+</form>
+</div>
+</div>
+<!-- Background Decorative Element -->
+<div class="fixed bottom-0 right-0 -z-10 opacity-10 pointer-events-none">
+<img alt="" class="w-[600px]" data-alt="Soft ethereal mountain landscape at dusk with atmospheric mist and deep emerald forest textures" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDo75hOdeNq2Zaaphk-c8o7DEz0lraTS4CKRSmeVutV5dxjaBpma6BwnSpnhrIUXHlCMhe-cYsMioxKb7VALvbXoGsWWeda2qZqFFl1AaNOijZ2DLD7H42sa__QHVL34XQlXtOYYCX826k_uxaWwQGlMGOS4ZPvEhKVgCJua3bnwiumZe7zK3S7Zh9l7RZD_eiAcMwsSwo-2xQfPGE2kk7G4MXFhGunYfAa4Fte4a-JsIoen4p--3a1-ThrU6KYL8Nzx0EK1mmYCkb5"/>
+</div>
+</main>
+</div>
+</body></html>

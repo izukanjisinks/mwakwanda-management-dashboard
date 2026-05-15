@@ -7,6 +7,7 @@ export interface SystemUser {
   full_name: string
   email: string
   role: SystemUserRole
+  role_id?: string
   status: SystemUserStatus
   is_locked?: boolean
   last_login?: string

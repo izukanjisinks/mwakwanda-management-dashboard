@@ -1,6 +1,7 @@
 import { apiClient } from './client'
 import type {
   Workflow,
+  WorkflowType,
   WorkflowStep,
   WorkflowTransition,
   WorkflowTasksResponse,
@@ -8,13 +9,16 @@ import type {
   UpdateStepPayload,
   CreateTransitionPayload,
   UpdateTransitionPayload,
+  CreateWorkflowPayload,
   ProcessTaskPayload,
   WorkflowTask,
 } from '@/types/workflow'
 
 export const workflowApi = {
   // Workflow definition
+  listTypes: () => apiClient.get<{ count: number; workflow_types: WorkflowType[] }>('/admin/workflow-types'),
   list: () => apiClient.get<{ count: number; workflows: Workflow[] }>('/admin/workflows'),
+  create: (payload: CreateWorkflowPayload) => apiClient.post<Workflow>('/admin/workflows', payload),
   get: (id: string) => apiClient.get<Workflow>(`/admin/workflows/${id}`),
   getStructure: (id: string) => apiClient.get<Workflow>(`/admin/workflows/${id}/structure`),
   update: (id: string, payload: { name?: string; description?: string }) =>

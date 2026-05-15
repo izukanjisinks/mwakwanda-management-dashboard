@@ -19,7 +19,7 @@ export const useIndividualClientsStore = defineStore('individualClients', () => 
     error.value = null
     try {
       const res = await individualClientApi.list({ page, page_size: pageSize })
-      clients.value = res.data
+      clients.value = res.data ?? []
       total.value = res.total
     } catch (err: any) {
       error.value = err?.error?.message ?? 'Failed to load clients.'
@@ -62,7 +62,7 @@ export const useCorporateClientsStore = defineStore('corporateClients', () => {
     error.value = null
     try {
       const res = await corporateClientApi.list({ page, page_size: pageSize })
-      clients.value = res.data
+      clients.value = res.data ?? []
       total.value = res.total
     } catch (err: any) {
       error.value = err?.error?.message ?? 'Failed to load clients.'

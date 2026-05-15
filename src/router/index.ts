@@ -1,11 +1,14 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useBackofficeStore } from '@/stores/backoffice'
 import type { UserRole } from '@/types/auth'
 
 declare module 'vue-router' {
   interface RouteMeta {
     requiresAuth?: boolean
+    requiresBackofficeAuth?: boolean
     guestOnly?: boolean
+    backofficeGuestOnly?: boolean
     roles?: UserRole[]
   }
 }
@@ -19,6 +22,12 @@ const router = createRouter({
       name: 'login',
       component: () => import('@/views/auth/LoginView.vue'),
       meta: { requiresAuth: false, guestOnly: true },
+    },
+    {
+      path: '/change-password',
+      name: 'change-password',
+      component: () => import('@/views/auth/ChangePasswordView.vue'),
+      meta: { requiresAuth: true },
     },
 
     // Authenticated — all share the sidebar layout
@@ -59,9 +68,14 @@ const router = createRouter({
           component: () => import('@/views/admin/bookings/BookingsView.vue'),
         },
         {
-          path: 'meals',
-          name: 'meals',
-          component: () => import('@/views/admin/meals/MealsView.vue'),
+          path: 'menus',
+          name: 'menus',
+          component: () => import('@/views/admin/menus/MenusView.vue'),
+        },
+        {
+          path: 'orders',
+          name: 'orders',
+          component: () => import('@/views/admin/orders/OrdersView.vue'),
         },
         {
           path: 'invoices',
@@ -89,8 +103,23 @@ const router = createRouter({
           component: () => import('@/views/admin/users/UsersView.vue'),
         },
         {
+          path: 'settings',
+          name: 'settings',
+          component: () => import('@/views/admin/settings/SettingsView.vue'),
+        },
+        {
+          path: 'audit-logs',
+          name: 'audit-logs',
+          component: () => import('@/views/admin/settings/AuditLogsView.vue'),
+        },
+        {
           path: 'workflow',
           name: 'workflow',
+          component: () => import('@/views/admin/workflow/WorkflowsListView.vue'),
+        },
+        {
+          path: 'workflow/:id',
+          name: 'workflow-editor',
           component: () => import('@/views/admin/workflow/WorkflowView.vue'),
         },
         {
@@ -121,6 +150,48 @@ const router = createRouter({
       ],
     },
 
+    // ── Backoffice (Platform Admin) ──────────────────────────────────────────
+    {
+      path: '/backoffice/login',
+      name: 'backoffice-login',
+      component: () => import('@/views/backoffice/LoginView.vue'),
+      meta: { backofficeGuestOnly: true },
+    },
+    {
+      path: '/backoffice/change-password',
+      name: 'backoffice-change-password',
+      component: () => import('@/views/backoffice/ChangePasswordView.vue'),
+      meta: { requiresBackofficeAuth: true },
+    },
+    {
+      path: '/backoffice',
+      component: () => import('@/layouts/BackofficeLayout.vue'),
+      meta: { requiresBackofficeAuth: true },
+      redirect: '/backoffice/dashboard',
+      children: [
+        {
+          path: 'dashboard',
+          name: 'backoffice-dashboard',
+          component: () => import('@/views/backoffice/DashboardView.vue'),
+        },
+        {
+          path: 'organizations',
+          name: 'backoffice-organizations',
+          component: () => import('@/views/backoffice/OrganizationsView.vue'),
+        },
+        {
+          path: 'provisioning',
+          name: 'backoffice-provisioning',
+          component: () => import('@/views/backoffice/ProvisionView.vue'),
+        },
+        {
+          path: 'admins',
+          name: 'backoffice-admins',
+          component: () => import('@/views/backoffice/PlatformAdminsView.vue'),
+        },
+      ],
+    },
+
     // Catch-all
     {
       path: '/:pathMatch(.*)*',
@@ -129,10 +200,43 @@ const router = createRouter({
   ],
 })
 
+const BACKOFFICE_TOKEN_KEY = 'lodge_backoffice_token'
+
 // Navigation guard
 router.beforeEach(async (to) => {
   const authStore = useAuthStore()
 
+  // ── Backoffice routes ─────────────────────────────────────────────────────
+  if (to.meta.requiresBackofficeAuth || to.meta.backofficeGuestOnly) {
+    const backofficeToken = localStorage.getItem(BACKOFFICE_TOKEN_KEY)
+    const isBackofficeAuthenticated = !!backofficeToken
+
+    if (to.meta.backofficeGuestOnly && isBackofficeAuthenticated) {
+      return { name: 'backoffice-dashboard' }
+    }
+
+    if (to.meta.requiresBackofficeAuth && !isBackofficeAuthenticated) {
+      return { name: 'backoffice-login', query: { redirect: to.fullPath } }
+    }
+
+    // Hydrate backoffice user on page reload
+    const backofficeStore = useBackofficeStore()
+    if (backofficeToken && !backofficeStore.user) {
+      await backofficeStore.fetchMe()
+    }
+
+    // Force password change for backoffice users
+    if (
+      backofficeStore.user?.change_password &&
+      to.name !== 'backoffice-change-password'
+    ) {
+      return { name: 'backoffice-change-password' }
+    }
+
+    return
+  }
+
+  // ── Staff routes ──────────────────────────────────────────────────────────
   if (authStore.token && !authStore.user) {
     await authStore.fetchCurrentUser()
   }
@@ -149,7 +253,15 @@ router.beforeEach(async (to) => {
     return { name: 'dashboard' }
   }
 
-  // Role-based access control
+  // Force password change before accessing anything else
+  if (
+    authStore.isAuthenticated &&
+    authStore.user?.change_password &&
+    to.name !== 'change-password'
+  ) {
+    return { name: 'change-password' }
+  }
+
   if (roles && authStore.userRole && !roles.includes(authStore.userRole)) {
     return { name: 'dashboard' }
   }

@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, provide } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { VueFlow, useVueFlow, MarkerType } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
 import { MiniMap } from '@vue-flow/minimap'
 import { toast } from 'vue-sonner'
-import { Plus, GitBranch, Save, Pencil } from 'lucide-vue-next'
+import { Plus, GitBranch, Save, Pencil, ArrowLeft } from 'lucide-vue-next'
 import { useWorkflowStore } from '@/stores/workflow'
 import type { WorkflowStep, WorkflowTransition } from '@/types/workflow'
 import type { Connection } from '@vue-flow/core'
@@ -25,6 +26,8 @@ import '@vue-flow/minimap/dist/style.css'
 
 
 const store = useWorkflowStore()
+const route = useRoute()
+const router = useRouter()
 
 const nodeTypes = { state: StateNode }
 const edgeTypes = { default: TransitionEdge }
@@ -78,8 +81,9 @@ provide('deleteStep', (step: WorkflowStep) => {
 })
 
 onMounted(async () => {
-  await store.fetchWorkflow()
-  console.log('[WorkflowView] workflow:', store.workflow)
+  const id = route.params.id as string
+  if (!id) { router.push({ name: 'workflow' }); return }
+  await store.fetchWorkflow(id)
   if (store.workflow) {
     infoName.value = store.workflow.name
     infoDescription.value = store.workflow.description
@@ -122,11 +126,13 @@ async function handleStepSave(payload: any) {
       await store.updateStep(editingStep.value.id, payload)
       toast.success('Step updated.')
     } else {
-      await store.addStep({ ...payload, workflow_id: store.workflow!.id })
+      const fullPayload = { ...payload, workflow_id: store.workflow!.id }
+      await store.addStep(fullPayload)
       toast.success('Step added.')
     }
-  } catch {
-    toast.error('Failed to save step.')
+  } catch (err: any) {
+    console.log('[handleStepSave] error:', err)
+    toast.error(err?.error?.message ?? 'Failed to save step.')
   } finally {
     editingStep.value = null
   }
@@ -193,7 +199,7 @@ function openAddTransition() {
 </script>
 
 <template>
-  <DashboardHeader title="Booking Workflow" />
+  <DashboardHeader :title="store.workflow?.name ?? 'Workflow Editor'" />
 
   <div class="flex flex-col gap-4 p-6 h-[calc(100vh-4rem)]">
     <!-- Info bar -->
@@ -228,6 +234,10 @@ function openAddTransition() {
       </div>
 
       <div class="flex gap-2 shrink-0">
+        <Button variant="ghost" size="sm" @click="router.push({ name: 'workflow' })">
+          <ArrowLeft class="size-4 mr-1.5" />
+          All Workflows
+        </Button>
         <Button variant="outline" size="sm" @click="openAddTransition">
           <GitBranch class="size-4 mr-1.5" />
           Add Transition

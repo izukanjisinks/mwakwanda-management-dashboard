@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authApi } from '@/services/api/auth'
-import type { AuthUser, AuthRole, LoginCredentials, ApiError, UserRole } from '@/types/auth'
+import type { AuthUser, AuthRole, LoginCredentials, ApiError, UserRole, OrgOption, LoginResponse, MultiOrgLoginResponse } from '@/types/auth'
 
 function extractRole(role: AuthRole | undefined): UserRole | null {
   if (!role) return null
@@ -15,6 +15,8 @@ export const useAuthStore = defineStore('auth', () => {
   const token = ref<string | null>(localStorage.getItem(TOKEN_KEY))
   const loading = ref(false)
   const error = ref<string | null>(null)
+  const pendingOrgs = ref<OrgOption[]>([])
+  const requiresOrgSelection = ref(false)
 
   const isAuthenticated = computed(() => !!token.value && !!user.value)
   const userRole = computed(() => extractRole(user.value?.role))
@@ -44,11 +46,19 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null
     try {
       const response = await authApi.login(credentials)
-      setToken(response.token)
-      user.value = response.user
 
-      console.log(response)
+      if ('requires_org_selection' in response && response.requires_org_selection) {
+        console.log('[auth] multi-org response:', response)
+        pendingOrgs.value = (response as MultiOrgLoginResponse).organizations
+        requiresOrgSelection.value = true
+        return false
+      }
 
+      const loginResponse = response as LoginResponse
+      setToken(loginResponse.token)
+      user.value = loginResponse.user
+      requiresOrgSelection.value = false
+      pendingOrgs.value = []
       return true
     } catch (err) {
       const apiErr = err as ApiError
@@ -80,11 +90,18 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  function dismissOrgSelection() {
+    requiresOrgSelection.value = false
+    pendingOrgs.value = []
+  }
+
   return {
     user,
     token,
     loading,
     error,
+    pendingOrgs,
+    requiresOrgSelection,
     isAuthenticated,
     userRole,
     roleLabel,
@@ -93,5 +110,6 @@ export const useAuthStore = defineStore('auth', () => {
     fetchCurrentUser,
     clearAuth,
     setToken,
+    dismissOrgSelection,
   }
 })

@@ -5,6 +5,7 @@ import type { Node, Edge } from '@vue-flow/core'
 import { workflowApi } from '@/services/api/workflow'
 import type {
   Workflow,
+  WorkflowType,
   WorkflowStep,
   WorkflowTransition,
   WorkflowTask,
@@ -12,6 +13,7 @@ import type {
   UpdateStepPayload,
   CreateTransitionPayload,
   UpdateTransitionPayload,
+  CreateWorkflowPayload,
   ProcessTaskPayload,
 } from '@/types/workflow'
 
@@ -20,8 +22,8 @@ import type {
 const STEP_X_OFFSET = 220
 const NODE_Y = 100
 
-function stepsToNodes(steps: WorkflowStep[]): Node[] {
-  const sorted = [...steps].sort((a, b) => a.step_order - b.step_order)
+function stepsToNodes(steps: WorkflowStep[] | null | undefined): Node[] {
+  const sorted = [...(steps ?? [])].sort((a, b) => a.step_order - b.step_order)
   return sorted.map((step, i) => ({
     id: step.id,
     type: 'state',
@@ -30,8 +32,8 @@ function stepsToNodes(steps: WorkflowStep[]): Node[] {
   }))
 }
 
-function transitionsToEdges(transitions: WorkflowTransition[]): Edge[] {
-  return transitions.map((tr) => ({
+function transitionsToEdges(transitions: WorkflowTransition[] | null | undefined): Edge[] {
+  return (transitions ?? []).map((tr) => ({
     id: tr.id,
     source: tr.from_step_id,
     target: tr.to_step_id,
@@ -44,6 +46,8 @@ function transitionsToEdges(transitions: WorkflowTransition[]): Edge[] {
 // ── Store ────────────────────────────────────────────────────────────────────
 
 export const useWorkflowStore = defineStore('workflow', () => {
+  const workflows = ref<Workflow[]>([])
+  const workflowTypes = ref<WorkflowType[]>([])
   const workflow = ref<Workflow | null>(null)
   const tasks = ref<WorkflowTask[]>([])
   const loading = ref(false)
@@ -57,23 +61,42 @@ export const useWorkflowStore = defineStore('workflow', () => {
 
   function syncFlow() {
     if (!workflow.value) return
-    nodes.value = stepsToNodes(workflow.value.steps)
-    edges.value = transitionsToEdges(workflow.value.transitions)
+    nodes.value = stepsToNodes(workflow.value.steps ?? [])
+    edges.value = transitionsToEdges(workflow.value.transitions ?? [])
   }
 
-  async function fetchWorkflow() {
+  async function fetchWorkflows() {
     loading.value = true
     try {
       const res = await workflowApi.list()
-      console.log('[workflow] list response:', res)
-      const first = res.workflows[0]
-      if (!first) {
-        console.warn('[workflow] no workflows returned from /admin/workflows')
-        return
+      workflows.value = res.workflows ?? []
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchTypes() {
+    const res = await workflowApi.listTypes()
+    workflowTypes.value = res.workflow_types ?? []
+  }
+
+  async function createWorkflow(payload: CreateWorkflowPayload): Promise<Workflow> {
+    const wf = await workflowApi.create(payload)
+    workflows.value.push(wf)
+    return wf
+  }
+
+  async function fetchWorkflow(id: string) {
+    loading.value = true
+    try {
+      const res = await workflowApi.getStructure(id) as any
+      // Backend returns { workflow: {...}, steps: [...], transitions: [...] }
+      const wf = res.workflow ?? res
+      workflow.value = {
+        ...wf,
+        steps: res.steps ?? wf.steps ?? [],
+        transitions: res.transitions ?? wf.transitions ?? [],
       }
-      const structure = await workflowApi.getStructure(first.id)
-      console.log('[workflow] structure response:', structure)
-      workflow.value = structure
       syncFlow()
     } finally {
       loading.value = false
@@ -88,14 +111,18 @@ export const useWorkflowStore = defineStore('workflow', () => {
   }
 
   async function addStep(payload: CreateStepPayload) {
-    const step = await workflowApi.createStep(payload)
-    workflow.value?.steps.push(step)
+    const res = await workflowApi.createStep(payload) as any
+    const step = res.step ?? res
+    if (workflow.value) {
+      workflow.value.steps = [...(workflow.value.steps ?? []), step]
+    }
     syncFlow()
     return step
   }
 
   async function updateStep(id: string, payload: UpdateStepPayload) {
-    const step = await workflowApi.updateStep(id, payload)
+    const res = await workflowApi.updateStep(id, payload) as any
+    const step = res.step ?? res
     const idx = workflow.value?.steps.findIndex(s => s.id === id) ?? -1
     if (idx !== -1) workflow.value!.steps[idx] = step
     syncFlow()
@@ -105,8 +132,8 @@ export const useWorkflowStore = defineStore('workflow', () => {
   async function deleteStep(id: string) {
     await workflowApi.deleteStep(id)
     if (workflow.value) {
-      workflow.value.steps = workflow.value.steps.filter(s => s.id !== id)
-      workflow.value.transitions = workflow.value.transitions.filter(
+      workflow.value.steps = (workflow.value.steps ?? []).filter(s => s.id !== id)
+      workflow.value.transitions = (workflow.value.transitions ?? []).filter(
         t => t.from_step_id !== id && t.to_step_id !== id,
       )
     }
@@ -114,14 +141,18 @@ export const useWorkflowStore = defineStore('workflow', () => {
   }
 
   async function addTransition(payload: CreateTransitionPayload) {
-    const tr = await workflowApi.createTransition(payload)
-    workflow.value?.transitions.push(tr)
+    const res = await workflowApi.createTransition(payload) as any
+    const tr = res.transition ?? res
+    if (workflow.value) {
+      workflow.value.transitions = [...(workflow.value.transitions ?? []), tr]
+    }
     syncFlow()
     return tr
   }
 
   async function updateTransition(id: string, payload: UpdateTransitionPayload) {
-    const tr = await workflowApi.updateTransition(id, payload)
+    const res = await workflowApi.updateTransition(id, payload) as any
+    const tr = res.transition ?? res
     const idx = workflow.value?.transitions.findIndex(t => t.id === id) ?? -1
     if (idx !== -1) workflow.value!.transitions[idx] = tr
     syncFlow()
@@ -153,6 +184,8 @@ export const useWorkflowStore = defineStore('workflow', () => {
   }
 
   return {
+    workflows,
+    workflowTypes,
     workflow,
     tasks,
     loading,
@@ -161,6 +194,9 @@ export const useWorkflowStore = defineStore('workflow', () => {
     edges,
     pendingTasks,
     completedTasks,
+    fetchWorkflows,
+    fetchTypes,
+    createWorkflow,
     fetchWorkflow,
     updateWorkflowInfo,
     addStep,

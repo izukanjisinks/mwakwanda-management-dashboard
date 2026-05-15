@@ -1,4 +1,17 @@
 export type StepType = 'initial' | 'middle' | 'final'
+
+export interface WorkflowType {
+  type: string
+  name: string
+  description: string
+}
+
+export interface CreateWorkflowPayload {
+  name: string
+  description: string
+  workflow_type: string
+  is_active: boolean
+}
 export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'rejected'
 
 // ── Workflow definition ──────────────────────────────────────────────────────
@@ -29,6 +42,7 @@ export interface Workflow {
   id: string
   name: string
   description: string
+  workflow_type: string
   is_active: boolean
   steps: WorkflowStep[]
   transitions: WorkflowTransition[]

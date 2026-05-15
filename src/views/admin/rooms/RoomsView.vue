@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { Plus, Pencil, Trash2, Search, ChevronLeft, ChevronRight, Sparkles, Images } from 'lucide-vue-next'
-import { usePagination } from '@/composables/usePagination'
 import { toast } from 'vue-sonner'
 import { useRoomsStore } from '@/stores/rooms'
 import { useAuthStore } from '@/stores/auth'
@@ -46,21 +45,26 @@ const imageRoom = ref<Room | null>(null)
 const search = ref('')
 const deleting = ref(false)
 
-onMounted(() => {
-  store.fetchRooms()
-})
+const page = ref(1)
+const pageSize = 10
+
+function loadRooms() {
+  store.fetchRooms(page.value, pageSize)
+}
+
+onMounted(loadRooms)
+watch(page, loadRooms)
+
+const totalPages = computed(() => Math.max(1, Math.ceil(store.total / pageSize)))
 
 const filtered = computed(() => {
   const q = search.value.toLowerCase().trim()
   if (!q) return store.rooms
-  return store.rooms.filter(
-    r =>
-      r.name.toLowerCase().includes(q) ||
-      r.type.toLowerCase().includes(q),
+  return store.rooms.filter(r =>
+    r.name.toLowerCase().includes(q) ||
+    r.type.toLowerCase().includes(q),
   )
 })
-
-const { page, totalPages, paginated, prev, next, goTo, pageNumbers } = usePagination(filtered)
 
 function openCreate() {
   selectedRoom.value = null
@@ -122,7 +126,7 @@ const typeLabel: Record<string, string> = {
     <div class="rounded-xl border bg-card overflow-hidden">
       <Table>
         <TableHeader>
-          <TableRow>
+          <TableRow class="bg-muted/30">
             <TableHead>Room</TableHead>
             <TableHead>Type</TableHead>
             <TableHead>Capacity</TableHead>
@@ -150,24 +154,19 @@ const typeLabel: Record<string, string> = {
           </template>
 
           <template v-else>
-            <TableRow v-for="room in paginated" :key="room.id">
+            <TableRow v-for="room in filtered" :key="room.id">
               <TableCell class="font-medium">{{ room.name }}</TableCell>
               <TableCell>{{ typeLabel[room.type] ?? room.type }}</TableCell>
               <TableCell>{{ room.capacity }} guest{{ room.capacity === 1 ? '' : 's' }}</TableCell>
               <TableCell>ZMW {{ room.price_per_night.toLocaleString() }}</TableCell>
               <TableCell>
                 <Badge :variant="room.is_available ? 'default' : 'secondary'">
-                  {{ room.is_available ? 'Available' : 'Unavailable' }}
+                  {{ room.is_available ? 'In Service' : 'Out of Service' }}
                 </Badge>
               </TableCell>
               <TableCell>
                 <div class="flex flex-wrap gap-1 max-w-xs">
-                  <Badge
-                    v-for="amenity in room.amenities.slice(0, 3)"
-                    :key="amenity"
-                    variant="secondary"
-                    class="text-xs"
-                  >
+                  <Badge v-for="amenity in room.amenities.slice(0, 3)" :key="amenity" variant="secondary" class="text-xs">
                     {{ amenity }}
                   </Badge>
                   <Badge v-if="room.amenities.length > 3" variant="outline" class="text-xs">
@@ -199,50 +198,25 @@ const typeLabel: Record<string, string> = {
       </Table>
 
       <!-- Pagination -->
-      <div v-if="totalPages > 1" class="flex items-center justify-between px-10 py-3 border-t text-sm">
-        <p class="text-muted-foreground">Page {{ page }} of {{ totalPages }}</p>
-        <div class="flex items-center gap-1">
-          <button
-            class="size-8 flex items-center justify-center rounded-md border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
-            :disabled="page === 1"
-            @click="prev"
-          ><ChevronLeft class="size-4" /></button>
-          <template v-for="p in pageNumbers" :key="p">
-            <span v-if="p === '...'" class="px-1 text-muted-foreground">…</span>
-            <button
-              v-else
-              :class="['size-8 flex items-center justify-center rounded-md border text-sm', p === page ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted']"
-              @click="goTo(p as number)"
-            >{{ p }}</button>
-          </template>
-          <button
-            class="size-8 flex items-center justify-center rounded-md border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
-            :disabled="page === totalPages"
-            @click="next"
-          ><ChevronRight class="size-4" /></button>
+      <div class="flex items-center justify-between px-6 py-3 border-t text-sm text-muted-foreground">
+        <span>{{ store.total }} room{{ store.total !== 1 ? 's' : '' }}</span>
+        <div class="flex items-center gap-2">
+          <Button variant="outline" size="icon" class="size-8" :disabled="page <= 1" @click="page--">
+            <ChevronLeft class="size-4" />
+          </Button>
+          <span>{{ page }} / {{ totalPages }}</span>
+          <Button variant="outline" size="icon" class="size-8" :disabled="page >= totalPages" @click="page++">
+            <ChevronRight class="size-4" />
+          </Button>
         </div>
       </div>
     </div>
   </div>
 
-  <RoomImageDialog
-    v-model:open="imageDialogOpen"
-    :room="imageRoom"
-  />
+  <RoomImageDialog v-model:open="imageDialogOpen" :room="imageRoom" />
+  <RoomCleaningSheet v-model:open="cleaningSheetOpen" :room="cleaningRoom" />
+  <RoomDialog v-model:open="dialogOpen" :room="selectedRoom" @saved="dialogOpen = false" />
 
-  <RoomCleaningSheet
-    v-model:open="cleaningSheetOpen"
-    :room="cleaningRoom"
-  />
-
-  <!-- Create / Edit dialog -->
-  <RoomDialog
-    v-model:open="dialogOpen"
-    :room="selectedRoom"
-    @saved="dialogOpen = false"
-  />
-
-  <!-- Delete confirmation -->
   <Dialog v-model:open="deleteDialogOpen">
     <DialogContent class="max-w-sm">
       <DialogHeader>
@@ -253,16 +227,8 @@ const typeLabel: Record<string, string> = {
         </DialogDescription>
       </DialogHeader>
       <DialogFooter class="gap-2">
-        <Button variant="outline" :disabled="deleting" @click="deleteDialogOpen = false">
-          Cancel
-        </Button>
-        <Button
-          variant="destructive"
-          :disabled="deleting"
-          @click="handleDelete"
-        >
-          Delete
-        </Button>
+        <Button variant="outline" :disabled="deleting" @click="deleteDialogOpen = false">Cancel</Button>
+        <Button variant="destructive" :disabled="deleting" @click="handleDelete">Delete</Button>
       </DialogFooter>
     </DialogContent>
   </Dialog>

@@ -10,6 +10,7 @@ import {
   Building2,
   BarChart3,
   ShieldCheck,
+  Settings,
   LogOut,
   ChevronUp,
   User2,
@@ -69,7 +70,8 @@ const adminNav = [
     items: [
       { title: 'Rooms', icon: Hotel, routeName: 'rooms' },
       { title: 'Bookings', icon: CalendarDays, routeName: 'admin-bookings' },
-      { title: 'Meals', icon: UtensilsCrossed, routeName: 'meals' },
+      { title: 'Menus', icon: UtensilsCrossed, routeName: 'menus' },
+      { title: 'Orders', icon: BookOpen, routeName: 'orders' },
       { title: 'Invoices', icon: ReceiptText, routeName: 'admin-invoices' },
     ],
   },
@@ -97,6 +99,7 @@ const adminNav = [
     label: 'System',
     items: [
       { title: 'System Users', icon: ShieldCheck, routeName: 'users' },
+      { title: 'Settings', icon: Settings, routeName: 'settings' },
     ],
   },
 ]
@@ -155,16 +158,34 @@ async function handleLogout() {
 <template>
   <Sidebar collapsible="icon">
     <SidebarHeader>
-      <SidebarMenu>
+      <RouterLink :to="{ name: 'dashboard' }" class="flex flex-col items-center gap-2 py-4 px-2 group-data-[collapsible=icon]:hidden">
+        <div class="size-16 rounded-xl bg-primary text-primary-foreground overflow-hidden flex items-center justify-center shrink-0">
+          <img
+            v-if="authStore.user?.org_logo_url"
+            :src="authStore.user.org_logo_url"
+            :alt="authStore.user.org_name"
+            class="size-full object-cover"
+          />
+          <span v-else class="font-bold text-2xl">LM</span>
+        </div>
+        <div class="flex flex-col items-center gap-0.5 leading-none text-center">
+          <span class="font-semibold text-sm">{{ authStore.user?.org_name || 'Lodge Management' }}</span>
+          <span class="text-xs text-muted-foreground">{{ authStore.roleLabel }}</span>
+        </div>
+      </RouterLink>
+      <!-- Collapsed state: small icon only -->
+      <SidebarMenu class="hidden group-data-[collapsible=icon]:flex">
         <SidebarMenuItem>
           <SidebarMenuButton size="lg" as-child>
             <RouterLink :to="{ name: 'dashboard' }">
-              <div class="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-sm">
-                LM
-              </div>
-              <div class="flex flex-col gap-0.5 leading-none">
-                <span class="font-semibold">Lodge Management</span>
-                <span class="text-xs text-muted-foreground">{{ authStore.roleLabel }}</span>
+              <div class="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground overflow-hidden shrink-0">
+                <img
+                  v-if="authStore.user?.org_logo_url"
+                  :src="authStore.user.org_logo_url"
+                  :alt="authStore.user.org_name"
+                  class="size-full object-cover"
+                />
+                <span v-else class="font-bold text-sm">LM</span>
               </div>
             </RouterLink>
           </SidebarMenuButton>

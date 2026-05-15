@@ -14,7 +14,7 @@ export const useUsersStore = defineStore('users', () => {
     error.value = null
     try {
       const res = await usersApi.list({ page, page_size: pageSize })
-      users.value = res.data
+      users.value = res.data ?? []
       total.value = res.total
     } catch (err: any) {
       error.value = err?.error?.message ?? 'Failed to load users.'
@@ -43,17 +43,24 @@ export const useUsersStore = defineStore('users', () => {
     total.value--
   }
 
+  async function changeRole(id: string, roleId: string): Promise<SystemUser> {
+    const updated = await usersApi.changeRole(id, roleId)
+    const idx = users.value.findIndex(u => u.id === id)
+    if (idx !== -1) users.value[idx] = updated
+    return updated
+  }
+
   async function lockUser(id: string): Promise<void> {
     await usersApi.lock(id)
     const idx = users.value.findIndex(u => u.id === id)
-    if (idx !== -1) users.value[idx].is_locked = true
+    if (idx !== -1) users.value[idx]!.is_locked = true
   }
 
   async function unlockUser(id: string): Promise<void> {
     await usersApi.unlock(id)
     const idx = users.value.findIndex(u => u.id === id)
-    if (idx !== -1) users.value[idx].is_locked = false
+    if (idx !== -1) users.value[idx]!.is_locked = false
   }
 
-  return { users, total, loading, error, fetchUsers, createUser, updateUser, deleteUser, lockUser, unlockUser }
+  return { users, total, loading, error, fetchUsers, createUser, updateUser, changeRole, deleteUser, lockUser, unlockUser }
 })

@@ -27,7 +27,7 @@ const search = ref('')
 const filtered = computed(() => props.bookings.filter(b => {
   return search.value === '' ||
     b.client_name.toLowerCase().includes(search.value.toLowerCase()) ||
-    b.id.toLowerCase().includes(search.value.toLowerCase())
+    b.booking_number?.toLowerCase().includes(search.value.toLowerCase())
 }))
 </script>
 
@@ -51,7 +51,7 @@ const filtered = computed(() => props.bookings.filter(b => {
       <Table>
         <TableHeader>
           <TableRow class="hover:bg-transparent">
-            <TableHead class="pl-6">Booking ID</TableHead>
+            <TableHead class="pl-6">Booking #</TableHead>
             <TableHead>Guest</TableHead>
             <TableHead>Room Type</TableHead>
             <TableHead>Room</TableHead>
@@ -61,7 +61,7 @@ const filtered = computed(() => props.bookings.filter(b => {
         </TableHeader>
         <TableBody>
           <TableRow v-for="booking in filtered" :key="booking.id">
-            <TableCell class="pl-6 font-medium">{{ booking.id }}</TableCell>
+            <TableCell class="pl-6 font-mono font-medium">{{ booking.booking_number }}</TableCell>
             <TableCell>{{ booking.client_name }}</TableCell>
             <TableCell>
               <Badge variant="secondary" class="text-xs capitalize">

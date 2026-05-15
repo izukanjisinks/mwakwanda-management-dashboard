@@ -30,6 +30,9 @@ export const usersApi = {
   delete: (id: string) =>
     apiClient.delete<void>(`/users/${id}`),
 
+  changeRole: (id: string, roleId: string) =>
+    apiClient.post<SystemUser>(`/admin/users/${id}/role`, { role_id: roleId }),
+
   lock: (id: string) =>
     apiClient.post<void>(`/users/${id}/lock`, {}),
 

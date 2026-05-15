@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { Plus, Pencil, Trash2, Search, ChevronLeft, ChevronRight } from 'lucide-vue-next'
-import { usePagination } from '@/composables/usePagination'
 import { toast } from 'vue-sonner'
 import { useUsersStore } from '@/stores/users'
 import { useAuthStore } from '@/stores/auth'
@@ -38,7 +37,17 @@ const userToDelete = ref<SystemUser | null>(null)
 const search = ref('')
 const deleting = ref(false)
 
-onMounted(() => store.fetchUsers())
+const page = ref(1)
+const pageSize = 10
+
+function loadUsers() {
+  store.fetchUsers(page.value, pageSize)
+}
+
+onMounted(loadUsers)
+watch(page, loadUsers)
+
+const totalPages = computed(() => Math.max(1, Math.ceil(store.total / pageSize)))
 
 const filtered = computed(() => {
   const q = search.value.toLowerCase().trim()
@@ -49,8 +58,6 @@ const filtered = computed(() => {
     u.role.toLowerCase().includes(q),
   )
 })
-
-const { page, totalPages, paginated, prev, next, goTo, pageNumbers } = usePagination(filtered)
 
 const roleConfig: Record<SystemUserRole, { label: string; variant: 'default' | 'secondary' | 'outline' }> = {
   admin:        { label: 'Admin',        variant: 'default' },
@@ -96,7 +103,6 @@ async function handleDelete() {
   }
 }
 
-// Prevent deleting own account
 const currentUserEmail = computed(() => authStore.user?.email)
 </script>
 
@@ -120,7 +126,7 @@ const currentUserEmail = computed(() => authStore.user?.email)
     <div class="rounded-xl border bg-card overflow-hidden">
       <Table>
         <TableHeader>
-          <TableRow>
+          <TableRow class="bg-muted/30">
             <TableHead>Name</TableHead>
             <TableHead>Email</TableHead>
             <TableHead>Role</TableHead>
@@ -147,7 +153,7 @@ const currentUserEmail = computed(() => authStore.user?.email)
           </template>
 
           <template v-else>
-            <TableRow v-for="user in paginated" :key="user.id">
+            <TableRow v-for="user in filtered" :key="user.id">
               <TableCell>
                 <div class="font-medium">{{ user.full_name }}</div>
                 <div v-if="user.email === currentUserEmail" class="text-xs text-muted-foreground">You</div>
@@ -189,25 +195,22 @@ const currentUserEmail = computed(() => authStore.user?.email)
       </Table>
 
       <!-- Pagination -->
-      <div v-if="totalPages > 1" class="flex items-center justify-between px-10 py-3 border-t text-sm">
-        <p class="text-muted-foreground">Page {{ page }} of {{ totalPages }}</p>
-        <div class="flex items-center gap-1">
-          <button class="size-8 flex items-center justify-center rounded-md border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed" :disabled="page === 1" @click="prev"><ChevronLeft class="size-4" /></button>
-          <template v-for="p in pageNumbers" :key="p">
-            <span v-if="p === '...'" class="px-1 text-muted-foreground">…</span>
-            <button v-else :class="['size-8 flex items-center justify-center rounded-md border text-sm', p === page ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted']" @click="goTo(p as number)">{{ p }}</button>
-          </template>
-          <button class="size-8 flex items-center justify-center rounded-md border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed" :disabled="page === totalPages" @click="next"><ChevronRight class="size-4" /></button>
+      <div class="flex items-center justify-between px-6 py-3 border-t text-sm text-muted-foreground">
+        <span>{{ store.total }} user{{ store.total !== 1 ? 's' : '' }}</span>
+        <div class="flex items-center gap-2">
+          <Button variant="outline" size="icon" class="size-8" :disabled="page <= 1" @click="page--">
+            <ChevronLeft class="size-4" />
+          </Button>
+          <span>{{ page }} / {{ totalPages }}</span>
+          <Button variant="outline" size="icon" class="size-8" :disabled="page >= totalPages" @click="page++">
+            <ChevronRight class="size-4" />
+          </Button>
         </div>
       </div>
     </div>
   </div>
 
-  <UserDialog
-    v-model:open="dialogOpen"
-    :user="selectedUser"
-    @saved="dialogOpen = false"
-  />
+  <UserDialog v-model:open="dialogOpen" :user="selectedUser" @saved="dialogOpen = false" />
 
   <Dialog v-model:open="deleteDialogOpen">
     <DialogContent class="max-w-sm">

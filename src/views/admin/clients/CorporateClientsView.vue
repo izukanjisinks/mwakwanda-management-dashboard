@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { Plus, Pencil, Trash2, Search, ChevronLeft, ChevronRight } from 'lucide-vue-next'
-import { usePagination } from '@/composables/usePagination'
 import { toast } from 'vue-sonner'
 import { useCorporateClientsStore } from '@/stores/clients'
 import type { CorporateClient } from '@/types/client'
@@ -36,7 +35,17 @@ const clientToDelete = ref<CorporateClient | null>(null)
 const search = ref('')
 const deleting = ref(false)
 
-onMounted(() => store.fetchClients())
+const page = ref(1)
+const pageSize = 10
+
+function loadClients() {
+  store.fetchClients(page.value, pageSize)
+}
+
+onMounted(loadClients)
+watch(page, loadClients)
+
+const totalPages = computed(() => Math.max(1, Math.ceil(store.total / pageSize)))
 
 const filtered = computed(() => {
   const q = search.value.toLowerCase().trim()
@@ -45,11 +54,9 @@ const filtered = computed(() => {
     c.company_name.toLowerCase().includes(q) ||
     c.contact_person.toLowerCase().includes(q) ||
     c.email.toLowerCase().includes(q) ||
-    c.industry.toLowerCase().includes(q),
+    (c.industry ?? '').toLowerCase().includes(q),
   )
 })
-
-const { page, totalPages, paginated, prev, next, goTo, pageNumbers } = usePagination(filtered)
 
 function openCreate() {
   selectedClient.value = null
@@ -103,7 +110,7 @@ async function handleDelete() {
     <div class="rounded-xl border bg-card overflow-hidden">
       <Table>
         <TableHeader>
-          <TableRow>
+          <TableRow class="bg-muted/30">
             <TableHead>Company</TableHead>
             <TableHead>Contact Person</TableHead>
             <TableHead>Email</TableHead>
@@ -132,7 +139,7 @@ async function handleDelete() {
           </template>
 
           <template v-else>
-            <TableRow v-for="client in paginated" :key="client.id">
+            <TableRow v-for="client in filtered" :key="client.id">
               <TableCell class="font-medium">{{ client.company_name }}</TableCell>
               <TableCell>{{ client.contact_person }}</TableCell>
               <TableCell class="text-muted-foreground">{{ client.email }}</TableCell>
@@ -160,15 +167,16 @@ async function handleDelete() {
       </Table>
 
       <!-- Pagination -->
-      <div v-if="totalPages > 1" class="flex items-center justify-between px-10 py-3 border-t text-sm">
-        <p class="text-muted-foreground">Page {{ page }} of {{ totalPages }}</p>
-        <div class="flex items-center gap-1">
-          <button class="size-8 flex items-center justify-center rounded-md border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed" :disabled="page === 1" @click="prev"><ChevronLeft class="size-4" /></button>
-          <template v-for="p in pageNumbers" :key="p">
-            <span v-if="p === '...'" class="px-1 text-muted-foreground">…</span>
-            <button v-else :class="['size-8 flex items-center justify-center rounded-md border text-sm', p === page ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted']" @click="goTo(p as number)">{{ p }}</button>
-          </template>
-          <button class="size-8 flex items-center justify-center rounded-md border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed" :disabled="page === totalPages" @click="next"><ChevronRight class="size-4" /></button>
+      <div class="flex items-center justify-between px-6 py-3 border-t text-sm text-muted-foreground">
+        <span>{{ store.total }} client{{ store.total !== 1 ? 's' : '' }}</span>
+        <div class="flex items-center gap-2">
+          <Button variant="outline" size="icon" class="size-8" :disabled="page <= 1" @click="page--">
+            <ChevronLeft class="size-4" />
+          </Button>
+          <span>{{ page }} / {{ totalPages }}</span>
+          <Button variant="outline" size="icon" class="size-8" :disabled="page >= totalPages" @click="page++">
+            <ChevronRight class="size-4" />
+          </Button>
         </div>
       </div>
     </div>

@@ -41,6 +41,11 @@ const amenityInput = ref('')
 
 const isEdit = computed(() => !!props.room)
 
+const availabilityModel = computed({
+  get: () => form.value.is_available ? 'true' : 'false',
+  set: (v: string) => { form.value.is_available = v === 'true' },
+})
+
 const form = ref({
   name: '',
   type: 'single' as RoomType,
@@ -171,17 +176,14 @@ const roomTypes: { value: RoomType; label: string }[] = [
           </div>
 
           <div class="grid gap-2">
-            <Label>Availability *</Label>
-            <Select
-              :model-value="form.is_available ? 'true' : 'false'"
-              @update:model-value="(v) => form.is_available = v === 'true'"
-            >
+            <Label>Service Status *</Label>
+            <Select v-model="availabilityModel">
               <SelectTrigger>
                 <SelectValue placeholder="Select availability" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="true">Available</SelectItem>
-                <SelectItem value="false">Unavailable</SelectItem>
+                <SelectItem value="true">In Service</SelectItem>
+                <SelectItem value="false">Out of Service</SelectItem>
               </SelectContent>
             </Select>
           </div>
