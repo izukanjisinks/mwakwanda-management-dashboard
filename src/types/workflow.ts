@@ -1,5 +1,3 @@
-export type StepType = 'initial' | 'middle' | 'final'
-
 export interface WorkflowType {
   type: string
   name: string
@@ -21,10 +19,8 @@ export interface WorkflowStep {
   workflow_id: string
   step_name: string
   step_order: number
-  step_type: StepType
-  allowed_roles: string[]
-  requires_all_approvers: boolean
-  min_approvals: number
+  initial: boolean
+  final: boolean
   created_at: string
 }
 
@@ -34,8 +30,7 @@ export interface WorkflowTransition {
   from_step_id: string
   to_step_id: string
   action_name: string
-  condition_type: 'always' | 'equals' | 'not_equals'
-  condition_value: string
+  allowed_roles: string[]
 }
 
 export interface Workflow {
@@ -55,19 +50,15 @@ export interface CreateStepPayload {
   workflow_id: string
   step_name: string
   step_order: number
-  step_type: StepType
-  allowed_roles: string[]
-  requires_all_approvers: boolean
-  min_approvals: number
+  initial: boolean
+  final: boolean
 }
 
 export interface UpdateStepPayload {
   step_name?: string
   step_order?: number
-  step_type?: StepType
-  allowed_roles?: string[]
-  requires_all_approvers?: boolean
-  min_approvals?: number
+  initial?: boolean
+  final?: boolean
 }
 
 export interface CreateTransitionPayload {
@@ -75,14 +66,12 @@ export interface CreateTransitionPayload {
   from_step_id: string
   to_step_id: string
   action_name: string
-  condition_type: 'always' | 'equals' | 'not_equals'
-  condition_value: string
+  allowed_roles: string[]
 }
 
 export interface UpdateTransitionPayload {
   action_name?: string
-  condition_type?: 'always' | 'equals' | 'not_equals'
-  condition_value?: string
+  allowed_roles?: string[]
 }
 
 // ── Workflow tasks (staff inbox) ──────────────────────────────────────────────

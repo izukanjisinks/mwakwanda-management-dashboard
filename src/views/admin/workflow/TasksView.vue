@@ -30,13 +30,16 @@ function openAction(task: WorkflowTask, action: 'approve' | 'reject') {
 
 async function handleConfirm(action: string, comments: string) {
   if (!selectedTask.value) return
+  const payload = { action, comments: comments || undefined }
+  console.log('[processTask] instance_id:', selectedTask.value.instance_id, 'payload:', payload)
   try {
-    // API requires instance_id, not task id
-    await store.processTask(selectedTask.value.instance_id, { action, comments: comments || undefined })
+    await store.processTask(selectedTask.value.instance_id, payload)
+    console.log('[processTask] success')
     toast.success(action === 'approve' ? 'Booking approved.' : 'Booking rejected.')
     actionDialog.value = false
     selectedTask.value = null
-  } catch {
+  } catch (err) {
+    console.error('[processTask] error', err)
     toast.error('Failed to process task.')
   }
 }

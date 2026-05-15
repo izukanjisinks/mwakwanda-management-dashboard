@@ -6,13 +6,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select'
-import { Loader2, X } from 'lucide-vue-next'
+import { Loader2 } from 'lucide-vue-next'
 import type { WorkflowStep } from '@/types/workflow'
-import type { StepType } from '@/types/workflow'
 
 const props = defineProps<{
   open: boolean
@@ -22,21 +17,17 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:open': [value: boolean]
-  'save': [payload: { step_name: string; step_type: StepType; allowed_roles: string[]; requires_all_approvers: boolean; min_approvals: number; step_order: number }]
+  'save': [payload: { step_name: string; step_order: number; initial: boolean; final: boolean }]
 }>()
 
 const saving = ref(false)
 const error = ref('')
 
-const AVAILABLE_ROLES = ['admin', 'manager', 'receptionist']
-
 const form = ref({
   step_name: '',
-  step_type: 'middle' as StepType,
   step_order: 1,
-  allowed_roles: [] as string[],
-  requires_all_approvers: false,
-  min_approvals: 1,
+  initial: false,
+  final: false,
 })
 
 watch(() => props.open, (open) => {
@@ -45,32 +36,21 @@ watch(() => props.open, (open) => {
   if (props.step) {
     form.value = {
       step_name: props.step.step_name,
-      step_type: props.step.step_type,
       step_order: props.step.step_order,
-      allowed_roles: [...props.step.allowed_roles],
-      requires_all_approvers: props.step.requires_all_approvers,
-      min_approvals: props.step.min_approvals,
+      initial: props.step.initial,
+      final: props.step.final,
     }
   } else {
-    form.value = { step_name: '', step_type: 'middle', step_order: 1, allowed_roles: [], requires_all_approvers: false, min_approvals: 1 }
+    form.value = { step_name: '', step_order: 1, initial: false, final: false }
   }
 })
-
-function toggleRole(role: string) {
-  if (form.value.allowed_roles.includes(role)) {
-    form.value.allowed_roles = form.value.allowed_roles.filter(r => r !== role)
-  } else {
-    form.value.allowed_roles.push(role)
-  }
-}
 
 const isEdit = computed(() => !!props.step)
 
 async function handleSave() {
   error.value = ''
   if (!form.value.step_name.trim()) { error.value = 'Step name is required.'; return }
-  if (form.value.allowed_roles.length === 0) { error.value = 'At least one role must be allowed.'; return }
-  if (form.value.min_approvals < 1) { error.value = 'Minimum approvals must be at least 1.'; return }
+  if (form.value.initial && form.value.final) { error.value = 'A step cannot be both initial and final.'; return }
 
   saving.value = true
   try {
@@ -103,21 +83,6 @@ async function handleSave() {
           <Input id="step_name" v-model="form.step_name" placeholder="e.g. Manager Review" />
         </div>
 
-        <!-- Step Type -->
-        <div class="grid gap-2">
-          <Label>Step Type *</Label>
-          <Select v-model="form.step_type">
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="initial">Initial — starting point of the workflow</SelectItem>
-              <SelectItem value="middle">Middle — intermediate review/action step</SelectItem>
-              <SelectItem value="final">Final — workflow completion step</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
         <!-- Step Order -->
         <div class="grid gap-2">
           <Label for="step_order">Step Order *</Label>
@@ -125,52 +90,47 @@ async function handleSave() {
           <p class="text-xs text-muted-foreground">Lower numbers appear earlier in the flow.</p>
         </div>
 
-        <!-- Allowed Roles -->
-        <div class="grid gap-2">
-          <Label>Allowed Roles *</Label>
-          <div class="flex flex-wrap gap-2">
-            <button
-              v-for="role in AVAILABLE_ROLES"
-              :key="role"
-              type="button"
-              :class="[
-                'rounded-md border px-3 py-1.5 text-sm font-medium transition-colors capitalize',
-                form.allowed_roles.includes(role)
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'bg-background text-foreground border-input hover:bg-muted',
-              ]"
-              @click="toggleRole(role)"
-            >
-              {{ role }}
-            </button>
-          </div>
-          <p class="text-xs text-muted-foreground">Staff with these roles can action tasks at this step.</p>
-        </div>
-
-        <!-- Approvals -->
-        <div class="grid gap-2">
-          <Label for="min_approvals">Minimum Approvals *</Label>
-          <Input id="min_approvals" v-model.number="form.min_approvals" type="number" min="1" placeholder="1" />
-        </div>
-
-        <!-- Requires all -->
+        <!-- Initial toggle -->
         <div class="flex items-center justify-between rounded-lg border px-4 py-3">
           <div>
-            <p class="text-sm font-medium">Require All Approvers</p>
-            <p class="text-xs text-muted-foreground">All assigned staff must approve before moving forward.</p>
+            <p class="text-sm font-medium">Initial Step</p>
+            <p class="text-xs text-muted-foreground">This is the starting point of the workflow.</p>
           </div>
           <button
             type="button"
             :class="[
               'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors',
-              form.requires_all_approvers ? 'bg-primary' : 'bg-input',
+              form.initial ? 'bg-primary' : 'bg-input',
             ]"
-            @click="form.requires_all_approvers = !form.requires_all_approvers"
+            @click="form.initial = !form.initial"
           >
             <span
               :class="[
                 'pointer-events-none inline-block size-5 rounded-full bg-background shadow-lg transition-transform',
-                form.requires_all_approvers ? 'translate-x-5' : 'translate-x-0',
+                form.initial ? 'translate-x-5' : 'translate-x-0',
+              ]"
+            />
+          </button>
+        </div>
+
+        <!-- Final toggle -->
+        <div class="flex items-center justify-between rounded-lg border px-4 py-3">
+          <div>
+            <p class="text-sm font-medium">Final Step</p>
+            <p class="text-xs text-muted-foreground">This step completes the workflow.</p>
+          </div>
+          <button
+            type="button"
+            :class="[
+              'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors',
+              form.final ? 'bg-primary' : 'bg-input',
+            ]"
+            @click="form.final = !form.final"
+          >
+            <span
+              :class="[
+                'pointer-events-none inline-block size-5 rounded-full bg-background shadow-lg transition-transform',
+                form.final ? 'translate-x-5' : 'translate-x-0',
               ]"
             />
           </button>

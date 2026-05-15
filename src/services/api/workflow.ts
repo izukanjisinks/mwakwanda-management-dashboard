@@ -23,6 +23,8 @@ export const workflowApi = {
   getStructure: (id: string) => apiClient.get<Workflow>(`/admin/workflows/${id}/structure`),
   update: (id: string, payload: { name?: string; description?: string }) =>
     apiClient.put<Workflow>(`/admin/workflows/${id}`, payload),
+  delete: (id: string) =>
+    apiClient.delete<void>(`/admin/workflows/${id}`),
 
   // Steps
   createStep: (payload: CreateStepPayload) =>
