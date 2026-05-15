@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { Plus, Pencil, Trash2, Search, ChevronLeft, ChevronRight, CircleAlert, CalendarIcon } from 'lucide-vue-next'
+import { Plus, Pencil, Eye, Trash2, Search, ChevronLeft, ChevronRight, CircleAlert, CalendarIcon } from 'lucide-vue-next'
 import type { DateValue } from '@internationalized/date'
 import { CalendarDate } from '@internationalized/date'
 import { toast } from 'vue-sonner'
@@ -179,10 +179,32 @@ async function handleDelete() {
   }
 }
 
-async function handleStatusChange(booking: Booking, status: BookingStatus) {
+function allowedTransitions(booking: Booking): BookingStatus[] {
+  switch (booking.status) {
+    case 'pending':    return ['confirmed', 'cancelled']
+    case 'confirmed':  return ['checked_in', 'cancelled']
+    case 'checked_in': return ['checked_out']
+    default:           return []
+  }
+}
+
+function isStatusItemDisabled(booking: Booking, key: string): boolean {
+  return key !== booking.status && !allowedTransitions(booking).includes(key as BookingStatus)
+}
+
+async function handleStatusChange(booking: Booking, status: unknown) {
+  if (typeof status !== 'string') return
+  const next = status as BookingStatus
+  if (!allowedTransitions(booking).includes(next)) return
   try {
-    await store.updateStatus(booking.id, status)
-    toast.success(`Booking status updated to ${statusConfig[status].label}.`)
+    const now = new Date().toISOString()
+    if (next === 'checked_in') {
+      await store.updateBooking(booking.id, { check_in: now })
+    } else if (next === 'checked_out') {
+      await store.updateBooking(booking.id, { check_out: now })
+    }
+    await store.updateStatus(booking.id, next)
+    toast.success(`Booking status updated to ${statusConfig[next].label}.`)
   } catch {
     toast.error('Failed to update booking status.')
   }
@@ -336,14 +358,24 @@ async function handleClearOverstayed() {
               <TableCell>{{ booking.guests }}</TableCell>
               <TableCell class="font-medium">{{ booking.total_amount.toLocaleString() }}</TableCell>
               <TableCell>
-                <Select :model-value="booking.status" @update:model-value="(v) => handleStatusChange(booking, v as BookingStatus)">
-                  <SelectTrigger class="h-7 text-xs w-32 px-2">
+                <Select
+                  :model-value="booking.status"
+                  :disabled="allowedTransitions(booking).length === 0"
+                  @update:model-value="(v) => handleStatusChange(booking, v)"
+                >
+                  <SelectTrigger class="h-7 text-xs w-32 px-2" :class="allowedTransitions(booking).length === 0 ? 'opacity-50 cursor-not-allowed' : ''">
                     <Badge :variant="statusConfig[booking.status].variant" class="text-xs">
                       {{ statusConfig[booking.status].label }}
                     </Badge>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem v-for="(cfg, key) in statusConfig" :key="key" :value="key" class="text-xs">
+                    <SelectItem
+                      v-for="(cfg, key) in statusConfig"
+                      :key="key"
+                      :value="key"
+                      class="text-xs"
+                      :disabled="isStatusItemDisabled(booking, key)"
+                    >
                       {{ cfg.label }}
                     </SelectItem>
                   </SelectContent>
@@ -360,8 +392,13 @@ async function handleClearOverstayed() {
                   >
                     <CircleAlert class="size-4" />
                   </button>
-                  <Button variant="ghost" size="icon" class="size-8" @click="openEdit(booking)">
-                    <Pencil class="size-4" />
+                  <Button
+                    variant="ghost" size="icon" class="size-8"
+                    :title="booking.status === 'checked_out' || booking.status === 'cancelled' ? 'View booking' : 'Edit booking'"
+                    @click="openEdit(booking)"
+                  >
+                    <Eye v-if="booking.status === 'checked_out' || booking.status === 'cancelled'" class="size-4" />
+                    <Pencil v-else class="size-4" />
                   </Button>
                   <Button variant="ghost" size="icon" class="size-8 text-destructive hover:text-destructive" @click="confirmDelete(booking)">
                     <Trash2 class="size-4" />

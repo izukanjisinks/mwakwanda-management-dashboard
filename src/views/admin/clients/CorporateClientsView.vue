@@ -117,7 +117,7 @@ async function handleDelete() {
             <TableHead>Phone</TableHead>
             <TableHead>Industry</TableHead>
             <TableHead>Reg. No.</TableHead>
-            <TableHead>Status</TableHead>
+            <!-- <TableHead>Status</TableHead> -->
             <TableHead class="w-24 text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -146,11 +146,11 @@ async function handleDelete() {
               <TableCell>{{ client.phone }}</TableCell>
               <TableCell>{{ client.industry }}</TableCell>
               <TableCell class="text-muted-foreground text-xs">{{ client.company_reg_number }}</TableCell>
-              <TableCell>
+              <!-- <TableCell>
                 <Badge :variant="client.status === 'active' ? 'default' : 'secondary'">
                   {{ client.status === 'active' ? 'Active' : 'Inactive' }}
                 </Badge>
-              </TableCell>
+              </TableCell> -->
               <TableCell class="text-right">
                 <div class="flex justify-end gap-1">
                   <Button variant="ghost" size="icon" class="size-8" @click="openEdit(client)">

@@ -124,6 +124,15 @@
   }
 }
 
+/* NProgress bar — use app primary color */
+#nprogress .bar {
+  background: var(--primary) !important;
+  height: 3px !important;
+}
+#nprogress .peg {
+  box-shadow: 0 0 10px var(--primary), 0 0 5px var(--primary) !important;
+}
+
 /* When any select / dropdown item is highlighted, muted child text inherits
    the accent-foreground color so it stays readable against the green background. */
 [data-slot="select-item"][data-highlighted] .text-muted-foreground,
