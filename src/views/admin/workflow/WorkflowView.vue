@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, provide } from 'vue'
+import { ref, computed, onMounted, watch, provide } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { VueFlow, useVueFlow, MarkerType } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
@@ -18,6 +18,7 @@ import TransitionEditDialog from '@/components/workflow/TransitionEditDialog.vue
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/core/dist/theme-default.css'
@@ -56,11 +57,14 @@ const pendingFromId = ref('')
 const pendingToId = ref('')
 
 // ── Delete state ─────────────────────────────────────────────────────────────
+const CONFIRM_KEYWORD = 'delete'
 const deletingStep = ref<WorkflowStep | null>(null)
+const deleteStepInput = ref('')
+const deleteStepMatches = computed(() => deleteStepInput.value === CONFIRM_KEYWORD)
 const deletingTransition = ref<WorkflowTransition | null>(null)
 
 // Provide edit handler for TransitionEdge (inject pattern from HR system)
-provide('openTransitionEdit', (id: string, transition: WorkflowTransition) => {
+provide('openTransitionEdit', (_id: string, transition: WorkflowTransition) => {
   editingTransition.value = transition
   pendingFromId.value = ''
   pendingToId.value = ''
@@ -78,6 +82,7 @@ provide('editStep', (step: WorkflowStep) => {
 
 provide('deleteStep', (step: WorkflowStep) => {
   deletingStep.value = step
+  deleteStepInput.value = ''
 })
 
 onMounted(async () => {
@@ -143,8 +148,7 @@ async function handleTransitionSave(payload: any) {
     if (editingTransition.value) {
       await store.updateTransition(editingTransition.value.id, {
         action_name: payload.action_name,
-        condition_type: payload.condition_type,
-        condition_value: payload.condition_value,
+        allowed_roles: payload.allowed_roles,
       })
       toast.success('Transition updated.')
     } else {
@@ -161,15 +165,17 @@ async function handleTransitionSave(payload: any) {
 }
 
 async function confirmDeleteStep() {
-  if (!deletingStep.value) return
+  if (!deletingStep.value || !deleteStepMatches.value) return
   const name = deletingStep.value.step_name
+  console.log('[deleteStep] attempting', deletingStep.value.id, name)
   try {
     await store.deleteStep(deletingStep.value.id)
+    console.log('[deleteStep] success')
     toast.success(`Step "${name}" deleted.`)
-  } catch {
-    toast.error('Failed to delete step.')
-  } finally {
     deletingStep.value = null
+  } catch (err) {
+    console.error('[deleteStep] error', err)
+    toast.error('Failed to delete step.')
   }
 }
 
@@ -294,40 +300,50 @@ function openAddTransition() {
   />
 
   <!-- Delete step confirmation -->
-  <div
-    v-if="deletingStep"
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-    @click.self="deletingStep = null"
-  >
-    <div class="bg-background rounded-xl border shadow-lg p-6 max-w-sm w-full mx-4">
-      <h3 class="font-semibold text-lg mb-1">Delete Step</h3>
-      <p class="text-sm text-muted-foreground mb-5">
-        Delete <strong>{{ deletingStep.step_name }}</strong>? All connected transitions will also be removed.
-      </p>
-      <div class="flex justify-end gap-2">
-        <Button variant="outline" @click="deletingStep = null">Cancel</Button>
-        <Button variant="destructive" @click="confirmDeleteStep">Delete</Button>
+  <Dialog :open="!!deletingStep" @update:open="(v) => { if (!v) deletingStep = null }">
+    <DialogContent class="max-w-md gap-0 p-0 overflow-hidden">
+      <DialogHeader class="px-6 py-4 border-b">
+        <DialogTitle class="text-lg font-semibold">Delete Step</DialogTitle>
+      </DialogHeader>
+      <div class="px-6 py-5 flex flex-col gap-4">
+        <p class="text-sm text-muted-foreground">
+          Deleting this step may lead to loss of ongoing booking instances. Are you sure you want to proceed?
+        </p>
+        <p class="text-sm text-muted-foreground">
+          Type <strong class="text-foreground font-mono">{{ CONFIRM_KEYWORD }}</strong> to confirm.
+        </p>
+        <Input v-model="deleteStepInput" :placeholder="CONFIRM_KEYWORD" />
       </div>
-    </div>
-  </div>
+      <div class="px-6 pb-6 pt-2 grid grid-cols-2 gap-3">
+        <Button variant="outline" @click="deletingStep = null">Cancel</Button>
+        <Button
+          variant="destructive"
+          :disabled="!deleteStepMatches"
+          @click="confirmDeleteStep"
+        >
+          Delete
+        </Button>
+      </div>
+    </DialogContent>
+  </Dialog>
 
   <!-- Delete transition confirmation -->
-  <div
-    v-if="deletingTransition"
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-    @click.self="deletingTransition = null"
-  >
-    <div class="bg-background rounded-xl border shadow-lg p-6 max-w-sm w-full mx-4">
-      <h3 class="font-semibold text-lg mb-1">Delete Transition</h3>
-      <p class="text-sm text-muted-foreground mb-5">
-        Delete the <strong>"{{ deletingTransition.action_name }}"</strong> transition?
-      </p>
-      <div class="flex justify-end gap-2">
+  <Dialog :open="!!deletingTransition" @update:open="(v) => { if (!v) deletingTransition = null }">
+    <DialogContent class="max-w-md gap-0 p-0 overflow-hidden">
+      <DialogHeader class="px-6 py-4 border-b">
+        <DialogTitle class="text-lg font-semibold">Delete Transition</DialogTitle>
+      </DialogHeader>
+      <div class="px-6 py-5 flex flex-col gap-4">
+        <p class="text-sm text-muted-foreground">
+          Delete the <strong>"{{ deletingTransition?.action_name }}"</strong> transition? This may affect ongoing workflow instances.
+        </p>
+      </div>
+      <div class="px-6 pb-6 pt-2 grid grid-cols-2 gap-3">
         <Button variant="outline" @click="deletingTransition = null">Cancel</Button>
         <Button variant="destructive" @click="confirmDeleteTransition">Delete</Button>
       </div>
-    </div>
-  </div>
+    </DialogContent>
+  </Dialog>
 </template>
 
 <style>

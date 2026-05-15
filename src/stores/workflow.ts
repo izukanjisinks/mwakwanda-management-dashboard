@@ -75,13 +75,21 @@ export const useWorkflowStore = defineStore('workflow', () => {
     }
   }
 
+  async function deleteWorkflow(id: string) {
+    const res = await workflowApi.delete(id)
+    console.log('[store:deleteWorkflow] res', res)
+    workflows.value = workflows.value.filter(wf => wf.id !== id)
+    return res
+  }
+
   async function fetchTypes() {
     const res = await workflowApi.listTypes()
     workflowTypes.value = res.workflow_types ?? []
   }
 
   async function createWorkflow(payload: CreateWorkflowPayload): Promise<Workflow> {
-    const wf = await workflowApi.create(payload)
+    const res = await workflowApi.create(payload) as any
+    const wf = res.workflow ?? res
     workflows.value.push(wf)
     return wf
   }
@@ -195,6 +203,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
     pendingTasks,
     completedTasks,
     fetchWorkflows,
+    deleteWorkflow,
     fetchTypes,
     createWorkflow,
     fetchWorkflow,

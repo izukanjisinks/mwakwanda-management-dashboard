@@ -30,13 +30,16 @@ function openAction(task: WorkflowTask, action: 'approve' | 'reject') {
 
 async function handleConfirm(action: string, comments: string) {
   if (!selectedTask.value) return
+  const payload = { action, comments: comments || undefined }
+  console.log('[processTask] instance_id:', selectedTask.value.instance_id, 'payload:', payload)
   try {
-    // API requires instance_id, not task id
-    await store.processTask(selectedTask.value.instance_id, { action, comments: comments || undefined })
+    await store.processTask(selectedTask.value.instance_id, payload)
+    console.log('[processTask] success')
     toast.success(action === 'approve' ? 'Booking approved.' : 'Booking rejected.')
     actionDialog.value = false
     selectedTask.value = null
-  } catch {
+  } catch (err) {
+    console.error('[processTask] error', err)
     toast.error('Failed to process task.')
   }
 }
@@ -138,17 +141,6 @@ function fmt(d?: string) {
             <div>
               <p class="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Type</p>
               <p class="capitalize">{{ task.task_details?.task_type || '—' }}</p>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 px-3 py-2 gap-x-4">
-            <div>
-              <p class="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Department</p>
-              <p class="capitalize">{{ task.task_details?.sender_details?.department || '—' }}</p>
-            </div>
-            <div>
-              <p class="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Position</p>
-              <p class="capitalize">{{ task.task_details?.sender_details?.position || '—' }}</p>
             </div>
           </div>
 

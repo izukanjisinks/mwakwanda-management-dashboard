@@ -159,7 +159,7 @@ async function handleSave() {
             <Label for="reg_number">Company Reg. No. *</Label>
             <Input id="reg_number" v-model="form.company_reg_number" placeholder="e.g. ZNB-001-2010" />
           </div>
-          <div class="grid gap-2">
+          <!-- <div class="grid gap-2">
             <Label>Status</Label>
             <Select v-model="form.status">
               <SelectTrigger>
@@ -170,7 +170,7 @@ async function handleSave() {
                 <SelectItem value="inactive">Inactive</SelectItem>
               </SelectContent>
             </Select>
-          </div>
+          </div> -->
         </div>
 
         <!-- Notes -->

@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useWorkflowStore } from '@/stores/workflow'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import CreateWorkflowDialog from '@/components/workflow/CreateWorkflowDialog.vue'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog'
 import {
   Table,
   TableBody,
@@ -14,12 +18,18 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Plus, GitBranch, ChevronRight } from 'lucide-vue-next'
+import { Plus, GitBranch, ChevronRight, Trash2 } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
 import type { Workflow } from '@/types/workflow'
+
+const CONFIRM_KEYWORD = 'delete'
 
 const store = useWorkflowStore()
 const router = useRouter()
 const createOpen = ref(false)
+const deletingWorkflow = ref<Workflow | null>(null)
+const deleteConfirmInput = ref('')
+const deleteConfirmMatches = computed(() => deleteConfirmInput.value === CONFIRM_KEYWORD)
 
 onMounted(() => store.fetchWorkflows())
 
@@ -29,6 +39,26 @@ function handleCreated(wf: Workflow) {
 
 function openEditor(id: string) {
   router.push({ name: 'workflow-editor', params: { id } })
+}
+
+function openDeleteWorkflow(wf: Workflow) {
+  deletingWorkflow.value = wf
+  deleteConfirmInput.value = ''
+}
+
+async function confirmDeleteWorkflow() {
+  if (!deletingWorkflow.value || !deleteConfirmMatches.value) return
+  const name = deletingWorkflow.value.name
+  console.log('[deleteWorkflow] attempting', deletingWorkflow.value.id, name)
+  try {
+    await store.deleteWorkflow(deletingWorkflow.value.id)
+    console.log('[deleteWorkflow] success')
+    toast.success(`Workflow "${name}" deleted.`)
+    deletingWorkflow.value = null
+  } catch (err: any) {
+    console.error('[deleteWorkflow] error', err)
+    toast.error(err?.error?.message ?? 'Failed to delete workflow.')
+  }
 }
 
 function fmt(date: string) {
@@ -105,7 +135,16 @@ function fmt(date: string) {
             </TableCell>
             <TableCell class="text-muted-foreground text-sm">{{ fmt(wf.created_at) }}</TableCell>
             <TableCell class="text-right">
-              <ChevronRight class="size-4 text-muted-foreground ml-auto" />
+              <div class="flex items-center justify-end gap-1">
+                <button
+                  class="size-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                  title="Delete workflow"
+                  @click.stop="openDeleteWorkflow(wf)"
+                >
+                  <Trash2 class="size-4" />
+                </button>
+                <ChevronRight class="size-4 text-muted-foreground" />
+              </div>
             </TableCell>
           </TableRow>
         </TableBody>
@@ -118,4 +157,32 @@ function fmt(date: string) {
     @update:open="createOpen = $event"
     @created="handleCreated"
   />
+
+  <Dialog :open="!!deletingWorkflow" @update:open="(v) => { if (!v) deletingWorkflow = null }">
+    <DialogContent class="max-w-md gap-0 p-0 overflow-hidden">
+      <DialogHeader class="px-6 py-4 border-b">
+        <DialogTitle class="text-lg font-semibold">Delete Workflow</DialogTitle>
+      </DialogHeader>
+      <div class="px-6 py-5 flex flex-col gap-4">
+        <p class="text-sm text-muted-foreground">
+          Deleting this workflow may lead to loss of ongoing booking instances. Are you sure you want to proceed?
+        </p>
+        <p class="text-sm text-muted-foreground">
+          Type <strong class="text-foreground font-mono">{{ CONFIRM_KEYWORD }}</strong> to confirm.
+        </p>
+        <Input v-model="deleteConfirmInput" :placeholder="CONFIRM_KEYWORD" />
+      </div>
+      <div class="px-6 pb-6 pt-2 grid grid-cols-2 gap-3">
+        <Button variant="outline" class="w-full" @click="deletingWorkflow = null">Cancel</Button>
+        <Button
+          variant="destructive"
+          class="w-full"
+          :disabled="!deleteConfirmMatches"
+          @click="confirmDeleteWorkflow"
+        >
+          Delete
+        </Button>
+      </div>
+    </DialogContent>
+  </Dialog>
 </template>

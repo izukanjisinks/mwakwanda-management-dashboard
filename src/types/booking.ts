@@ -42,6 +42,7 @@ export interface BookingUpdatePayload {
   check_out?: string
   guests?: number
   special_requests?: string
+  room_id?: string
 }
 
 export interface BookingStatusUpdate {

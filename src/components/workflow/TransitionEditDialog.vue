@@ -16,18 +16,19 @@ const props = defineProps<{
   open: boolean
   transition?: WorkflowTransition | null
   steps: WorkflowStep[]
-  // Pre-filled when connecting two nodes in the editor
   fromStepId?: string
   toStepId?: string
 }>()
 
 const emit = defineEmits<{
   'update:open': [value: boolean]
-  'save': [payload: { from_step_id: string; to_step_id: string; action_name: string; condition_type: 'always' | 'equals' | 'not_equals'; condition_value: string }]
+  'save': [payload: { from_step_id: string; to_step_id: string; action_name: string; allowed_roles: string[] }]
 }>()
 
 const saving = ref(false)
 const error = ref('')
+
+const AVAILABLE_ROLES = ['admin', 'manager', 'receptionist']
 
 const isEdit = computed(() => !!props.transition)
 
@@ -35,8 +36,7 @@ const form = ref({
   from_step_id: '',
   to_step_id: '',
   action_name: '',
-  condition_type: 'always' as 'always' | 'equals' | 'not_equals',
-  condition_value: '',
+  allowed_roles: [] as string[],
 })
 
 watch(() => props.open, (open) => {
@@ -47,19 +47,25 @@ watch(() => props.open, (open) => {
       from_step_id: props.transition.from_step_id,
       to_step_id: props.transition.to_step_id,
       action_name: props.transition.action_name,
-      condition_type: props.transition.condition_type,
-      condition_value: props.transition.condition_value,
+      allowed_roles: [...props.transition.allowed_roles],
     }
   } else {
     form.value = {
       from_step_id: props.fromStepId ?? '',
       to_step_id: props.toStepId ?? '',
       action_name: '',
-      condition_type: 'always',
-      condition_value: '',
+      allowed_roles: [],
     }
   }
 })
+
+function toggleRole(role: string) {
+  if (form.value.allowed_roles.includes(role)) {
+    form.value.allowed_roles = form.value.allowed_roles.filter(r => r !== role)
+  } else {
+    form.value.allowed_roles.push(role)
+  }
+}
 
 function handleSave() {
   error.value = ''
@@ -67,6 +73,7 @@ function handleSave() {
   if (!form.value.to_step_id) { error.value = 'To step is required.'; return }
   if (form.value.from_step_id === form.value.to_step_id) { error.value = 'From and To steps must be different.'; return }
   if (!form.value.action_name.trim()) { error.value = 'Action name is required.'; return }
+  if (form.value.allowed_roles.length === 0) { error.value = 'At least one role must be allowed.'; return }
 
   saving.value = true
   try {
@@ -84,7 +91,7 @@ function handleSave() {
       <DialogHeader>
         <DialogTitle>{{ isEdit ? 'Edit Transition' : 'Add Transition' }}</DialogTitle>
         <DialogDescription>
-          {{ isEdit ? 'Update this transition\'s action and conditions.' : 'Define how the workflow moves between steps.' }}
+          {{ isEdit ? 'Update this transition\'s action and allowed roles.' : 'Define how the workflow moves between steps.' }}
         </DialogDescription>
       </DialogHeader>
 
@@ -97,7 +104,7 @@ function handleSave() {
         <div class="grid gap-2">
           <Label>From Step *</Label>
           <Select v-model="form.from_step_id" :disabled="!!fromStepId && !isEdit">
-            <SelectTrigger>
+            <SelectTrigger class="w-full">
               <SelectValue placeholder="Select step" />
             </SelectTrigger>
             <SelectContent>
@@ -112,7 +119,7 @@ function handleSave() {
         <div class="grid gap-2">
           <Label>To Step *</Label>
           <Select v-model="form.to_step_id" :disabled="!!toStepId && !isEdit">
-            <SelectTrigger>
+            <SelectTrigger class="w-full">
               <SelectValue placeholder="Select step" />
             </SelectTrigger>
             <SelectContent>
@@ -130,25 +137,26 @@ function handleSave() {
           <p class="text-xs text-muted-foreground">The button label staff will see when actioning a task.</p>
         </div>
 
-        <!-- Condition Type -->
+        <!-- Allowed Roles -->
         <div class="grid gap-2">
-          <Label>Condition</Label>
-          <Select v-model="form.condition_type">
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="always">Always — transition always applies</SelectItem>
-              <SelectItem value="equals">Equals — only when value matches</SelectItem>
-              <SelectItem value="not_equals">Not Equals — only when value does not match</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <!-- Condition Value -->
-        <div v-if="form.condition_type !== 'always'" class="grid gap-2">
-          <Label for="condition_value">Condition Value *</Label>
-          <Input id="condition_value" v-model="form.condition_value" placeholder="Value to compare against" />
+          <Label>Allowed Roles *</Label>
+          <div class="flex flex-wrap gap-2">
+            <button
+              v-for="role in AVAILABLE_ROLES"
+              :key="role"
+              type="button"
+              :class="[
+                'rounded-md border px-3 py-1.5 text-sm font-medium transition-colors capitalize',
+                form.allowed_roles.includes(role)
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-background text-foreground border-input hover:bg-muted',
+              ]"
+              @click="toggleRole(role)"
+            >
+              {{ role }}
+            </button>
+          </div>
+          <p class="text-xs text-muted-foreground">Roles that can trigger this transition.</p>
         </div>
       </form>
 
