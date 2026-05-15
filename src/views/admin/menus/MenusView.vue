@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { Plus, Pencil, Trash2, PackageOpen, Loader2, Check, X, ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import { getApiError } from '@/utils/errors'
 import { useMenusStore } from '@/stores/menus'
 import { useAuthStore } from '@/stores/auth'
 import type { MenuItem, MenuCategory } from '@/types/menu'
@@ -77,8 +78,8 @@ async function saveMenuName() {
     await store.upsertMenu({ name: nameForm.value.trim(), is_active: store.menu.is_active })
     editingName.value = false
     toast.success('Menu name updated.')
-  } catch {
-    toast.error('Failed to update menu name.')
+  } catch (err) {
+    toast.error(getApiError(err, 'Failed to update menu name.'))
   } finally {
     savingName.value = false
   }
@@ -119,8 +120,8 @@ async function handleAddItem() {
     await store.createMenuItem(payload)
     resetItemForm()
     toast.success('Item added.')
-  } catch (err: any) {
-    itemFormError.value = err?.error?.message ?? 'Failed to add item.'
+  } catch (err) {
+    itemFormError.value = getApiError(err, 'Failed to add item.')
   } finally {
     savingItem.value = false
   }
@@ -166,8 +167,8 @@ async function handleSaveEdit() {
     })
     editingItem.value = null
     toast.success('Item updated.')
-  } catch (err: any) {
-    toast.error(err?.error?.message ?? 'Failed to update item.')
+  } catch (err) {
+    toast.error(getApiError(err, 'Failed to update item.'))
   } finally {
     savingEdit.value = false
   }
@@ -189,8 +190,8 @@ async function handleDeleteItem() {
   try {
     await store.deleteMenuItem(itemToDelete.value.id)
     toast.success('Item removed.')
-  } catch (err: any) {
-    toast.error(err?.error?.message ?? 'Failed to remove item.')
+  } catch (err) {
+    toast.error(getApiError(err, 'Failed to remove item.'))
   } finally {
     deletingItem.value = false
     deleteItemOpen.value = false

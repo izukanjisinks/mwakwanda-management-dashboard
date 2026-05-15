@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { Search, Eye, ChevronLeft, ChevronRight, FileText } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import { getApiError } from '@/utils/errors'
 import { useInvoicesStore } from '@/stores/invoices'
 import type { Invoice, InvoiceStatus } from '@/types/invoice'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
@@ -87,8 +88,8 @@ async function handleStatusChange(status: InvoiceStatus) {
     const updated = await store.updateStatus(selectedInvoice.value.id, status, paidDate)
     selectedInvoice.value = updated
     toast.success(`Invoice marked as ${statusConfig[status].label}.`)
-  } catch {
-    toast.error('Failed to update invoice status.')
+  } catch (err) {
+    toast.error(getApiError(err, 'Failed to update invoice status.'))
   }
 }
 

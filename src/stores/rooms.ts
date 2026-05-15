@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { roomApi } from '@/services/api/room'
+import { getApiError } from '@/utils/errors'
 import { uploadRoomImage, deleteRoomImage, deleteAllRoomImages } from '@/services/storage'
 import type { Room, RoomPayload } from '@/types/room'
 
@@ -17,8 +18,8 @@ export const useRoomsStore = defineStore('rooms', () => {
       const res = await roomApi.list({ page, page_size: pageSize })
       rooms.value = res.data ?? []
       total.value = res.total
-    } catch (err: any) {
-      error.value = err?.error?.message ?? 'Failed to load rooms.'
+    } catch (err) {
+      error.value = getApiError(err, 'Failed to load rooms.')
     } finally {
       loading.value = false
     }

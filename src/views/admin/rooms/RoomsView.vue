@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { Plus, Pencil, Trash2, Search, ChevronLeft, ChevronRight, Sparkles, Images } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import { getApiError } from '@/utils/errors'
 import { useRoomsStore } from '@/stores/rooms'
 import { useAuthStore } from '@/stores/auth'
 import type { Room } from '@/types/room'
@@ -88,8 +89,8 @@ async function handleDelete() {
   try {
     await store.deleteRoom(roomToDelete.value.id)
     toast.success(`${name} deleted.`)
-  } catch {
-    toast.error('Failed to delete room.')
+  } catch (err) {
+    toast.error(getApiError(err, 'Failed to delete room.'))
   } finally {
     deleting.value = false
     deleteDialogOpen.value = false

@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import { Loader2, Minus, Plus, ShoppingCart, Search } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import { getApiError } from '@/utils/errors'
 import { useMenusStore } from '@/stores/menus'
 import { bookingApi } from '@/services/api/bookings'
 import type { MenuItem, OrderItemInput } from '@/types/menu'
@@ -69,8 +70,8 @@ async function fetchBookings() {
   try {
     const res = await bookingApi.list({ page: 1, page_size: 100, status: 'checked_in' })
     bookings.value = res.data ?? []
-  } catch {
-    toast.error('Failed to load active bookings.')
+  } catch (err) {
+    toast.error(getApiError(err, 'Failed to load active bookings.'))
   } finally {
     bookingsLoading.value = false
   }
@@ -186,8 +187,8 @@ async function placeOrder() {
     toast.success('Order placed successfully.')
     emit('placed')
     emit('update:open', false)
-  } catch (err: any) {
-    toast.error(err?.error?.message ?? 'Failed to place order.')
+  } catch (err) {
+    toast.error(getApiError(err, 'Failed to place order.'))
   } finally {
     placing.value = false
   }

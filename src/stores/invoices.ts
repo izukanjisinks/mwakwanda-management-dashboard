@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { invoiceApi } from '@/services/api/invoices'
+import { getApiError } from '@/utils/errors'
 import type { Invoice, InvoiceStatus, InvoiceStatusUpdate } from '@/types/invoice'
 
 export const useInvoicesStore = defineStore('invoices', () => {
@@ -16,8 +17,8 @@ export const useInvoicesStore = defineStore('invoices', () => {
       const res = await invoiceApi.list({ page, page_size: pageSize, status })
       invoices.value = res.data ?? []
       total.value = res.total
-    } catch (err: any) {
-      error.value = err?.error?.message ?? 'Failed to load invoices.'
+    } catch (err) {
+      error.value = getApiError(err, 'Failed to load invoices.')
     } finally {
       loading.value = false
     }

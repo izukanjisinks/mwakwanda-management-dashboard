@@ -9,6 +9,9 @@ import { useAuthStore } from '@/stores/auth'
 import type { Booking, BookingStatus } from '@/types/booking'
 import type { CorporateClient } from '@/types/client'
 import { corporateClientApi } from '@/services/api/clients'
+import { bookingApi } from '@/services/api/bookings'
+import { roomApi } from '@/services/api/room'
+import { getApiError } from '@/utils/errors'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import BookingDialog from '@/components/bookings/BookingDialog.vue'
 import { Button } from '@/components/ui/button'
@@ -213,8 +216,8 @@ async function handleDelete() {
   try {
     await store.deleteBooking(bookingToDelete.value.id)
     toast.success(`Booking for ${name} deleted.`)
-  } catch {
-    toast.error('Failed to delete booking.')
+  } catch (err) {
+    toast.error(getApiError(err, 'Failed to delete booking.'))
   } finally {
     deleting.value = false
     deleteDialogOpen.value = false
@@ -239,6 +242,51 @@ async function handleStatusChange(booking: Booking, status: unknown) {
   if (typeof status !== 'string') return
   const next = status as BookingStatus
   if (!allowedTransitions(booking).includes(next)) return
+
+  // ── Pre-flight: confirm ──────────────────────────────────────────────────
+  if (next === 'confirmed') {
+    const checkInDate = booking.check_in.substring(0, 10)
+    const checkOutDate = booking.check_out.substring(0, 10)
+    try {
+      const [availableRooms, confirmedRes] = await Promise.all([
+        roomApi.listAvailable({ check_in: checkInDate, check_out: checkOutDate }),
+        bookingApi.list({ status: 'confirmed', page: 1, page_size: 500, to: checkOutDate }),
+      ])
+      if (!availableRooms.some(r => r.id === booking.room_id)) {
+        toast.error(`Cannot confirm: ${booking.room_name} has a conflicting booking for ${formatDate(booking.check_in)} – ${formatDate(booking.check_out)}.`)
+        return
+      }
+      const confirmedClash = (confirmedRes.data ?? []).some(b =>
+        b.room_id === booking.room_id &&
+        b.id !== booking.id &&
+        b.check_in < booking.check_out &&
+        b.check_out > booking.check_in,
+      )
+      if (confirmedClash) {
+        toast.error(`Cannot confirm: ${booking.room_name} is already confirmed for overlapping dates.`)
+        return
+      }
+    } catch (err) {
+      toast.error(getApiError(err, 'Failed to check room availability.'))
+      return
+    }
+  }
+
+  // ── Pre-flight: check-in ─────────────────────────────────────────────────
+  if (next === 'checked_in') {
+    try {
+      const room = await roomApi.get(booking.room_id)
+      if (!room.is_available) {
+        toast.error(`Cannot check in: ${booking.room_name} is currently occupied. The previous guest may not have checked out yet.`)
+        return
+      }
+    } catch (err) {
+      toast.error(getApiError(err, 'Failed to check room status.'))
+      return
+    }
+  }
+
+  // ── Status update ────────────────────────────────────────────────────────
   try {
     const now = new Date().toISOString()
     if (next === 'checked_in') {
@@ -248,8 +296,8 @@ async function handleStatusChange(booking: Booking, status: unknown) {
     }
     await store.updateStatus(booking.id, next)
     toast.success(`Booking status updated to ${statusConfig[next].label}.`)
-  } catch {
-    toast.error('Failed to update booking status.')
+  } catch (err) {
+    toast.error(getApiError(err, 'Failed to update booking status.'))
   }
 }
 
@@ -261,8 +309,8 @@ async function handleClearOverstayed() {
     toast.success(`Overstayed flag cleared for ${overstayBooking.value.client_name}.`)
     overstayDialogOpen.value = false
     overstayBooking.value = null
-  } catch {
-    toast.error('Failed to clear overstayed flag.')
+  } catch (err) {
+    toast.error(getApiError(err, 'Failed to clear overstayed flag.'))
   } finally {
     clearingOverstay.value = false
   }

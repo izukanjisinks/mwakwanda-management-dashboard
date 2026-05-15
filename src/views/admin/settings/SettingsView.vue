@@ -2,6 +2,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { CalendarClock, UtensilsCrossed, ShieldCheck, ChevronRight, ScrollText } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import { getApiError } from '@/utils/errors'
 import { useSettingsStore } from '@/stores/settings'
 import { useMenusStore } from '@/stores/menus'
 import { useRouter } from 'vue-router'
@@ -38,8 +39,8 @@ async function handleCloseAllOrders() {
     await menusStore.closeAllOrders()
     toast.success('All orders have been closed.')
     closeConfirmOpen.value = false
-  } catch (err: any) {
-    toast.error(err?.error?.message ?? 'Failed to close orders.')
+  } catch (err) {
+    toast.error(getApiError(err, 'Failed to close orders.'))
   } finally {
     closingOrders.value = false
   }
@@ -84,8 +85,8 @@ async function save() {
       auto_close_orders: autoCloseOrders.value,
     })
     toast.success('Settings saved.')
-  } catch (err: any) {
-    toast.error(err?.error?.message ?? 'Failed to save settings.')
+  } catch (err) {
+    toast.error(getApiError(err, 'Failed to save settings.'))
   } finally {
     saving.value = false
   }
