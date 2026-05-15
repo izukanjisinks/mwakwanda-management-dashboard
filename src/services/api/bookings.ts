@@ -7,6 +7,7 @@ export interface BookingListParams extends Record<string, string | number | bool
   status?: string
   client_type?: string
   client_id?: string
+  corporate_client_id?: string
   overstayed?: boolean
   from?: string
   to?: string

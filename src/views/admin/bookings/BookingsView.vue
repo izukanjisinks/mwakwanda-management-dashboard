@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { Plus, Pencil, Eye, Trash2, Search, ChevronLeft, ChevronRight, CircleAlert, CalendarIcon } from 'lucide-vue-next'
+import { Plus, Pencil, Eye, Trash2, Search, ChevronLeft, ChevronRight, CircleAlert, CalendarIcon, X } from 'lucide-vue-next'
 import type { DateValue } from '@internationalized/date'
 import { CalendarDate } from '@internationalized/date'
 import { toast } from 'vue-sonner'
 import { useBookingsStore } from '@/stores/bookings'
 import { useAuthStore } from '@/stores/auth'
 import type { Booking, BookingStatus } from '@/types/booking'
+import type { CorporateClient } from '@/types/client'
+import { corporateClientApi } from '@/services/api/clients'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import BookingDialog from '@/components/bookings/BookingDialog.vue'
 import { Button } from '@/components/ui/button'
@@ -89,42 +91,83 @@ const toDate = computed({
   set: (dv) => { if (dv) { filterTo.value = fromCalendarDate(dv); toOpen.value = false } },
 })
 
+// ── Corporate client filter ───────────────────────────────────────────────────
+const corporateClients = ref<CorporateClient[]>([])
+const corporateClientFilter = ref('')
+
+async function fetchCorporateClients() {
+  try {
+    const res = await corporateClientApi.list({ page: 1, page_size: 500 })
+    corporateClients.value = res.data ?? []
+  } catch {
+    // non-critical — filter just won't populate
+  }
+}
+
+function setCorporateClientFilter(val: unknown) {
+  corporateClientFilter.value = typeof val === 'string' && val !== 'all' ? val : ''
+  page.value = 1
+  loadBookings()
+}
+
 const page = ref(1)
 const pageSize = 10
 
 function loadBookings() {
   const isOverstayed = statusFilter.value === 'overstayed'
-  store.fetchBookings(
-    page.value,
-    pageSize,
-    isOverstayed ? undefined : (statusFilter.value === 'all' ? undefined : statusFilter.value as BookingStatus),
-    isOverstayed ? true : undefined,
-    filterFrom.value || undefined,
-    filterTo.value || undefined,
-  )
+  const statusVal = isOverstayed ? undefined : (statusFilter.value === 'all' ? undefined : statusFilter.value as BookingStatus)
+  const overstayedVal = isOverstayed ? (true as true) : undefined
+
+  if (corporateClientFilter.value) {
+    // Fetch all so we can filter and paginate client-side
+    store.fetchBookings(1, 1000, statusVal, overstayedVal, filterFrom.value || undefined, filterTo.value || undefined)
+  } else {
+    store.fetchBookings(page.value, pageSize, statusVal, overstayedVal, filterFrom.value || undefined, filterTo.value || undefined)
+  }
 }
 
-onMounted(loadBookings)
+onMounted(() => { loadBookings(); fetchCorporateClients() })
 watch(page, loadBookings)
 watch([filterFrom, filterTo], () => { page.value = 1; loadBookings() })
 
-function setStatus(val: string | null) {
-  if (!val) return
+function setStatus(val: unknown) {
+  if (typeof val !== 'string') return
   statusFilter.value = val as BookingStatus | 'all' | 'overstayed'
   page.value = 1
   loadBookings()
 }
 
-const totalPages = computed(() => Math.max(1, Math.ceil(store.total / pageSize)))
-
+// All matching records (search + corporate filter applied client-side)
 const filtered = computed(() => {
+  let results = store.bookings
+
+  if (corporateClientFilter.value) {
+    results = results.filter(b => b.corporate_client_id === corporateClientFilter.value)
+  }
+
   const q = search.value.toLowerCase().trim()
-  if (!q) return store.bookings
-  return store.bookings.filter(b =>
-    b.client_name.toLowerCase().includes(q) ||
-    b.room_name.toLowerCase().includes(q),
-  )
+  if (q) {
+    results = results.filter(b =>
+      b.client_name.toLowerCase().includes(q) ||
+      b.room_name.toLowerCase().includes(q),
+    )
+  }
+
+  return results
 })
+
+// Slice for the current page (only needed when filtering client-side)
+const visibleBookings = computed(() => {
+  if (!corporateClientFilter.value) return filtered.value
+  const start = (page.value - 1) * pageSize
+  return filtered.value.slice(start, start + pageSize)
+})
+
+const displayTotal = computed(() =>
+  corporateClientFilter.value ? filtered.value.length : store.total,
+)
+
+const totalPages = computed(() => Math.max(1, Math.ceil(displayTotal.value / pageSize)))
 
 const statusConfig: Record<BookingStatus, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
   pending:     { label: 'Pending',     variant: 'outline' },
@@ -231,13 +274,23 @@ async function handleClearOverstayed() {
 
   <div class="flex flex-col gap-6 p-6">
     <!-- Toolbar -->
-    <div class="flex items-center justify-between gap-4">
-      <div class="flex items-center gap-3">
-        <div class="relative w-52">
+    <div class="flex flex-col gap-3">
+      <!-- Row 1: search + action -->
+      <div class="flex items-center justify-between gap-4">
+        <div class="relative w-64">
           <Search class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
           <Input v-model="search" placeholder="Search bookings..." class="pl-9" />
         </div>
-        <Select :model-value="statusFilter" @update:model-value="(v) => setStatus(v as string | null)">
+        <Button @click="openCreate">
+          <Plus class="size-4 mr-2" />
+          New Booking
+        </Button>
+      </div>
+
+      <!-- Row 2: filters -->
+      <div class="flex items-center gap-3 flex-wrap">
+        <!-- Status -->
+        <Select :model-value="statusFilter" @update:model-value="setStatus">
           <SelectTrigger class="w-44">
             <SelectValue placeholder="All statuses" />
           </SelectTrigger>
@@ -256,6 +309,38 @@ async function handleClearOverstayed() {
             </SelectItem>
           </SelectContent>
         </Select>
+
+        <!-- Corporate client -->
+        <div class="relative">
+          <Select
+            :model-value="corporateClientFilter || 'all'"
+            @update:model-value="setCorporateClientFilter"
+          >
+            <SelectTrigger class="w-52">
+              <SelectValue placeholder="All Clients" />
+            </SelectTrigger>
+            <SelectContent class="max-h-64">
+              <SelectItem value="all">All Clients</SelectItem>
+              <SelectItem
+                v-for="client in corporateClients"
+                :key="client.id"
+                :value="client.id"
+              >
+                {{ client.company_name }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <button
+            v-if="corporateClientFilter"
+            type="button"
+            class="absolute right-8 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+            @click.stop="setCorporateClientFilter('all')"
+          >
+            <X class="size-3.5" />
+          </button>
+        </div>
+
+        <!-- Date range -->
         <div class="flex items-center gap-2">
           <Popover v-model:open="fromOpen">
             <PopoverTrigger as-child>
@@ -300,11 +385,6 @@ async function handleClearOverstayed() {
           </Button>
         </div>
       </div>
-
-      <Button @click="openCreate">
-        <Plus class="size-4 mr-2" />
-        New Booking
-      </Button>
     </div>
 
     <!-- Table -->
@@ -333,7 +413,7 @@ async function handleClearOverstayed() {
             </TableRow>
           </template>
 
-          <template v-else-if="filtered.length === 0">
+          <template v-else-if="visibleBookings.length === 0">
             <TableRow>
               <TableCell colspan="10" class="py-16 text-center text-muted-foreground">
                 {{ store.bookings.length === 0 ? 'No bookings yet.' : 'No bookings match your filters.' }}
@@ -342,7 +422,7 @@ async function handleClearOverstayed() {
           </template>
 
           <template v-else>
-            <TableRow v-for="booking in filtered" :key="booking.id">
+            <TableRow v-for="booking in visibleBookings" :key="booking.id">
               <TableCell class="font-mono text-sm">{{ booking.booking_number }}</TableCell>
               <TableCell>
                 <div class="font-medium">{{ booking.client_name }}</div>
@@ -412,7 +492,7 @@ async function handleClearOverstayed() {
 
       <!-- Pagination -->
       <div class="flex items-center justify-between px-6 py-3 border-t text-sm text-muted-foreground">
-        <span>{{ store.total }} booking{{ store.total !== 1 ? 's' : '' }}</span>
+        <span>{{ displayTotal }} booking{{ displayTotal !== 1 ? 's' : '' }}</span>
         <div class="flex items-center gap-2">
           <Button variant="outline" size="icon" class="size-8" :disabled="page <= 1" @click="page--">
             <ChevronLeft class="size-4" />
