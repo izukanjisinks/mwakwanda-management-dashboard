@@ -144,17 +144,6 @@ function fmt(d?: string) {
             </div>
           </div>
 
-          <div class="grid grid-cols-2 px-3 py-2 gap-x-4">
-            <div>
-              <p class="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Department</p>
-              <p class="capitalize">{{ task.task_details?.sender_details?.department || '—' }}</p>
-            </div>
-            <div>
-              <p class="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Position</p>
-              <p class="capitalize">{{ task.task_details?.sender_details?.position || '—' }}</p>
-            </div>
-          </div>
-
           <div v-if="task.due_date" class="px-3 py-2">
             <p class="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Due Date</p>
             <div class="flex items-center gap-1.5 text-xs">

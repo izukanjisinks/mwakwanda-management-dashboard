@@ -5,7 +5,6 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
 import { Loader2, CheckCircle2, XCircle } from 'lucide-vue-next'
 import type { WorkflowTask } from '@/types/workflow'
 
@@ -65,9 +64,6 @@ function fmt(d?: string) {
             <div>
               <p class="text-xs text-muted-foreground mb-0.5">From</p>
               <p class="font-medium">{{ task.task_details?.sender_details?.sender_name || '—' }}</p>
-              <Badge variant="outline" class="text-[10px] capitalize mt-0.5">
-                {{ task.task_details?.sender_details?.department || '—' }}
-              </Badge>
             </div>
             <div>
               <p class="text-xs text-muted-foreground mb-0.5">Step</p>
