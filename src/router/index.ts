@@ -2,6 +2,10 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useBackofficeStore } from '@/stores/backoffice'
 import type { UserRole } from '@/types/auth'
+import NProgress from 'nprogress'
+import 'nprogress/nprogress.css'
+
+NProgress.configure({ showSpinner: false, speed: 300, minimum: 0.1 })
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -202,8 +206,12 @@ const router = createRouter({
 
 const BACKOFFICE_TOKEN_KEY = 'lodge_backoffice_token'
 
+router.afterEach(() => NProgress.done())
+router.onError(() => NProgress.done())
+
 // Navigation guard
 router.beforeEach(async (to) => {
+  NProgress.start()
   const authStore = useAuthStore()
 
   // ── Backoffice routes ─────────────────────────────────────────────────────

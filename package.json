@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@tanstack/vue-table": "^8.21.3",
+    "@types/nprogress": "^0.2.3",
     "@unovis/ts": "^1.6.4",
     "@unovis/vue": "^1.6.4",
     "@vue-flow/background": "^1.3.2",
@@ -23,6 +24,7 @@
     "clsx": "^2.1.1",
     "firebase": "^12.12.0",
     "lucide-vue-next": "^0.574.0",
+    "nprogress": "^0.2.0",
     "pinia": "^3.0.4",
     "reka-ui": "^2.9.7",
     "tailwind-merge": "^3.5.0",

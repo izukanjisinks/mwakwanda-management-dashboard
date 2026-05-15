@@ -261,6 +261,44 @@ const guests = ref<GuestRow[]>([makeGuest()])
 
 const isEdit = computed(() => !!props.booking)
 
+const isReadOnly = computed(() =>
+  isEdit.value && (props.booking?.status === 'checked_out' || props.booking?.status === 'cancelled')
+)
+
+const clientDetailsLoading = ref(false)
+
+async function loadClientDetails(booking: Booking) {
+  clientDetailsLoading.value = true
+  try {
+    if (!booking.corporate_client_id) {
+      const client = await individualClientApi.get(booking.client_id)
+      form.value.email = client.email
+      form.value.phone = client.phone
+      form.value.id_passport_number = client.id_passport_number
+      form.value.id_type = /^\d{6}\/\d{2}\/\d{1}$/.test(client.id_passport_number) ? 'nrc' : 'passport'
+    } else {
+      const [corporate, individual] = await Promise.all([
+        corporateClientApi.get(booking.corporate_client_id),
+        individualClientApi.get(booking.client_id),
+      ])
+      form.value.company_name = corporate.company_name
+      form.value.contact_person = corporate.contact_person
+      form.value.company_email = corporate.email
+      form.value.company_phone = corporate.phone
+      form.value.company_reg_number = corporate.company_reg_number
+      form.value.industry = corporate.industry ?? ''
+      form.value.email = individual.email
+      form.value.phone = individual.phone
+      form.value.id_passport_number = individual.id_passport_number
+      form.value.id_type = /^\d{6}\/\d{2}\/\d{1}$/.test(individual.id_passport_number) ? 'nrc' : 'passport'
+    }
+  } catch (err) {
+    console.error('[booking] failed to load client details', err)
+  } finally {
+    clientDetailsLoading.value = false
+  }
+}
+
 const availableRoomsByDate = ref<Room[]>([])
 const availableRoomsLoading = ref(false)
 const availableRoomsError = ref('')
@@ -468,10 +506,15 @@ watch(() => props.open, (open) => {
   clientFound.value = false
 
   if (props.booking) {
+    const isCorporate = !!props.booking.corporate_client_id
     form.value = {
       client_type: props.booking.client_type,
-      full_name: '', email: '', phone: '', id_passport_number: '', notes: '',
-      company_name: '', contact_person: '', company_email: '', company_phone: '',
+      full_name: !isCorporate ? props.booking.client_name : '',
+      email: '', phone: '', id_type: 'nrc' as 'nrc' | 'passport', id_passport_number: '', notes: '',
+      company_name: isCorporate
+        ? (props.booking.corporate_client_name ?? props.booking.client_name)
+        : '',
+      contact_person: '', company_email: '', company_phone: '',
       company_reg_number: '', industry: '',
       check_in: props.booking.check_in.slice(0, 10),
       check_out: props.booking.check_out.slice(0, 10),
@@ -480,10 +523,12 @@ watch(() => props.open, (open) => {
       client_id: props.booking.client_id,
       guests: props.booking.guests,
     }
+    clientFound.value = true
+    loadClientDetails(props.booking)
   } else {
     form.value = {
       client_type: 'individual',
-      full_name: '', email: '', phone: '', id_passport_number: '', notes: '',
+      full_name: '', email: '', phone: '', id_type: 'nrc' as 'nrc' | 'passport', id_passport_number: '', notes: '',
       company_name: '', contact_person: '', company_email: '', company_phone: '',
       company_reg_number: '', industry: '',
       check_in: '', check_out: '', special_requests: '',
@@ -495,6 +540,10 @@ watch(() => props.open, (open) => {
 watch(() => form.value.client_type, () => {
   clearClientSearch()
 })
+
+function setClientType(value: string) {
+  if (!isEdit.value) form.value.client_type = value as ClientType
+}
 
 // ── Validation ────────────────────────────────────────────────────────────────
 const NRC_PATTERN = /^\d{6}\/\d{2}\/\d{1}$/
@@ -622,8 +671,9 @@ async function handleSave() {
       const payload: BookingUpdatePayload = {
         check_in: form.value.check_in,
         check_out: form.value.check_out,
-        guests: guests.value.length,
+        guests: form.value.guests,
         special_requests: form.value.special_requests || undefined,
+        room_id: form.value.room_id || undefined,
       }
       console.log('[booking] update payload', payload)
       saved = await bookingsStore.updateBooking(props.booking.id, payload)
@@ -700,7 +750,7 @@ function formatDate(d: string) {
       <!-- Header + stepper -->
       <DialogHeader class="px-6 pt-5 pb-4 border-b shrink-0">
         <DialogTitle class="text-base font-semibold">
-          {{ isEdit ? 'Edit Booking' : 'New Booking' }}
+          {{ isReadOnly ? 'View Booking' : isEdit ? 'Edit Booking' : 'New Booking' }}
         </DialogTitle>
 
         <div v-if="!isEdit" class="flex items-center mt-4">
@@ -727,6 +777,11 @@ function formatDate(d: string) {
         </div>
       </DialogHeader>
 
+      <!-- Read-only banner -->
+      <div v-if="isReadOnly" class="mx-6 mt-4 p-3 rounded-lg bg-muted/60 border text-sm text-muted-foreground shrink-0">
+        This booking is <strong class="text-foreground capitalize">{{ props.booking?.status?.replace('_', ' ') }}</strong> — displayed for reference only. No changes can be made.
+      </div>
+
       <!-- Error banner -->
       <div v-if="error" class="mx-6 mt-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-sm text-destructive shrink-0">
         {{ error }}
@@ -737,10 +792,15 @@ function formatDate(d: string) {
 
         <!-- ── Step 1: Booking Details ──────────────────────────────────── -->
         <div v-if="step === 1" class="px-6 py-5 flex flex-col gap-5">
-          <!-- Client type toggle -->
+          <!-- Client type -->
           <div class="grid gap-2">
             <Label>Client Type</Label>
-            <div class="grid grid-cols-2 gap-2">
+            <!-- Edit mode: read-only badge based on corporate_client_id presence -->
+            <div v-if="isEdit" class="flex items-center h-9 px-3 rounded-md border border-input bg-muted/40 text-sm font-medium">
+              {{ props.booking?.corporate_client_id ? 'Corporate' : 'Individual' }}
+            </div>
+            <!-- Create mode: interactive toggle -->
+            <div v-else class="grid grid-cols-2 gap-2">
               <button
                 v-for="t in [{ value: 'individual', label: 'Individual' }, { value: 'corporate', label: 'Corporate' }]"
                 :key="t.value"
@@ -751,15 +811,15 @@ function formatDate(d: string) {
                     ? 'bg-primary text-primary-foreground border-primary'
                     : 'bg-background text-foreground border-input hover:bg-muted',
                 ]"
-                @click="form.client_type = t.value as ClientType"
+                @click="setClientType(t.value)"
               >
                 {{ t.label }}
               </button>
             </div>
           </div>
 
-          <!-- Search input -->
-          <div class="grid gap-2">
+          <!-- Search input — create mode only -->
+          <div v-if="!isEdit" class="grid gap-2">
             <Label>Search Client</Label>
             <div class="relative">
               <Search v-if="!clientSearchLoading" class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
@@ -787,15 +847,122 @@ function formatDate(d: string) {
             </p>
           </div>
 
-          <!-- Divider: Client Details -->
-          <div class="flex items-center gap-3">
+          <!-- Divider: Client Details (hidden for corporate edit — those sections have their own headers) -->
+          <div v-if="!(isEdit && props.booking?.corporate_client_id)" class="flex items-center gap-3">
             <div class="flex-1 h-px bg-border" />
             <span class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Client Details</span>
             <div class="flex-1 h-px bg-border" />
           </div>
 
-          <!-- Individual fields -->
-          <template v-if="form.client_type === 'individual'">
+          <!-- ── EDIT MODE: read-only client display ────────────────────── -->
+
+          <!-- Loading indicator -->
+          <div v-if="isEdit && clientDetailsLoading" class="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 class="size-4 animate-spin shrink-0" />
+            <span>Fetching guest information...</span>
+          </div>
+
+          <!-- Individual client (no corporate_client_id) -->
+          <template v-if="isEdit && !props.booking?.corporate_client_id">
+            <div class="grid gap-2">
+              <Label>Full Name</Label>
+              <Input :model-value="props.booking?.client_name ?? ''" disabled />
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div class="grid gap-2">
+                <Label>Email</Label>
+                <Input :model-value="form.email" disabled />
+              </div>
+              <div class="grid gap-2">
+                <Label>Phone</Label>
+                <Input :model-value="form.phone" disabled />
+              </div>
+            </div>
+            <div class="grid gap-2">
+              <Label>Identity</Label>
+              <div class="grid grid-cols-[1fr_2fr] gap-2">
+                <Input :model-value="form.id_type === 'nrc' ? 'NRC' : 'Passport'" disabled />
+                <Input :model-value="form.id_passport_number" disabled />
+              </div>
+            </div>
+          </template>
+
+          <!-- Corporate client (has corporate_client_id) -->
+          <template v-else-if="isEdit && props.booking?.corporate_client_id">
+
+            <!-- Section 1: Company Details -->
+            <div class="flex items-center gap-3">
+              <div class="flex-1 h-px bg-border" />
+              <span class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Company Details</span>
+              <div class="flex-1 h-px bg-border" />
+            </div>
+            <div class="grid gap-2">
+              <Label>Company Name</Label>
+              <Input :model-value="props.booking?.corporate_client_name ?? ''" disabled />
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div class="grid gap-2">
+                <Label>Contact Person</Label>
+                <Input :model-value="form.contact_person" disabled />
+              </div>
+              <div class="grid gap-2">
+                <Label>Industry</Label>
+                <Input :model-value="form.industry" disabled />
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div class="grid gap-2">
+                <Label>Company Email</Label>
+                <Input :model-value="form.company_email" disabled />
+              </div>
+              <div class="grid gap-2">
+                <Label>Company Phone</Label>
+                <Input :model-value="form.company_phone" disabled />
+              </div>
+            </div>
+            <div class="grid gap-2">
+              <Label>Company Registration Number</Label>
+              <Input :model-value="form.company_reg_number" disabled />
+            </div>
+
+            <!-- Section 2: Guest Lodging In -->
+            <div class="flex items-center gap-3 mt-1">
+              <div class="flex-1 h-px bg-border" />
+              <span class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Guest Lodging In</span>
+              <div class="flex-1 h-px bg-border" />
+            </div>
+            <div class="grid gap-2">
+              <Label>Full Name</Label>
+              <Input :model-value="props.booking?.client_name ?? ''" disabled />
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div class="grid gap-2">
+                <Label>Email</Label>
+                <Input :model-value="form.email" disabled />
+              </div>
+              <div class="grid gap-2">
+                <Label>Phone</Label>
+                <Input :model-value="form.phone" disabled />
+              </div>
+            </div>
+            <div class="grid gap-2">
+              <Label>Identity</Label>
+              <div class="grid grid-cols-[1fr_2fr] gap-2">
+                <Input :model-value="form.id_type === 'nrc' ? 'NRC' : 'Passport'" disabled />
+                <Input :model-value="form.id_passport_number" disabled />
+              </div>
+            </div>
+          </template>
+
+          <!-- Edit mode hint -->
+          <p v-if="isEdit" class="text-xs text-muted-foreground">
+            Client details are read-only. To update them, visit the <strong class="text-foreground">Clients</strong> page.
+          </p>
+
+          <!-- ── CREATE MODE: editable client fields ────────────────────── -->
+
+          <!-- Individual -->
+          <template v-else-if="form.client_type === 'individual'">
             <div class="grid gap-2">
               <Label>Full Name *</Label>
               <Input v-model="form.full_name" placeholder="e.g. John Banda" />
@@ -830,8 +997,8 @@ function formatDate(d: string) {
             </div>
           </template>
 
-          <!-- Corporate fields -->
-          <template v-else>
+          <!-- Corporate -->
+          <template v-else-if="!isEdit">
             <div class="grid gap-2">
               <Label>Company Name *</Label>
               <Input v-model="form.company_name" placeholder="e.g. Acme Corporation" />
@@ -862,8 +1029,8 @@ function formatDate(d: string) {
             </div>
           </template>
 
-          <!-- Stay Details — individual only -->
-          <template v-if="form.client_type === 'individual'">
+          <!-- Stay Details — individual always, corporate in edit mode -->
+          <template v-if="form.client_type === 'individual' || isEdit">
             <div class="flex items-center gap-3">
               <div class="flex-1 h-px bg-border" />
               <span class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Stay Details</span>
@@ -878,7 +1045,8 @@ function formatDate(d: string) {
                   <PopoverTrigger as-child>
                     <button
                       type="button"
-                      class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-left flex items-center gap-2 hover:bg-muted/40 transition-colors"
+                      :disabled="isReadOnly"
+                      class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-left flex items-center gap-2 hover:bg-muted/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       :class="!form.check_in && 'text-muted-foreground'"
                     >
                       <CalendarIcon class="size-4 shrink-0" />
@@ -902,7 +1070,8 @@ function formatDate(d: string) {
                   <PopoverTrigger as-child>
                     <button
                       type="button"
-                      class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-left flex items-center gap-2 hover:bg-muted/40 transition-colors"
+                      :disabled="isReadOnly"
+                      class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-left flex items-center gap-2 hover:bg-muted/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       :class="!form.check_out && 'text-muted-foreground'"
                     >
                       <CalendarIcon class="size-4 shrink-0" />
@@ -925,7 +1094,7 @@ function formatDate(d: string) {
             <!-- Room -->
             <div class="grid gap-2">
               <Label>Room *</Label>
-              <Select v-model="form.room_id" :disabled="!form.check_in || !form.check_out || availableRoomsLoading">
+              <Select v-model="form.room_id" :disabled="isReadOnly || !form.check_in || !form.check_out || availableRoomsLoading">
                 <SelectTrigger class="w-full">
                   <SelectValue placeholder="Select a room" />
                 </SelectTrigger>
@@ -1320,10 +1489,10 @@ function formatDate(d: string) {
           @click="step > 1 && !isEdit ? goBack() : emit('update:open', false)"
         >
           <ArrowLeft v-if="step > 1 && !isEdit" class="size-4 mr-1.5" />
-          {{ step > 1 && !isEdit ? 'Back' : 'Cancel' }}
+          {{ step > 1 && !isEdit ? 'Back' : isReadOnly ? 'Close' : 'Cancel' }}
         </Button>
 
-        <Button :disabled="saving" @click="isLastStep || isEdit ? handleSave() : goNext()">
+        <Button v-if="!isReadOnly" :disabled="saving" @click="isLastStep || isEdit ? handleSave() : goNext()">
           <Loader2 v-if="saving" class="size-4 mr-2 animate-spin" />
           <template v-else>
             <span>{{ isLastStep || isEdit ? (isEdit ? 'Save Changes' : 'Confirm Booking') : 'Next' }}</span>
