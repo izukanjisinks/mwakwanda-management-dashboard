@@ -1,5 +1,5 @@
 import { apiClient } from './client'
-import type { OrgSettings, OrgSettingsPayload } from '@/types/settings'
+import type { OrgSettings, OrgSettingsPayload, LodgeProfile, LodgeProfilePayload } from '@/types/settings'
 
 export const settingsApi = {
   get: () =>
@@ -7,4 +7,12 @@ export const settingsApi = {
 
   update: (payload: OrgSettingsPayload) =>
     apiClient.put<OrgSettings>('/settings', payload),
+}
+
+export const lodgeProfileApi = {
+  get: () =>
+    apiClient.get<LodgeProfile>('/settings/profile'),
+
+  update: (payload: LodgeProfilePayload) =>
+    apiClient.put<LodgeProfile>('/settings/profile', payload),
 }

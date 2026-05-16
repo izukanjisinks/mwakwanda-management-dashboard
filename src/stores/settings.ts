@@ -1,13 +1,17 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { settingsApi } from '@/services/api/settings'
+import { settingsApi, lodgeProfileApi } from '@/services/api/settings'
 import { getApiError } from '@/utils/errors'
-import type { OrgSettings, OrgSettingsPayload } from '@/types/settings'
+import type { OrgSettings, OrgSettingsPayload, LodgeProfile, LodgeProfilePayload } from '@/types/settings'
 
 export const useSettingsStore = defineStore('settings', () => {
   const settings = ref<OrgSettings | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
+
+  const lodgeProfile = ref<LodgeProfile | null>(null)
+  const profileLoading = ref(false)
+  const profileError = ref<string | null>(null)
 
   async function fetchSettings() {
     loading.value = true
@@ -27,5 +31,26 @@ export const useSettingsStore = defineStore('settings', () => {
     return updated
   }
 
-  return { settings, loading, error, fetchSettings, updateSettings }
+  async function fetchLodgeProfile() {
+    profileLoading.value = true
+    profileError.value = null
+    try {
+      lodgeProfile.value = await lodgeProfileApi.get()
+    } catch (err) {
+      profileError.value = getApiError(err, 'Failed to load lodge profile.')
+    } finally {
+      profileLoading.value = false
+    }
+  }
+
+  async function updateLodgeProfile(payload: LodgeProfilePayload): Promise<LodgeProfile> {
+    const updated = await lodgeProfileApi.update(payload)
+    lodgeProfile.value = updated
+    return updated
+  }
+
+  return {
+    settings, loading, error, fetchSettings, updateSettings,
+    lodgeProfile, profileLoading, profileError, fetchLodgeProfile, updateLodgeProfile,
+  }
 })

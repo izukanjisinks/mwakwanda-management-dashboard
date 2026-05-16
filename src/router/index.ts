@@ -112,6 +112,11 @@ const router = createRouter({
           component: () => import('@/views/admin/settings/SettingsView.vue'),
         },
         {
+          path: 'lodge-profile',
+          name: 'lodge-profile',
+          component: () => import('@/views/admin/settings/LodgeProfileView.vue'),
+        },
+        {
           path: 'audit-logs',
           name: 'audit-logs',
           component: () => import('@/views/admin/settings/AuditLogsView.vue'),
