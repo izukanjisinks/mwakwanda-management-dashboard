@@ -100,7 +100,7 @@ const adminNav = [
     label: 'System',
     items: [
       { title: 'System Users', icon: ShieldCheck, routeName: 'users' },
-      { title: 'Lodge Profile', icon: MapPin, routeName: 'lodge-profile' },
+      // { title: 'Lodge Profile', icon: MapPin, routeName: 'lodge-profile' },
       { title: 'Settings', icon: Settings, routeName: 'settings' },
     ],
   },
