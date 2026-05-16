@@ -88,7 +88,7 @@ function handlePasswordChanged() {
               </span> -->
             </div>
             <div>
-              <h1 class="font-serif text-3xl font-bold tracking-tight text-foreground">
+              <h1 class="text-3xl font-bold tracking-tight text-foreground">
                 Welcome Back
               </h1>
               <p class="mt-2 text-muted-foreground">

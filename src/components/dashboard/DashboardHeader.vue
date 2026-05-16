@@ -20,7 +20,7 @@ function getInitials(name: string | undefined | null) {
   <header class="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
     <SidebarTrigger class="-ml-1" />
     <Separator orientation="vertical" class="h-6" />
-    <h1 class="font-serif text-xl font-semibold">{{ title }}</h1>
+    <h1 class="text-xl font-semibold">{{ title }}</h1>
 
     <div v-if="$slots.actions" class="flex items-center gap-2">
       <slot name="actions" />

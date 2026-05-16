@@ -12,7 +12,9 @@
       "Bash(ls -la \"C:\\\\development\\\\New folder \\(3\\)\\\\src\\\\views\\\\admin\"\" 2>/dev/null || echo \"Directory does not exist or cannot be read \")",
       "Bash(python -c \"import json,sys; data=json.load\\(sys.stdin\\); [print\\(i['name'], '-', i.get\\('request',{}\\).get\\('method',''\\), i.get\\('request',{}\\).get\\('url',{}\\).get\\('raw',''\\)\\) for item in data['item'] for i in item.get\\('item',[]\\)]\")",
       "Bash(python -c 'import json,sys; data=json.load\\(sys.stdin\\);:*)",
-      "Bash(python -c ':*)"
+      "Bash(python -c ':*)",
+      "Bash(Get-ChildItem -Path . -Depth 2)",
+      "Bash(Select-Object -Property Name, FullName)"
     ]
   }
 }

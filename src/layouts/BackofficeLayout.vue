@@ -114,7 +114,7 @@ function getInitials(name: string | undefined | null) {
       <!-- Top bar -->
       <header class="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <Separator orientation="vertical" class="h-6" />
-        <h1 class="font-serif text-xl font-semibold">{{ pageTitle }}</h1>
+        <h1 class="text-xl font-semibold">{{ pageTitle }}</h1>
         <div class="ml-auto flex items-center gap-3">
           <div class="flex size-9 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold text-sm">
             {{ getInitials(store.user?.full_name || store.user?.email) }}

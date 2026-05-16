@@ -18,6 +18,7 @@ import {
   FileText,
   GitBranch,
   Inbox,
+  MapPin,
 } from 'lucide-vue-next'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -99,6 +100,7 @@ const adminNav = [
     label: 'System',
     items: [
       { title: 'System Users', icon: ShieldCheck, routeName: 'users' },
+      // { title: 'Lodge Profile', icon: MapPin, routeName: 'lodge-profile' },
       { title: 'Settings', icon: Settings, routeName: 'settings' },
     ],
   },

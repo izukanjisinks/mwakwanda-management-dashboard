@@ -112,7 +112,7 @@ if (roomsStore.rooms.length === 0) roomsStore.fetchRooms()
     <template v-if="done">
       <div class="flex flex-col items-center gap-4 py-16 text-center">
         <CheckCircle2 class="size-16 text-accent" />
-        <h2 class="text-2xl font-semibold font-serif">Booking Request Submitted</h2>
+        <h2 class="text-2xl font-semibold">Booking Request Submitted</h2>
         <p class="text-muted-foreground max-w-sm">
           Your request for <strong>{{ selectedRoom?.name }}</strong> has been submitted.
           Our team will confirm it shortly.
