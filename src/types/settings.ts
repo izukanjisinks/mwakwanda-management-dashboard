@@ -17,10 +17,13 @@ export interface PasswordPolicy {
   require_uppercase: boolean
   require_lowercase: boolean
   require_numbers: boolean
-  require_special: boolean
-  expiry_days: number
-  max_attempts: number
-  lockout_minutes: number
+  require_special_chars: boolean
+  max_failed_attempts: number
+  lockout_duration_mins: number
+  password_expiry_days: number
+  otp_length?: number
+  otp_expiry_mins?: number
+  session_timeout_mins?: number
 }
 
 export interface LodgeProfile {

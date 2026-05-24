@@ -42,10 +42,10 @@ onMounted(async () => {
     requireUppercase.value = policy.require_uppercase
     requireLowercase.value = policy.require_lowercase
     requireNumbers.value = policy.require_numbers
-    requireSpecial.value = policy.require_special
-    expiryDays.value = policy.expiry_days
-    maxAttempts.value = policy.max_attempts
-    lockoutMinutes.value = policy.lockout_minutes
+    requireSpecial.value = policy.require_special_chars
+    expiryDays.value = policy.password_expiry_days
+    maxAttempts.value = policy.max_failed_attempts
+    lockoutMinutes.value = policy.lockout_duration_mins
   } catch {
     // use defaults if no policy set yet
   } finally {
@@ -61,10 +61,10 @@ async function save() {
       require_uppercase: requireUppercase.value,
       require_lowercase: requireLowercase.value,
       require_numbers: requireNumbers.value,
-      require_special: requireSpecial.value,
-      expiry_days: expiryDays.value,
-      max_attempts: maxAttempts.value,
-      lockout_minutes: lockoutMinutes.value,
+      require_special_chars: requireSpecial.value,
+      password_expiry_days: expiryDays.value,
+      max_failed_attempts: maxAttempts.value,
+      lockout_duration_mins: lockoutMinutes.value,
     })
     toast.success('Password policy saved.')
   } catch (err) {
