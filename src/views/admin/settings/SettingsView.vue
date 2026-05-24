@@ -241,6 +241,7 @@ async function save() {
           <button
             type="button"
             class="flex items-center justify-between pt-1 border-t text-xs text-muted-foreground hover:text-foreground transition-colors"
+            @click="router.push({ name: 'password-policy' })"
           >
             <span class="font-medium">Policy Settings</span>
             <ChevronRight class="size-3.5" />

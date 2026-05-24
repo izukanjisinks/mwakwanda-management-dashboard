@@ -12,6 +12,17 @@ export interface OrgSettingsPayload {
   auto_extend_checkout?: boolean
 }
 
+export interface PasswordPolicy {
+  min_length: number
+  require_uppercase: boolean
+  require_lowercase: boolean
+  require_numbers: boolean
+  require_special: boolean
+  expiry_days: number
+  max_attempts: number
+  lockout_minutes: number
+}
+
 export interface LodgeProfile {
   id?: string
   org_id?: string

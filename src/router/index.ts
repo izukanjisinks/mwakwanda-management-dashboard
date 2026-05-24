@@ -136,6 +136,12 @@ const router = createRouter({
           meta: { roles: ['admin', 'branch_admin'] },
         },
         {
+          path: 'password-policy',
+          name: 'password-policy',
+          component: () => import('@/views/admin/settings/PasswordPolicyView.vue'),
+          meta: { roles: ['admin', 'branch_admin'] },
+        },
+        {
           path: 'workflow',
           name: 'workflow',
           component: () => import('@/views/admin/workflow/WorkflowsListView.vue'),
