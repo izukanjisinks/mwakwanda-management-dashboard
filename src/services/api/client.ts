@@ -53,9 +53,8 @@ async function request<T>(
 
   if (!response.ok) {
     // Handle 403 Forbidden errors
-    if (response.status === 403) {
+    if (response.status === 403 && method === 'GET') {
       const { showForbidden } = useForbiddenHandler()
-      // Extract resource name from path (e.g., /admin/workflows -> Workflows)
       const pathParts = path.split('/').filter(Boolean)
       const resourceName = pathParts[pathParts.length - 1]
         ?.replace(/-/g, ' ')
