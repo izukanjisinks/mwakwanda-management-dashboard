@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref, watch, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import type { DateValue } from '@internationalized/date'
 import { CalendarDate, getLocalTimeZone, today as getToday } from '@internationalized/date'
-import { CalendarClock, UtensilsCrossed, ChevronLeft, ChevronRight, SlidersHorizontal, CalendarIcon } from 'lucide-vue-next'
+import { CalendarClock, UtensilsCrossed, ChevronLeft, ChevronRight, SlidersHorizontal, CalendarIcon, ArrowLeft } from 'lucide-vue-next'
 import { auditLogsApi } from '@/services/api/audit-logs'
 import type { AuditLog, OverstayedPayload, OrdersClosedPayload } from '@/types/audit-log'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
@@ -105,12 +106,22 @@ function asOverstayed(log: AuditLog): OverstayedPayload {
 function asOrdersClosed(log: AuditLog): OrdersClosedPayload {
   return log.payload as OrdersClosedPayload
 }
+
+const router = useRouter()
 </script>
 
 <template>
   <DashboardHeader title="System Logs" />
 
   <div class="flex flex-col gap-6 p-6">
+    <!-- Back -->
+    <div>
+      <Button variant="ghost" class="-ml-2" @click="router.push({ name: 'settings' })">
+        <ArrowLeft class="size-4 mr-2" />
+        Back to Settings
+      </Button>
+    </div>
+
     <!-- Filters -->
     <div class="flex items-center gap-3 flex-wrap">
       <SlidersHorizontal class="size-4 text-muted-foreground shrink-0" />
