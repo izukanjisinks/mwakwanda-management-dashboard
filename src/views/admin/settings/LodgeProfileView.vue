@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import {
   MapPin,
   Clock,
   Car,
   UtensilsCrossed,
   Loader2,
+  ArrowLeft,
 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { getApiError } from '@/utils/errors'
@@ -16,6 +18,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import type { LodgeProfilePayload } from '@/types/settings'
 
+const router = useRouter()
 const store = useSettingsStore()
 const saving = ref(false)
 
@@ -90,6 +93,12 @@ async function save() {
   <DashboardHeader title="Lodge Profile" />
 
   <div class="flex flex-col gap-8 p-6 flex-1 min-h-0 overflow-y-auto">
+    <div>
+      <Button variant="ghost" class="-ml-2" @click="router.push({ name: 'settings' })">
+        <ArrowLeft class="size-4 mr-2" />
+        Back to Settings
+      </Button>
+    </div>
 
     <!-- Loading skeleton -->
     <div v-if="store.profileLoading" class="flex items-center justify-center py-16">
