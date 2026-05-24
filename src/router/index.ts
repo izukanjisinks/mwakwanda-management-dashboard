@@ -142,16 +142,16 @@ const router = createRouter({
           meta: { roles: ['admin', 'branch_admin'] },
         },
         {
-          path: 'workflow/:id',
-          name: 'workflow-editor',
-          component: () => import('@/views/admin/workflow/WorkflowView.vue'),
-          meta: { roles: ['admin', 'branch_admin'] },
-        },
-        {
           path: 'workflow/tasks',
           name: 'workflow-tasks',
           component: () => import('@/views/admin/workflow/TasksView.vue'),
           meta: { roles: ['admin', 'branch_admin', 'manager', 'receptionist'] },
+        },
+        {
+          path: 'workflow/:id',
+          name: 'workflow-editor',
+          component: () => import('@/views/admin/workflow/WorkflowView.vue'),
+          meta: { roles: ['admin', 'branch_admin'] },
         },
 
         // --- Branch & Users management ---

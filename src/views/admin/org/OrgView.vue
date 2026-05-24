@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import {
-  Plus, Pencil, Trash2, Search, MapPin, Phone, Mail, ArrowRight,
+  Plus, Pencil, Trash2, Search, MapPin, Phone, Mail,
   Loader2, ChevronLeft, ChevronRight, ArrowRightLeft, Network, Users,
 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
@@ -30,7 +29,6 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 
-const router = useRouter()
 const branchesStore = useBranchesStore()
 const usersStore = useUsersStore()
 const authStore = useAuthStore()
@@ -215,38 +213,39 @@ onMounted(() => {
     <div class="flex flex-col gap-6 p-6">
 
       <!-- Tab bar -->
-      <div class="flex border-b">
+      <div class="flex items-center gap-1 bg-muted rounded-lg p-1">
         <button
-          class="flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors"
-          :class="activeTab === 'branches'
-            ? 'border-primary text-primary'
-            : 'border-transparent text-muted-foreground hover:text-foreground'"
-          @click="activeTab = 'branches'"
-        >
-          <Network class="size-4" />
-          Branches
-          <span class="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-xs font-mono">{{ branchesStore.total }}</span>
-        </button>
-        <button
-          class="flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors"
+          class="flex flex-1 items-center justify-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
           :class="activeTab === 'users'
-            ? 'border-primary text-primary'
-            : 'border-transparent text-muted-foreground hover:text-foreground'"
+            ? 'bg-background shadow text-foreground'
+            : 'text-muted-foreground hover:text-foreground'"
           @click="activeTab = 'users'"
         >
           <Users class="size-4" />
           System Users
-          <span class="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-xs font-mono">{{ usersStore.total }}</span>
+          <span v-if="usersStore.total" class="ml-0.5 text-xs bg-primary text-primary-foreground rounded-full px-1.5 py-0.5">{{ usersStore.total }}</span>
         </button>
+        <button
+          class="flex flex-1 items-center justify-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
+          :class="activeTab === 'branches'
+            ? 'bg-background shadow text-foreground'
+            : 'text-muted-foreground hover:text-foreground'"
+          @click="activeTab = 'branches'"
+        >
+          <Network class="size-4" />
+          Branches
+          <span v-if="branchesStore.total" class="ml-0.5 text-xs bg-primary text-primary-foreground rounded-full px-1.5 py-0.5">{{ branchesStore.total }}</span>
+        </button>
+        
       </div>
 
       <!-- ── Branches tab ───────────────────────────────────────────────────── -->
       <div v-show="activeTab === 'branches'" class="flex flex-col gap-6">
         <!-- Toolbar -->
         <div class="flex items-center justify-between gap-4">
-          <div class="relative max-w-xs w-full">
+          <div class="relative flex-1">
             <Search class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
-            <Input v-model="branchSearch" placeholder="Search branches..." class="pl-9" />
+            <Input v-model="branchSearch" placeholder="Search branches..." class="pl-9 w-full" />
           </div>
           <Button v-if="canManageBranches" @click="openCreateBranch">
             <Plus class="size-4 mr-2" />
@@ -317,13 +316,6 @@ onMounted(() => {
               </div>
             </div>
 
-            <Button
-              variant="outline" class="mt-auto w-full"
-              @click="router.push({ name: 'branch-detail', params: { id: branch.id } })"
-            >
-              View Details
-              <ArrowRight class="size-4 ml-2" />
-            </Button>
           </div>
         </div>
       </div>
@@ -332,9 +324,9 @@ onMounted(() => {
       <div v-show="activeTab === 'users'" class="flex flex-col gap-6">
         <!-- Toolbar -->
         <div class="flex items-center justify-between gap-4">
-          <div class="relative max-w-xs w-full">
+          <div class="relative flex-1">
             <Search class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
-            <Input v-model="userSearch" placeholder="Search users..." class="pl-9" />
+            <Input v-model="userSearch" placeholder="Search users..." class="pl-9 w-full" />
           </div>
           <Button @click="openCreateUser">
             <Plus class="size-4 mr-2" />

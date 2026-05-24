@@ -25,7 +25,7 @@ async function loadBranch() {
     branch.value = await branchesApi.get(branchId.value)
   } catch (err) {
     toast.error(getApiError(err, 'Failed to load branch.'))
-    router.push({ name: 'branches' })
+    router.push({ name: 'org' })
   } finally {
     loading.value = false
   }
@@ -46,7 +46,7 @@ function onBranchSaved(updated: Branch) {
     <div class="flex flex-col gap-6 p-6">
       <!-- Back + actions -->
       <div class="flex items-center justify-between">
-        <Button variant="ghost" class="-ml-2" @click="router.push({ name: 'branches' })">
+        <Button variant="ghost" class="-ml-2" @click="router.push({ name: 'org' })">
           <ArrowLeft class="size-4 mr-2" />
           All Branches
         </Button>
@@ -85,7 +85,7 @@ function onBranchSaved(updated: Branch) {
               <span class="text-xs font-medium text-muted-foreground uppercase tracking-wide">Address</span>
               <div class="flex items-center gap-2 text-sm">
                 <MapPin class="size-4 text-muted-foreground shrink-0" />
-                <span>{{ branch.address }}</span>
+                <span>{{ branch.street_address }}</span>
               </div>
             </div>
 
