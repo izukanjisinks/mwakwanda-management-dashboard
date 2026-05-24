@@ -66,28 +66,20 @@ function fmt(d?: string) {
 
   <div class="flex flex-col gap-6 p-6">
     <!-- Tabs -->
-    <div class="flex items-center gap-1 bg-muted rounded-lg p-1 w-fit">
+    <div class="flex items-center gap-1 bg-muted rounded-lg p-1">
       <button
-        :class="[
-          'px-4 py-1.5 rounded-md text-sm font-medium transition-colors',
-          activeTab === 'active'
-            ? 'bg-background shadow text-foreground'
-            : 'text-muted-foreground hover:text-foreground',
-        ]"
+        class="flex flex-1 items-center justify-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
+        :class="activeTab === 'active' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'"
         @click="activeTab = 'active'"
       >
         Active
-        <span v-if="store.pendingTasks.length" class="ml-1.5 text-xs bg-primary text-primary-foreground rounded-full px-1.5 py-0.5">
+        <span v-if="store.pendingTasks.length" class="ml-0.5 text-xs bg-primary text-primary-foreground rounded-full px-1.5 py-0.5">
           {{ store.pendingTasks.length }}
         </span>
       </button>
       <button
-        :class="[
-          'px-4 py-1.5 rounded-md text-sm font-medium transition-colors',
-          activeTab === 'completed'
-            ? 'bg-background shadow text-foreground'
-            : 'text-muted-foreground hover:text-foreground',
-        ]"
+        class="flex flex-1 items-center justify-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
+        :class="activeTab === 'completed' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'"
         @click="activeTab = 'completed'"
       >
         Completed
