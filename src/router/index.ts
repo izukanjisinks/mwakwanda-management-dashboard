@@ -4,6 +4,7 @@ import { useBackofficeStore } from '@/stores/backoffice'
 import type { UserRole } from '@/types/auth'
 import NProgress from 'nprogress'
 import 'nprogress/nprogress.css'
+import { toast } from 'vue-sonner'
 
 NProgress.configure({ showSpinner: false, speed: 300, minimum: 0.1 })
 
@@ -58,6 +59,7 @@ const router = createRouter({
           path: 'cleaner',
           name: 'cleaner-dashboard',
           component: () => import('@/views/cleaner/CleanerDashboardView.vue'),
+          meta: { roles: ['cleaner'] },
         },
 
         // --- Admin / Staff routes ---
@@ -65,76 +67,105 @@ const router = createRouter({
           path: 'rooms',
           name: 'rooms',
           component: () => import('@/views/admin/rooms/RoomsView.vue'),
+          meta: { roles: ['admin', 'branch_admin', 'manager', 'receptionist', 'cleaner'] },
         },
         {
           path: 'bookings',
           name: 'admin-bookings',
           component: () => import('@/views/admin/bookings/BookingsView.vue'),
+          meta: { roles: ['admin', 'branch_admin', 'manager', 'receptionist'] },
         },
         {
           path: 'menus',
           name: 'menus',
           component: () => import('@/views/admin/menus/MenusView.vue'),
+          meta: { roles: ['admin', 'branch_admin', 'manager', 'receptionist'] },
         },
         {
           path: 'orders',
           name: 'orders',
           component: () => import('@/views/admin/orders/OrdersView.vue'),
+          meta: { roles: ['admin', 'branch_admin', 'manager', 'receptionist'] },
         },
         {
           path: 'invoices',
           name: 'admin-invoices',
           component: () => import('@/views/admin/invoices/InvoicesView.vue'),
+          meta: { roles: ['admin', 'branch_admin', 'manager', 'receptionist'] },
         },
         {
           path: 'clients/individual',
           name: 'clients-individual',
           component: () => import('@/views/admin/clients/IndividualClientsView.vue'),
+          meta: { roles: ['admin', 'branch_admin', 'manager', 'receptionist'] },
         },
         {
           path: 'clients/corporate',
           name: 'clients-corporate',
           component: () => import('@/views/admin/clients/CorporateClientsView.vue'),
+          meta: { roles: ['admin', 'branch_admin', 'manager', 'receptionist'] },
         },
         {
           path: 'reports',
           name: 'reports',
           component: () => import('@/views/admin/reports/ReportsView.vue'),
+          meta: { roles: ['admin', 'branch_admin', 'manager'] },
         },
         {
           path: 'users',
           name: 'users',
           component: () => import('@/views/admin/users/UsersView.vue'),
+          meta: { roles: ['admin', 'branch_admin'] },
         },
         {
           path: 'settings',
           name: 'settings',
           component: () => import('@/views/admin/settings/SettingsView.vue'),
+          meta: { roles: ['admin', 'branch_admin'] },
         },
         {
           path: 'lodge-profile',
           name: 'lodge-profile',
           component: () => import('@/views/admin/settings/LodgeProfileView.vue'),
+          meta: { roles: ['admin', 'branch_admin'] },
         },
         {
           path: 'audit-logs',
           name: 'audit-logs',
           component: () => import('@/views/admin/settings/AuditLogsView.vue'),
+          meta: { roles: ['admin', 'branch_admin'] },
         },
         {
           path: 'workflow',
           name: 'workflow',
           component: () => import('@/views/admin/workflow/WorkflowsListView.vue'),
+          meta: { roles: ['admin', 'branch_admin'] },
         },
         {
           path: 'workflow/:id',
           name: 'workflow-editor',
           component: () => import('@/views/admin/workflow/WorkflowView.vue'),
+          meta: { roles: ['admin', 'branch_admin'] },
         },
         {
           path: 'workflow/tasks',
           name: 'workflow-tasks',
           component: () => import('@/views/admin/workflow/TasksView.vue'),
+          meta: { roles: ['admin', 'branch_admin', 'manager', 'receptionist'] },
+        },
+
+        // --- Branch & Users management ---
+        {
+          path: 'org',
+          name: 'org',
+          component: () => import('@/views/admin/org/OrgView.vue'),
+          meta: { roles: ['admin', 'branch_admin'] },
+        },
+        {
+          path: 'branches/:id',
+          name: 'branch-detail',
+          component: () => import('@/views/admin/branches/BranchDetailView.vue'),
+          meta: { roles: ['admin', 'branch_admin'] },
         },
 
         // --- Client routes ---
@@ -276,6 +307,10 @@ router.beforeEach(async (to) => {
   }
 
   if (roles && authStore.userRole && !roles.includes(authStore.userRole)) {
+    toast.error('You do not have permission to access that page.')
+    const role = authStore.userRole
+    if (role === 'cleaner') return { name: 'cleaner-dashboard' }
+    if (role === 'client_individual' || role === 'client_corporate') return { name: 'book' }
     return { name: 'dashboard' }
   }
 })

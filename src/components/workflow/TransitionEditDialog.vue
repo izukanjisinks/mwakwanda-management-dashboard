@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/select'
 import { Loader2 } from 'lucide-vue-next'
 import type { WorkflowTransition, WorkflowStep } from '@/types/workflow'
+import { useRolesStore } from '@/stores/roles'
 
 const props = defineProps<{
   open: boolean
@@ -25,10 +26,9 @@ const emit = defineEmits<{
   'save': [payload: { from_step_id: string; to_step_id: string; action_name: string; allowed_roles: string[] }]
 }>()
 
+const rolesStore = useRolesStore()
 const saving = ref(false)
 const error = ref('')
-
-const AVAILABLE_ROLES = ['admin', 'manager', 'receptionist']
 
 const isEdit = computed(() => !!props.transition)
 
@@ -39,9 +39,10 @@ const form = ref({
   allowed_roles: [] as string[],
 })
 
-watch(() => props.open, (open) => {
+watch(() => props.open, async (open) => {
   if (!open) return
   error.value = ''
+  rolesStore.fetchRoles()
   if (props.transition) {
     form.value = {
       from_step_id: props.transition.from_step_id,
@@ -141,19 +142,20 @@ function handleSave() {
         <div class="grid gap-2">
           <Label>Allowed Roles *</Label>
           <div class="flex flex-wrap gap-2">
+            <Loader2 v-if="rolesStore.loading" class="size-4 animate-spin text-muted-foreground" />
             <button
-              v-for="role in AVAILABLE_ROLES"
-              :key="role"
+              v-for="role in rolesStore.roles"
+              :key="role.id"
               type="button"
               :class="[
                 'rounded-md border px-3 py-1.5 text-sm font-medium transition-colors capitalize',
-                form.allowed_roles.includes(role)
+                form.allowed_roles.includes(role.name)
                   ? 'bg-primary text-primary-foreground border-primary'
                   : 'bg-background text-foreground border-input hover:bg-muted',
               ]"
-              @click="toggleRole(role)"
+              @click="toggleRole(role.name)"
             >
-              {{ role }}
+              {{ role.display_name ?? role.name }}
             </button>
           </div>
           <p class="text-xs text-muted-foreground">Roles that can trigger this transition.</p>

@@ -9,7 +9,6 @@ import {
   Users,
   Building2,
   BarChart3,
-  ShieldCheck,
   Settings,
   LogOut,
   ChevronUp,
@@ -19,6 +18,7 @@ import {
   GitBranch,
   Inbox,
   MapPin,
+  Network,
 } from 'lucide-vue-next'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -99,7 +99,7 @@ const adminNav = [
   {
     label: 'System',
     items: [
-      { title: 'System Users', icon: ShieldCheck, routeName: 'users' },
+      { title: 'Branches & Users', icon: Network, routeName: 'org' },
       // { title: 'Lodge Profile', icon: MapPin, routeName: 'lodge-profile' },
       { title: 'Settings', icon: Settings, routeName: 'settings' },
     ],
@@ -128,7 +128,7 @@ const clientNav = [
   },
 ]
 
-const STAFF_ROLES = ['admin', 'manager', 'receptionist', 'cleaner']
+const STAFF_ROLES = ['admin', 'branch_admin', 'manager', 'receptionist', 'cleaner']
 
 const cleanerNav = [
   {
@@ -146,9 +146,14 @@ const cleanerNav = [
 ]
 
 const navGroups = computed(() => {
-  if (authStore.userRole === 'cleaner') return cleanerNav
-  if (STAFF_ROLES.includes(authStore.userRole ?? '')) return adminNav
-  return clientNav
+  const groups =
+    authStore.userRole === 'cleaner' ? cleanerNav
+    : STAFF_ROLES.includes(authStore.userRole ?? '') ? adminNav
+    : clientNav
+
+  return groups
+    .map(group => ({ ...group, items: group.items.filter(item => canAccess(item.routeName)) }))
+    .filter(group => group.items.length > 0)
 })
 
 async function handleLogout() {

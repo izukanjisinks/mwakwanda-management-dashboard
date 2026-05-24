@@ -1,6 +1,16 @@
 import { apiClient } from './client'
 import type { SystemUser, SystemUserPayload, PaginatedUsers } from '@/types/user'
 
+export interface Role {
+  id: string
+  name: string
+  display_name?: string
+}
+
+export const rolesApi = {
+  list: () => apiClient.get<Role[]>('/roles'),
+}
+
 export interface UserListParams extends Record<string, string | number | boolean | undefined> {
   page?: number
   page_size?: number
@@ -22,6 +32,7 @@ export const usersApi = {
       password: payload.password,
       role: payload.role,
       status: payload.status,
+      ...(payload.branch_id ? { branch_id: payload.branch_id } : {}),
     }),
 
   update: (id: string, payload: Partial<SystemUserPayload>) =>

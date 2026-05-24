@@ -23,6 +23,7 @@ export const useAuthStore = defineStore('auth', () => {
   const roleLabel = computed(() => {
     switch (userRole.value) {
       case 'admin': return 'Administrator'
+      case 'branch_admin': return 'Branch Admin'
       case 'manager': return 'Manager'
       case 'receptionist': return 'Receptionist'
       case 'cleaner': return 'Cleaner'

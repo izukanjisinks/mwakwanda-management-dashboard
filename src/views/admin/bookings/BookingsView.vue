@@ -47,7 +47,7 @@ const store = useBookingsStore()
 const authStore = useAuthStore()
 
 const canClearOverstayed = computed(() =>
-  authStore.userRole === 'admin' || authStore.userRole === 'manager'
+  authStore.userRole === 'admin' || authStore.userRole === 'branch_admin' || authStore.userRole === 'manager'
 )
 
 const dialogOpen = ref(false)

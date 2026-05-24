@@ -34,7 +34,14 @@ export const useUsersStore = defineStore('users', () => {
   async function updateUser(id: string, payload: Partial<SystemUserPayload>): Promise<SystemUser> {
     const updated = await usersApi.update(id, payload)
     const idx = users.value.findIndex(u => u.id === id)
-    if (idx !== -1) users.value[idx] = updated
+    if (idx !== -1) {
+      users.value[idx] = {
+        ...users.value[idx]!,
+        ...updated,
+        ...(payload.branch_id !== undefined ? { branch_id: payload.branch_id || undefined } : {}),
+      }
+      return users.value[idx]!
+    }
     return updated
   }
 
@@ -51,6 +58,20 @@ export const useUsersStore = defineStore('users', () => {
     return updated
   }
 
+  async function assignBranch(userId: string, branchId: string | null): Promise<SystemUser> {
+    const updated = await usersApi.update(userId, { branch_id: branchId ?? undefined })
+    const idx = users.value.findIndex(u => u.id === userId)
+    if (idx !== -1) {
+      users.value[idx] = {
+        ...users.value[idx]!,
+        ...updated,
+        branch_id: branchId !== null ? branchId : undefined,
+      }
+      return users.value[idx]!
+    }
+    return updated
+  }
+
   async function lockUser(id: string): Promise<void> {
     await usersApi.lock(id)
     const idx = users.value.findIndex(u => u.id === id)
@@ -63,5 +84,5 @@ export const useUsersStore = defineStore('users', () => {
     if (idx !== -1) users.value[idx]!.is_locked = false
   }
 
-  return { users, total, loading, error, fetchUsers, createUser, updateUser, changeRole, deleteUser, lockUser, unlockUser }
+  return { users, total, loading, error, fetchUsers, createUser, updateUser, changeRole, deleteUser, assignBranch, lockUser, unlockUser }
 })

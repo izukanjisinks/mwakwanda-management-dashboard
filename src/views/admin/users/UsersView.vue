@@ -5,7 +5,8 @@ import { toast } from 'vue-sonner'
 import { getApiError } from '@/utils/errors'
 import { useUsersStore } from '@/stores/users'
 import { useAuthStore } from '@/stores/auth'
-import type { SystemUser, SystemUserRole } from '@/types/user'
+import { useRolesStore } from '@/stores/roles'
+import type { SystemUser } from '@/types/user'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import UserDialog from '@/components/users/UserDialog.vue'
 import { Button } from '@/components/ui/button'
@@ -30,6 +31,7 @@ import {
 
 const store = useUsersStore()
 const authStore = useAuthStore()
+const rolesStore = useRolesStore()
 
 const dialogOpen = ref(false)
 const selectedUser = ref<SystemUser | null>(null)
@@ -45,7 +47,7 @@ function loadUsers() {
   store.fetchUsers(page.value, pageSize)
 }
 
-onMounted(loadUsers)
+onMounted(() => { loadUsers(); rolesStore.fetchRoles() })
 watch(page, loadUsers)
 
 const totalPages = computed(() => Math.max(1, Math.ceil(store.total / pageSize)))
@@ -59,14 +61,6 @@ const filtered = computed(() => {
     u.role.toLowerCase().includes(q),
   )
 })
-
-const roleConfig: Record<SystemUserRole, { label: string; variant: 'default' | 'secondary' | 'outline' }> = {
-  admin:        { label: 'Admin',        variant: 'default' },
-  manager:      { label: 'Manager',      variant: 'secondary' },
-  receptionist: { label: 'Receptionist', variant: 'outline' },
-  cleaner:      { label: 'Cleaner',      variant: 'outline' },
-  guest:        { label: 'Guest',        variant: 'outline' },
-}
 
 function formatDate(d?: string) {
   if (!d) return 'Never'
@@ -161,8 +155,8 @@ const currentUserEmail = computed(() => authStore.user?.email)
               </TableCell>
               <TableCell class="text-muted-foreground">{{ user.email }}</TableCell>
               <TableCell>
-                <Badge :variant="roleConfig[user.role]?.variant ?? 'secondary'">
-                  {{ roleConfig[user.role]?.label ?? user.role }}
+                <Badge :variant="rolesStore.getRoleBadgeVariant(user.role)">
+                  {{ rolesStore.getRoleLabel(user.role) }}
                 </Badge>
               </TableCell>
               <TableCell>

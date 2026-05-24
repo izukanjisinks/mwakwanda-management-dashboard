@@ -16,7 +16,7 @@ const authStore = useAuthStore()
 const dashboardStore = useDashboardStore()
 const router = useRouter()
 
-const STAFF_ROLES = ['admin', 'manager', 'receptionist']
+const STAFF_ROLES = ['admin', 'branch_admin', 'manager', 'receptionist']
 
 onMounted(() => {
   if (authStore.userRole === 'cleaner') {

@@ -25,7 +25,7 @@ export interface AuthUser {
   is_active: boolean
 }
 
-export type UserRole = 'admin' | 'manager' | 'receptionist' | 'cleaner'
+export type UserRole = 'admin' | 'branch_admin' | 'manager' | 'receptionist' | 'cleaner' | 'client_individual' | 'client_corporate'
 
 export interface LoginResponse {
   token: string

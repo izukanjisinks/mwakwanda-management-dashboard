@@ -39,7 +39,7 @@ import {
 const store = useMenusStore()
 const authStore = useAuthStore()
 
-const canWrite = ['admin', 'manager'].includes(authStore.userRole ?? '')
+const canWrite = ['admin', 'branch_admin', 'manager'].includes(authStore.userRole ?? '')
 
 // ── Load menu + paginated items ────────────────────────────────────────────
 const page = ref(1)
