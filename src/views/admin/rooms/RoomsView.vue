@@ -5,6 +5,7 @@ import { toast } from 'vue-sonner'
 import { getApiError } from '@/utils/errors'
 import { useRoomsStore } from '@/stores/rooms'
 import { useAuthStore } from '@/stores/auth'
+import { useBranchFilterStore } from '@/stores/branchFilter'
 import type { Room } from '@/types/room'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import RoomDialog from '@/components/rooms/RoomDialog.vue'
@@ -32,6 +33,7 @@ import {
 
 const store = useRoomsStore()
 const authStore = useAuthStore()
+const branchFilterStore = useBranchFilterStore()
 
 const isReadOnly = computed(() => authStore.userRole === 'cleaner')
 
@@ -55,6 +57,7 @@ function loadRooms() {
 
 onMounted(loadRooms)
 watch(page, loadRooms)
+watch(() => branchFilterStore.selectedBranchId, () => { page.value = 1; loadRooms() })
 
 const totalPages = computed(() => Math.max(1, Math.ceil(store.total / pageSize)))
 

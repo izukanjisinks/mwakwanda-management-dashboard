@@ -23,6 +23,8 @@ import {
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { usePermissions } from '@/composables/usePermissions'
+import { useBranchFilterStore } from '@/stores/branchFilter'
+import { useBranchesStore } from '@/stores/branches'
 import AccessDeniedDialog from '@/components/layout/AccessDeniedDialog.vue'
 import {
   Sidebar,
@@ -47,7 +49,15 @@ import {
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
+const branchFilterStore = useBranchFilterStore()
+const branchesStore = useBranchesStore()
 const { canAccess } = usePermissions()
+
+const selectedBranchName = computed(() =>
+  branchFilterStore.selectedBranchId
+    ? (branchesStore.branches.find(b => b.id === branchFilterStore.selectedBranchId)?.name ?? null)
+    : null
+)
 
 const accessDeniedOpen = ref(false)
 
@@ -176,7 +186,15 @@ async function handleLogout() {
           <span v-else class="font-bold text-2xl">LM</span>
         </div>
         <div class="flex flex-col items-center gap-0.5 leading-none text-center">
-          <span class="font-semibold text-sm">{{ authStore.user?.org_name || 'Lodge Management' }}</span>
+          <span
+            class="font-semibold transition-all"
+            :class="selectedBranchName ? 'text-xs text-muted-foreground' : 'text-sm'"
+          >
+            {{ authStore.user?.org_name || 'Lodge Management' }}
+          </span>
+          <span v-if="selectedBranchName" class="font-semibold text-sm text-primary">
+            {{ selectedBranchName }}
+          </span>
           <span class="text-xs text-muted-foreground">{{ authStore.roleLabel }}</span>
         </div>
       </RouterLink>

@@ -11,6 +11,7 @@ import { useBranchesStore } from '@/stores/branches'
 import { useUsersStore } from '@/stores/users'
 import { useAuthStore } from '@/stores/auth'
 import { useRolesStore } from '@/stores/roles'
+import { useBranchFilterStore } from '@/stores/branchFilter'
 import { branchesApi } from '@/services/api/branches'
 import type { Branch } from '@/types/branch'
 import type { SystemUser } from '@/types/user'
@@ -35,6 +36,7 @@ const branchesStore = useBranchesStore()
 const usersStore = useUsersStore()
 const authStore = useAuthStore()
 const rolesStore = useRolesStore()
+const branchFilterStore = useBranchFilterStore()
 
 const canManageBranches = computed(() => authStore.userRole === 'admin')
 
@@ -114,6 +116,7 @@ function loadUsers() {
 }
 
 watch(userPage, loadUsers)
+watch(() => branchFilterStore.selectedBranchId, () => { userPage.value = 1; loadUsers() })
 
 const totalUserPages = computed(() => Math.max(1, Math.ceil(usersStore.total / userPageSize)))
 
@@ -184,6 +187,7 @@ async function handleAssignBranch() {
     await usersStore.assignBranch(userToAssign.value.id, assignBranchId.value || null)
     toast.success(`${userToAssign.value.full_name} assigned to branch.`)
     assignDialogOpen.value = false
+    loadUsers()
   } catch (err) {
     toast.error(getApiError(err, 'Failed to assign branch.'))
   } finally {

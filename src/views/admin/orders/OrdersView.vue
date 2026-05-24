@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { Plus, ChevronLeft, ChevronRight, ShoppingBag, Trash2, X } from 'lucide-vue-next'
 import { useMenusStore } from '@/stores/menus'
+import { useBranchFilterStore } from '@/stores/branchFilter'
 import type { Order } from '@/types/menu'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import PlaceOrderDialog from '@/components/menus/PlaceOrderDialog.vue'
@@ -26,6 +27,7 @@ import {
 import { menusApi } from '@/services/api/menus'
 
 const store = useMenusStore()
+const branchFilterStore = useBranchFilterStore()
 
 const page = ref(1)
 const pageSize = 10
@@ -74,6 +76,7 @@ function clearDateRange() {
 }
 
 onMounted(loadOrders)
+watch(() => branchFilterStore.selectedBranchId, () => { page.value = 1; loadOrders() })
 
 watch(page, loadOrders)
 

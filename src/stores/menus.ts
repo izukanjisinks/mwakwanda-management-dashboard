@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { menusApi } from '@/services/api/menus'
 import { getApiError } from '@/utils/errors'
+import { useBranchFilterStore } from '@/stores/branchFilter'
 import type { Menu, MenuItem, Order, MenuPayload, MenuItemPayload, PlaceInHouseOrderPayload, PlaceWalkInOrderPayload, AddOrderItemsPayload } from '@/types/menu'
 import type { OrderListParams } from '@/services/api/menus'
 
@@ -69,10 +70,11 @@ export const useMenusStore = defineStore('menus', () => {
 
   // ── Order actions ──────────────────────────────────────────────────────────
   async function fetchOrders(params?: OrderListParams) {
+    const branchFilter = useBranchFilterStore()
     ordersLoading.value = true
     ordersError.value = null
     try {
-      const res = await menusApi.listOrders(params)
+      const res = await menusApi.listOrders({ ...params, branch_id: branchFilter.selectedBranchId ?? undefined })
       orders.value = res.data ?? []
       ordersTotal.value = res.total
     } catch (err) {

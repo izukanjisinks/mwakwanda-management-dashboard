@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { bookingApi } from '@/services/api/bookings'
 import { getApiError } from '@/utils/errors'
+import { useBranchFilterStore } from '@/stores/branchFilter'
 import type { Booking, BookingPayload, BookingUpdatePayload, BookingStatus } from '@/types/booking'
 
 export const useBookingsStore = defineStore('bookings', () => {
@@ -11,10 +12,11 @@ export const useBookingsStore = defineStore('bookings', () => {
   const error = ref<string | null>(null)
 
   async function fetchBookings(page = 1, pageSize = 10, status?: string, overstayed?: boolean, from?: string, to?: string, corporateClientId?: string) {
+    const branchFilter = useBranchFilterStore()
     loading.value = true
     error.value = null
     try {
-      const res = await bookingApi.list({ page, page_size: pageSize, status, overstayed, from, to, corporate_client_id: corporateClientId })
+      const res = await bookingApi.list({ page, page_size: pageSize, status, overstayed, from, to, corporate_client_id: corporateClientId, branch_id: branchFilter.selectedBranchId ?? undefined })
       bookings.value = res.data ?? []
       total.value = res.total
     } catch (err) {

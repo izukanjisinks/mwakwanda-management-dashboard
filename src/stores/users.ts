@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { usersApi } from '@/services/api/users'
 import { getApiError } from '@/utils/errors'
+import { useBranchFilterStore } from '@/stores/branchFilter'
 import type { SystemUser, SystemUserPayload } from '@/types/user'
 
 export const useUsersStore = defineStore('users', () => {
@@ -11,10 +12,11 @@ export const useUsersStore = defineStore('users', () => {
   const error = ref<string | null>(null)
 
   async function fetchUsers(page = 1, pageSize = 50) {
+    const branchFilter = useBranchFilterStore()
     loading.value = true
     error.value = null
     try {
-      const res = await usersApi.list({ page, page_size: pageSize })
+      const res = await usersApi.list({ page, page_size: pageSize, branch_id: branchFilter.selectedBranchId ?? undefined })
       users.value = res.data ?? []
       total.value = res.total
     } catch (err) {
