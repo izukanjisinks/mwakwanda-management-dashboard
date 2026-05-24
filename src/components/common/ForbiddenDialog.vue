@@ -29,13 +29,8 @@ function handleGoHome() {
 </script>
 
 <template>
-  <Dialog :open="open">
-    <DialogContent
-      class="sm:max-w-[500px]"
-      :show-close-button="false"
-      @interact-outside="(e) => e.preventDefault()"
-      @escape-key-down="(e) => e.preventDefault()"
-    >
+  <Dialog :open="open" @update:open="(v) => emit('update:open', v)">
+    <DialogContent class="sm:max-w-[500px]">
       <DialogHeader>
         <DialogTitle class="flex items-center gap-3">
           <ShieldX class="w-12 h-12 text-red-500" />
@@ -74,8 +69,9 @@ function handleGoHome() {
         </div>
       </div>
 
-      <DialogFooter>
-        <Button @click="handleGoHome" class="w-full">
+      <DialogFooter class="gap-2">
+        <Button variant="outline" @click="emit('update:open', false)">Close</Button>
+        <Button @click="handleGoHome">
           <Home class="w-4 h-4 mr-2" />
           Go to Dashboard
         </Button>
