@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useDashboardStore } from '@/stores/dashboard'
+import { useBranchFilterStore } from '@/stores/branchFilter'
 import { CalendarCheck, LogIn, LogOut, DollarSign } from 'lucide-vue-next'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import StatCard from '@/components/dashboard/StatCard.vue'
@@ -14,6 +15,7 @@ import ActivityFeed from '@/components/dashboard/ActivityFeed.vue'
 
 const authStore = useAuthStore()
 const dashboardStore = useDashboardStore()
+const branchFilterStore = useBranchFilterStore()
 const router = useRouter()
 
 const STAFF_ROLES = ['admin', 'branch_admin', 'manager', 'receptionist']
@@ -26,6 +28,10 @@ onMounted(() => {
   if (STAFF_ROLES.includes(authStore.userRole ?? '')) {
     dashboardStore.fetchStats()
   }
+})
+
+watch(() => branchFilterStore.selectedBranchId, () => {
+  if (STAFF_ROLES.includes(authStore.userRole ?? '')) dashboardStore.fetchStats()
 })
 
 const roomSummary = computed(() => dashboardStore.stats?.room_summary)

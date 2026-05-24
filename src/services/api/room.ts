@@ -6,6 +6,7 @@ export interface RoomListParams extends Record<string, string | number | boolean
   page_size?: number
   type?: string
   is_available?: boolean
+  branch_id?: string
 }
 
 export interface AvailableRoomsParams extends Record<string, string | number | boolean | undefined> {

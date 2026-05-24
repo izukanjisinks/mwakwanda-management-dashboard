@@ -4,6 +4,7 @@ import { Search, Eye, ChevronLeft, ChevronRight, FileText } from 'lucide-vue-nex
 import { toast } from 'vue-sonner'
 import { getApiError } from '@/utils/errors'
 import { useInvoicesStore } from '@/stores/invoices'
+import { useBranchFilterStore } from '@/stores/branchFilter'
 import type { Invoice, InvoiceStatus } from '@/types/invoice'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import InvoiceDetailDialog from '@/components/invoices/InvoiceDetailDialog.vue'
@@ -28,6 +29,7 @@ import {
 } from '@/components/ui/table'
 
 const store = useInvoicesStore()
+const branchFilterStore = useBranchFilterStore()
 
 const detailOpen = ref(false)
 const selectedInvoice = ref<Invoice | null>(null)
@@ -45,6 +47,7 @@ function loadInvoices() {
 
 onMounted(loadInvoices)
 watch(page, loadInvoices)
+watch(() => branchFilterStore.selectedBranchId, () => { page.value = 1; loadInvoices() })
 
 function setStatus(val: InvoiceStatus | 'all') {
   statusFilter.value = val

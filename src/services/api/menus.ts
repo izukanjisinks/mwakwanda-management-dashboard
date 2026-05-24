@@ -24,6 +24,7 @@ export interface OrderListParams extends Record<string, string | number | boolea
   from?: string
   to?: string
   booking_id?: string
+  branch_id?: string
 }
 
 export const menusApi = {

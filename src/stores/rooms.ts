@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { roomApi } from '@/services/api/room'
 import { getApiError } from '@/utils/errors'
 import { uploadRoomImage, deleteRoomImage, deleteAllRoomImages } from '@/services/storage'
+import { useBranchFilterStore } from '@/stores/branchFilter'
 import type { Room, RoomPayload } from '@/types/room'
 
 export const useRoomsStore = defineStore('rooms', () => {
@@ -12,10 +13,11 @@ export const useRoomsStore = defineStore('rooms', () => {
   const error = ref<string | null>(null)
 
   async function fetchRooms(page = 1, pageSize = 20) {
+    const branchFilter = useBranchFilterStore()
     loading.value = true
     error.value = null
     try {
-      const res = await roomApi.list({ page, page_size: pageSize })
+      const res = await roomApi.list({ page, page_size: pageSize, branch_id: branchFilter.selectedBranchId ?? undefined })
       rooms.value = res.data ?? []
       total.value = res.total
     } catch (err) {

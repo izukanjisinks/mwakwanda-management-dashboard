@@ -6,6 +6,7 @@ import { getApiError } from '@/utils/errors'
 import { useUsersStore } from '@/stores/users'
 import { useAuthStore } from '@/stores/auth'
 import { useRolesStore } from '@/stores/roles'
+import { useBranchFilterStore } from '@/stores/branchFilter'
 import type { SystemUser } from '@/types/user'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import UserDialog from '@/components/users/UserDialog.vue'
@@ -32,6 +33,7 @@ import {
 const store = useUsersStore()
 const authStore = useAuthStore()
 const rolesStore = useRolesStore()
+const branchFilterStore = useBranchFilterStore()
 
 const dialogOpen = ref(false)
 const selectedUser = ref<SystemUser | null>(null)
@@ -49,6 +51,7 @@ function loadUsers() {
 
 onMounted(() => { loadUsers(); rolesStore.fetchRoles() })
 watch(page, loadUsers)
+watch(() => branchFilterStore.selectedBranchId, () => { page.value = 1; loadUsers() })
 
 const totalPages = computed(() => Math.max(1, Math.ceil(store.total / pageSize)))
 

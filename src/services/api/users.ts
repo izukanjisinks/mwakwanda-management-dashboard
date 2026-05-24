@@ -16,6 +16,7 @@ export interface UserListParams extends Record<string, string | number | boolean
   page_size?: number
   search?: string
   is_active?: boolean
+  branch_id?: string
 }
 
 export const usersApi = {

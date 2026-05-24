@@ -6,6 +6,7 @@ import { CalendarDate } from '@internationalized/date'
 import { toast } from 'vue-sonner'
 import { useBookingsStore } from '@/stores/bookings'
 import { useAuthStore } from '@/stores/auth'
+import { useBranchFilterStore } from '@/stores/branchFilter'
 import type { Booking, BookingStatus } from '@/types/booking'
 import type { CorporateClient } from '@/types/client'
 import { corporateClientApi } from '@/services/api/clients'
@@ -45,6 +46,7 @@ import {
 
 const store = useBookingsStore()
 const authStore = useAuthStore()
+const branchFilterStore = useBranchFilterStore()
 
 const canClearOverstayed = computed(() =>
   authStore.userRole === 'admin' || authStore.userRole === 'branch_admin' || authStore.userRole === 'manager'
@@ -132,6 +134,7 @@ function loadBookings() {
 onMounted(() => { loadBookings(); fetchCorporateClients() })
 watch(page, loadBookings)
 watch([filterFrom, filterTo], () => { page.value = 1; loadBookings() })
+watch(() => branchFilterStore.selectedBranchId, () => { page.value = 1; loadBookings() })
 
 function setStatus(val: unknown) {
   if (typeof val !== 'string') return

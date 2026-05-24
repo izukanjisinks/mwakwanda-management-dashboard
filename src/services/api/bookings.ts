@@ -11,6 +11,7 @@ export interface BookingListParams extends Record<string, string | number | bool
   overstayed?: boolean
   from?: string
   to?: string
+  branch_id?: string
 }
 
 export const bookingApi = {
