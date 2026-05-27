@@ -60,6 +60,7 @@ export const useAuthStore = defineStore('auth', () => {
       user.value = loginResponse.user
       requiresOrgSelection.value = false
       pendingOrgs.value = []
+      await fetchCurrentUser()
       return true
     } catch (err) {
       const apiErr = err as ApiError

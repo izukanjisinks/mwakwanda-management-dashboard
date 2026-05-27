@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { branchesApi } from '@/services/api/branches'
 import { getApiError } from '@/utils/errors'
 import type { Branch, BranchPayload } from '@/types/branch'
@@ -9,6 +9,10 @@ export const useBranchesStore = defineStore('branches', () => {
   const total = ref(0)
   const loading = ref(false)
   const error = ref<string | null>(null)
+
+  const mainBranch = computed<Branch | undefined>(() =>
+    branches.value.find(b => b.is_main),
+  )
 
   async function fetchBranches() {
     loading.value = true
@@ -49,5 +53,5 @@ export const useBranchesStore = defineStore('branches', () => {
     total.value--
   }
 
-  return { branches, total, loading, error, fetchBranches, createBranch, updateBranch, deleteBranch }
+  return { branches, total, loading, error, mainBranch, fetchBranches, createBranch, updateBranch, deleteBranch }
 })

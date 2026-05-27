@@ -17,10 +17,10 @@ export const passwordPolicyApi = {
     apiClient.put<PasswordPolicy>('/password-policy', payload),
 }
 
-export const lodgeProfileApi = {
-  get: () =>
-    apiClient.get<LodgeProfile>('/settings/profile'),
+export const orgApi = {
+  get: (orgId: string) =>
+    apiClient.get<LodgeProfile>(`/organization/${orgId}`),
 
   update: (payload: LodgeProfilePayload) =>
-    apiClient.put<LodgeProfile>('/settings/profile', payload),
+    apiClient.put<LodgeProfile>('/organization', payload),
 }

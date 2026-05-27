@@ -1,10 +1,13 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { settingsApi, lodgeProfileApi } from '@/services/api/settings'
+import { settingsApi, orgApi } from '@/services/api/settings'
 import { getApiError } from '@/utils/errors'
+import { useAuthStore } from '@/stores/auth'
 import type { OrgSettings, OrgSettingsPayload, LodgeProfile, LodgeProfilePayload } from '@/types/settings'
 
 export const useSettingsStore = defineStore('settings', () => {
+  const authStore = useAuthStore()
+
   const settings = ref<OrgSettings | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
@@ -32,10 +35,12 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   async function fetchLodgeProfile() {
+    const orgId = authStore.user?.org_id
+    if (!orgId) return
     profileLoading.value = true
     profileError.value = null
     try {
-      lodgeProfile.value = await lodgeProfileApi.get()
+      lodgeProfile.value = await orgApi.get(orgId)
     } catch (err) {
       profileError.value = getApiError(err, 'Failed to load lodge profile.')
     } finally {
@@ -44,8 +49,12 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   async function updateLodgeProfile(payload: LodgeProfilePayload): Promise<LodgeProfile> {
-    const updated = await lodgeProfileApi.update(payload)
+    const updated = await orgApi.update(payload)
     lodgeProfile.value = updated
+    if (authStore.user) {
+      if (payload.name !== undefined)     authStore.user.org_name     = payload.name
+      if (payload.logo_url !== undefined) authStore.user.org_logo_url = payload.logo_url ?? undefined
+    }
     return updated
   }
 

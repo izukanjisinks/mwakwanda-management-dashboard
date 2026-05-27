@@ -35,8 +35,9 @@ function handleBranchChange(val: string) {
 }
 
 const selectedBranchName = computed(() => {
-  if (!branchFilterStore.selectedBranchId) return null
-  return branchesStore.branches.find(b => b.id === branchFilterStore.selectedBranchId)?.name ?? null
+  const id = branchFilterStore.selectedBranchId
+  if (!id) return null
+  return branchesStore.branches.find(b => b.id === id)?.name ?? null
 })
 
 function getInitials(name: string | undefined | null) {
@@ -63,26 +64,28 @@ function getInitials(name: string | undefined | null) {
             <Network class="size-3.5 shrink-0 text-muted-foreground" />
             <SelectValue>
               <span v-if="selectedBranchName" class="text-foreground font-medium truncate">{{ selectedBranchName }}</span>
-              <span v-else class="text-muted-foreground">All Branches</span>
+              <span v-else class="text-muted-foreground">{{ branchesStore.branches.length === 0 ? 'No Branches' : 'All Branches' }}</span>
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">
               <span class="flex items-center gap-2">
                 <Network class="size-3.5 text-muted-foreground" />
-                All Branches
+                {{ branchesStore.branches.length === 0 ? 'No Branches' : 'All Branches' }}
               </span>
             </SelectItem>
-            <SelectItem v-for="b in branchesStore.branches" :key="b.id" :value="b.id">
-              <span class="flex items-center gap-2">
-                <span
-                  class="size-2 rounded-full shrink-0"
-                  :class="b.is_active ? 'bg-green-500' : 'bg-muted-foreground/40'"
-                />
-                {{ b.name }}
-                <span class="text-xs font-mono text-muted-foreground">{{ b.branch_code }}</span>
-              </span>
-            </SelectItem>
+            <template v-if="branchesStore.branches.length > 0">
+              <SelectItem v-for="b in branchesStore.branches" :key="b.id" :value="b.id">
+                <span class="flex items-center gap-2">
+                  <span
+                    class="size-2 rounded-full shrink-0"
+                    :class="b.is_main ? 'bg-primary' : (b.is_active ? 'bg-green-500' : 'bg-muted-foreground/40')"
+                  />
+                  {{ b.name }}
+                  <span v-if="!b.is_main" class="text-xs font-mono text-muted-foreground">{{ b.branch_code }}</span>
+                </span>
+              </SelectItem>
+            </template>
           </SelectContent>
         </Select>
 
@@ -99,10 +102,6 @@ function getInitials(name: string | undefined | null) {
       <div class="flex items-center gap-3">
         <div class="flex size-9 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold text-sm">
           {{ getInitials(authStore.user?.full_name || authStore.user?.email) }}
-        </div>
-        <div class="hidden flex-col md:flex">
-          <span class="text-sm font-medium">{{ authStore.user?.full_name || authStore.user?.email }}</span>
-          <span class="text-xs text-muted-foreground">{{ authStore.roleLabel }}</span>
         </div>
       </div>
     </div>

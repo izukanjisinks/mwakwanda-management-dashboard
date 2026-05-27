@@ -16,7 +16,7 @@ export const useUsersStore = defineStore('users', () => {
     loading.value = true
     error.value = null
     try {
-      const res = await usersApi.list({ page, page_size: pageSize, branch_id: branchFilter.selectedBranchId ?? undefined })
+      const res = await usersApi.list({ page, page_size: pageSize, branch_id: branchFilter.apiBranchId })
       users.value = res.data ?? []
       total.value = res.total
     } catch (err) {
@@ -33,14 +33,15 @@ export const useUsersStore = defineStore('users', () => {
     return user
   }
 
-  async function updateUser(id: string, payload: Partial<SystemUserPayload>): Promise<SystemUser> {
+  async function updateUser(id: string, payload: SystemUserPayload): Promise<SystemUser> {
     const updated = await usersApi.update(id, payload)
     const idx = users.value.findIndex(u => u.id === id)
     if (idx !== -1) {
       users.value[idx] = {
         ...users.value[idx]!,
         ...updated,
-        ...(payload.branch_id !== undefined ? { branch_id: payload.branch_id || undefined } : {}),
+        branch_id: payload.branch_id ?? undefined,
+        branch_name: payload.branch_id === null ? '' : (updated.branch_name ?? ''),
       }
       return users.value[idx]!
     }
@@ -60,18 +61,27 @@ export const useUsersStore = defineStore('users', () => {
     return updated
   }
 
-  async function assignBranch(userId: string, branchId: string | null): Promise<SystemUser> {
-    const updated = await usersApi.update(userId, { branch_id: branchId ?? undefined })
+  async function assignBranch(userId: string, branchId: string | null, branchName?: string): Promise<SystemUser> {
+    console.log('Assigning branch', { userId, branchId, branchName })
     const idx = users.value.findIndex(u => u.id === userId)
-    if (idx !== -1) {
-      users.value[idx] = {
-        ...users.value[idx]!,
-        ...updated,
-        branch_id: branchId !== null ? branchId : undefined,
-      }
-      return users.value[idx]!
+    const existing = users.value[idx]
+    if (!existing) throw new Error('User not found')
+    const payload: SystemUserPayload = {
+      full_name:   existing.full_name,
+      email:       existing.email,
+      role:        existing.role,
+      status:      existing.status,
+      branch_id:   branchId,
+      branch_name: branchId === null ? '' : (branchName ?? existing.branch_name ?? ''),
     }
-    return updated
+    const updated = await usersApi.update(userId, payload)
+    users.value[idx] = {
+      ...existing,
+      ...updated,
+      branch_id:   branchId !== null ? branchId : undefined,
+      branch_name: branchId === null ? '' : (updated.branch_name ?? ''),
+    }
+    return users.value[idx]!
   }
 
   async function lockUser(id: string): Promise<void> {

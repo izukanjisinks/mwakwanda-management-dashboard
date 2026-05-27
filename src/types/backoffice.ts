@@ -18,23 +18,36 @@ export interface BackofficeLoginResponse {
 export interface Organisation {
   id: string
   name: string
-  email: string
+  email?: string
   phone?: string
-  address?: string
   logo_url?: string
+  street_address?: string
+  city?: string
+  country?: string
+  location?: string | null
+  parking?: boolean
+  restaurant?: boolean
+  check_in_time?: string | null
+  check_out_time?: string | null
   is_active: boolean
   created_at: string
   updated_at?: string
-  last_login?: string
 }
 
 export interface ProvisionPayload {
   organization: {
     name: string
     email: string
-    phone: string
-    address: string
-    logo_url: string
+    phone?: string
+    logo_url?: string
+    street_address?: string
+    city?: string
+    country?: string
+    location?: string | null
+    parking?: boolean
+    restaurant?: boolean
+    check_in_time?: string | null
+    check_out_time?: string | null
   }
   admin: {
     full_name: string

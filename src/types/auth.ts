@@ -20,6 +20,8 @@ export interface AuthUser {
   org_id?: string
   org_name?: string
   org_logo_url?: string
+  branch_id?: string
+  branch_name?: string
   created_at: string
   change_password: boolean
   is_active: boolean

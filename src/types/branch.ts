@@ -3,12 +3,17 @@ export interface Branch {
   org_id: string
   branch_code: string
   name: string
+  is_main?: boolean
   street_address: string
   city: string
   country: string
-  location?: string
+  location?: string | null
   phone?: string | null
   email?: string | null
+  parking?: boolean | null
+  restaurant?: boolean | null
+  check_in_time?: string | null
+  check_out_time?: string | null
   is_active: boolean
   created_at: string
   updated_at: string
@@ -20,9 +25,13 @@ export interface BranchPayload {
   street_address: string
   city: string
   country: string
-  location?: string
+  location?: string | null
   phone?: string
   email?: string
+  parking?: boolean
+  restaurant?: boolean
+  check_in_time?: string | null
+  check_out_time?: string | null
   is_active?: boolean
 }
 

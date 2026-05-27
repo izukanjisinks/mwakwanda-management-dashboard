@@ -29,43 +29,13 @@ export interface PasswordPolicy {
 export interface LodgeProfile {
   id?: string
   org_id?: string
-  // Location
-  address: string
-  city: string
-  country: string
-  latitude?: number | null
-  longitude?: number | null
-  google_maps_url?: string
-  // Lodge hours
-  check_in_time: string
-  check_out_time: string
-  // Parking
-  has_parking: boolean
-  parking_details?: string
-  // Restaurant
-  has_restaurant: boolean
-  restaurant_name?: string
-  restaurant_opens?: string
-  restaurant_closes?: string
-  restaurant_description?: string
+  name: string
+  logo_url?: string | null
   created_at?: string
   updated_at?: string
 }
 
 export interface LodgeProfilePayload {
-  address?: string
-  city?: string
-  country?: string
-  latitude?: number | null
-  longitude?: number | null
-  google_maps_url?: string
-  check_in_time?: string
-  check_out_time?: string
-  has_parking?: boolean
-  parking_details?: string
-  has_restaurant?: boolean
-  restaurant_name?: string
-  restaurant_opens?: string
-  restaurant_closes?: string
-  restaurant_description?: string
+  name?: string
+  logo_url?: string | null
 }

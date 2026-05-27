@@ -17,7 +17,6 @@ import {
   FileText,
   GitBranch,
   Inbox,
-  MapPin,
   Network,
 } from 'lucide-vue-next'
 import { useRouter, useRoute } from 'vue-router'
@@ -53,11 +52,19 @@ const branchFilterStore = useBranchFilterStore()
 const branchesStore = useBranchesStore()
 const { canAccess } = usePermissions()
 
-const selectedBranchName = computed(() =>
-  branchFilterStore.selectedBranchId
-    ? (branchesStore.branches.find(b => b.id === branchFilterStore.selectedBranchId)?.name ?? null)
-    : null
-)
+const selectedBranchName = computed(() => {
+  const id = branchFilterStore.selectedBranchId
+  if (!id) return null
+  return branchesStore.branches.find(b => b.id === id)?.name ?? null
+})
+
+const displayBranchLabel = computed(() => {
+  if (authStore.userRole === 'admin') return selectedBranchName.value
+  const user = authStore.user
+  if (user?.branch_name) return user.branch_name
+  if (user?.branch_id) return branchesStore.branches.find(b => b.id === user.branch_id)?.name ?? null
+  return null
+})
 
 const accessDeniedOpen = ref(false)
 
@@ -110,7 +117,6 @@ const adminNav = [
     label: 'System',
     items: [
       { title: 'Branches & Users', icon: Network, routeName: 'org' },
-      // { title: 'Lodge Profile', icon: MapPin, routeName: 'lodge-profile' },
       { title: 'Settings', icon: Settings, routeName: 'settings' },
     ],
   },
@@ -188,12 +194,12 @@ async function handleLogout() {
         <div class="flex flex-col items-center gap-0.5 leading-none text-center">
           <span
             class="font-semibold transition-all"
-            :class="selectedBranchName ? 'text-xs text-muted-foreground' : 'text-sm'"
+            :class="displayBranchLabel ? 'text-xs text-muted-foreground' : 'text-sm'"
           >
             {{ authStore.user?.org_name || 'Lodge Management' }}
           </span>
-          <span v-if="selectedBranchName" class="font-semibold text-sm text-primary">
-            {{ selectedBranchName }}
+          <span v-if="displayBranchLabel" class="font-semibold text-sm text-primary">
+            {{ displayBranchLabel }}
           </span>
           <span class="text-xs text-muted-foreground">{{ authStore.roleLabel }}</span>
         </div>

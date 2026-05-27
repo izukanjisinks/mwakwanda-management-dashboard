@@ -16,6 +16,7 @@ import { Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { useBranchesStore } from '@/stores/branches'
 import type { Branch, BranchPayload } from '@/types/branch'
+import MapLocationPicker from '@/components/branches/MapLocationPicker.vue'
 
 const props = defineProps<{
   open: boolean
@@ -33,45 +34,78 @@ const error = ref('')
 
 const isEdit = computed(() => !!props.branch)
 
-const form = ref<BranchPayload>({
+// Server returns ISO strings like "0000-01-01T11:00:00Z" — extract HH:mm for the time input
+function parseTime(val?: string | null): string {
+  if (!val) return ''
+  if (val.includes('T')) return val.split('T')[1].substring(0, 5)
+  return val.substring(0, 5)
+}
+
+interface FormState {
+  branch_code: string
+  name: string
+  street_address: string
+  city: string
+  country: string
+  location: string | null
+  phone: string
+  email: string
+  parking: boolean
+  restaurant: boolean
+  check_in_time: string
+  check_out_time: string
+  is_active: boolean
+}
+
+const emptyForm = (): FormState => ({
   branch_code: '',
   name: '',
   street_address: '',
   city: '',
   country: '',
-  location: '',
+  location: null,
   phone: '',
   email: '',
+  parking: false,
+  restaurant: false,
+  check_in_time: '14:00',
+  check_out_time: '11:00',
   is_active: true,
 })
+
+const form = ref<FormState>(emptyForm())
 
 watch(() => props.open, (open) => {
   if (!open) return
   error.value = ''
   if (props.branch) {
+    const b = props.branch
     form.value = {
-      branch_code:    props.branch.branch_code   ?? '',
-      name:           props.branch.name          ?? '',
-      street_address: props.branch.street_address ?? '',
-      city:           props.branch.city          ?? '',
-      country:        props.branch.country       ?? '',
-      location:       props.branch.location      ?? '',
-      phone:          props.branch.phone         ?? '',
-      email:          props.branch.email         ?? '',
-      is_active:      props.branch.is_active     ?? true,
+      branch_code:    b.branch_code    ?? '',
+      name:           b.name           ?? '',
+      street_address: b.street_address ?? '',
+      city:           b.city           ?? '',
+      country:        b.country        ?? '',
+      location:       b.location       ?? null,
+      phone:          b.phone          ?? '',
+      email:          b.email          ?? '',
+      parking:    b.parking    ?? false,
+      restaurant: b.restaurant ?? false,
+      check_in_time:  parseTime(b.check_in_time)  || '14:00',
+      check_out_time: parseTime(b.check_out_time) || '11:00',
+      is_active:      b.is_active      ?? true,
     }
   } else {
-    form.value = { branch_code: '', name: '', street_address: '', city: '', country: '', location: '', phone: '', email: '', is_active: true }
+    form.value = emptyForm()
   }
 })
 
-
 async function handleSave() {
   error.value = ''
-  if (!form.value.branch_code.trim())    { error.value = 'Branch code is required.';    return }
-  if (!form.value.name.trim())           { error.value = 'Branch name is required.';    return }
-  if (!form.value.city.trim())           { error.value = 'City is required.';           return }
-  if (!form.value.country.trim())        { error.value = 'Country is required.';        return }
+  if (!form.value.branch_code.trim()) { error.value = 'Branch code is required.'; return }
+  if (!form.value.name.trim())        { error.value = 'Branch name is required.';  return }
+  if (!form.value.city.trim())        { error.value = 'City is required.';          return }
+  if (!form.value.country.trim())     { error.value = 'Country is required.';       return }
 
   saving.value = true
   try {
@@ -81,9 +115,13 @@ async function handleSave() {
       street_address: form.value.street_address.trim(),
       city:           form.value.city.trim(),
       country:        form.value.country.trim(),
-      location:       form.value.location?.trim() || undefined,
-      phone:          form.value.phone?.trim()    || undefined,
-      email:          form.value.email?.trim()    || undefined,
+      location:       form.value.location ?? null,
+      phone:          form.value.phone?.trim()  || undefined,
+      email:          form.value.email?.trim()  || undefined,
+      parking:    form.value.parking,
+      restaurant: form.value.restaurant,
+      check_in_time:  parseTime(form.value.check_in_time)  || null,
+      check_out_time: parseTime(form.value.check_out_time) || null,
       is_active:      form.value.is_active,
     }
 
@@ -107,11 +145,11 @@ async function handleSave() {
 
 <template>
   <Dialog :open="open" @update:open="(v) => emit('update:open', v)">
-    <DialogContent class="sm:max-w-lg">
+    <DialogContent class="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
       <DialogHeader>
         <DialogTitle>{{ isEdit ? 'Edit Branch' : 'Create Branch' }}</DialogTitle>
         <DialogDescription>
-          {{ isEdit ? 'Update branch details and location information.' : 'Add a new branch location for your organisation.' }}
+          {{ isEdit ? 'Update branch details and pin the exact location on the map.' : 'Add a new branch and pin its location on the map.' }}
         </DialogDescription>
       </DialogHeader>
 
@@ -120,6 +158,7 @@ async function handleSave() {
           {{ error }}
         </div>
 
+        <!-- Code + Name -->
         <div class="grid grid-cols-3 gap-4">
           <div class="grid gap-2">
             <Label for="branch_code">Branch Code *</Label>
@@ -137,14 +176,10 @@ async function handleSave() {
           </div>
         </div>
 
+        <!-- Address -->
         <div class="grid gap-2">
           <Label for="branch_address">Street Address</Label>
           <Input id="branch_address" v-model="form.street_address" placeholder="e.g. 123 Cairo Road" />
-        </div>
-
-        <div class="grid gap-2">
-          <Label for="branch_location">Location / Area</Label>
-          <Input id="branch_location" v-model="form.location" placeholder="e.g. Showgrounds, Lusaka" />
         </div>
 
         <div class="grid grid-cols-2 gap-4">
@@ -158,6 +193,7 @@ async function handleSave() {
           </div>
         </div>
 
+        <!-- Contact -->
         <div class="grid grid-cols-2 gap-4">
           <div class="grid gap-2">
             <Label for="branch_phone">Phone</Label>
@@ -169,12 +205,58 @@ async function handleSave() {
           </div>
         </div>
 
+        <!-- Check-in / Check-out times -->
+        <div class="grid grid-cols-2 gap-4">
+          <div class="grid gap-2">
+            <Label for="check_in_time">Check-in Time</Label>
+            <Input id="check_in_time" v-model="form.check_in_time" type="time" />
+          </div>
+          <div class="grid gap-2">
+            <Label for="check_out_time">Check-out Time</Label>
+            <Input id="check_out_time" v-model="form.check_out_time" type="time" />
+          </div>
+        </div>
+
+        <!-- Facilities -->
+        <div class="grid grid-cols-2 gap-3">
+          <div class="flex items-center justify-between rounded-lg border p-4">
+            <div>
+              <p class="text-sm font-medium">Parking</p>
+              <p class="text-xs text-muted-foreground">On-site parking available</p>
+            </div>
+            <Switch
+              :model-value="form.parking"
+              @update:model-value="(v) => form.parking = !!v"
+            />
+          </div>
+          <div class="flex items-center justify-between rounded-lg border p-4">
+            <div>
+              <p class="text-sm font-medium">Restaurant</p>
+              <p class="text-xs text-muted-foreground">On-site dining available</p>
+            </div>
+            <Switch
+              :model-value="form.restaurant"
+              @update:model-value="(v) => form.restaurant = !!v"
+            />
+          </div>
+        </div>
+
+        <!-- Map location -->
+        <div class="grid gap-2">
+          <Label>Branch Location <span class="text-muted-foreground font-normal">(optional)</span></Label>
+          <MapLocationPicker v-model="form.location" />
+        </div>
+
+        <!-- Active status -->
         <div class="flex items-center justify-between rounded-lg border p-4">
           <div>
             <p class="text-sm font-medium">Active</p>
             <p class="text-xs text-muted-foreground">Branch is operational and visible to staff</p>
           </div>
-          <Switch v-model="form.is_active" />
+          <Switch
+            :model-value="form.is_active"
+            @update:model-value="(v) => form.is_active = !!v"
+          />
         </div>
       </form>
 
