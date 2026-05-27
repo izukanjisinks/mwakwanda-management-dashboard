@@ -66,9 +66,9 @@ function fmt(d?: string) {
 
   <div class="flex flex-col gap-6 p-6">
     <!-- Tabs -->
-    <div class="flex items-center gap-1 bg-muted rounded-lg p-1">
+    <div class="flex items-center gap-1 bg-muted rounded-lg p-1 w-fit">
       <button
-        class="flex flex-1 items-center justify-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
+        class="flex items-center justify-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
         :class="activeTab === 'active' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'"
         @click="activeTab = 'active'"
       >
@@ -78,7 +78,7 @@ function fmt(d?: string) {
         </span>
       </button>
       <button
-        class="flex flex-1 items-center justify-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
+        class="flex items-center justify-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
         :class="activeTab === 'completed' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'"
         @click="activeTab = 'completed'"
       >

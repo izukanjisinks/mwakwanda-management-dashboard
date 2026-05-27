@@ -217,9 +217,9 @@ onMounted(() => {
     <div class="flex flex-col gap-6 p-6">
 
       <!-- Tab bar -->
-      <div class="flex items-center gap-1 bg-muted rounded-lg p-1">
+      <div class="flex items-center gap-1 bg-muted rounded-lg p-1 w-fit">
         <button
-          class="flex flex-1 items-center justify-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
+          class="flex items-center justify-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
           :class="activeTab === 'users'
             ? 'bg-background shadow text-foreground'
             : 'text-muted-foreground hover:text-foreground'"
@@ -230,7 +230,7 @@ onMounted(() => {
           <span v-if="usersStore.total" class="ml-0.5 text-xs bg-primary text-primary-foreground rounded-full px-1.5 py-0.5">{{ usersStore.total }}</span>
         </button>
         <button
-          class="flex flex-1 items-center justify-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
+          class="flex items-center justify-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
           :class="activeTab === 'branches'
             ? 'bg-background shadow text-foreground'
             : 'text-muted-foreground hover:text-foreground'"
@@ -247,9 +247,9 @@ onMounted(() => {
       <div v-show="activeTab === 'branches'" class="flex flex-col gap-6">
         <!-- Toolbar -->
         <div class="flex items-center justify-between gap-4">
-          <div class="relative flex-1">
+          <div class="relative max-w-xs w-full">
             <Search class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
-            <Input v-model="branchSearch" placeholder="Search branches..." class="pl-9 w-full" />
+            <Input v-model="branchSearch" placeholder="Search branches..." class="pl-9" />
           </div>
           <Button v-if="canManageBranches" @click="openCreateBranch">
             <Plus class="size-4 mr-2" />
@@ -328,9 +328,9 @@ onMounted(() => {
       <div v-show="activeTab === 'users'" class="flex flex-col gap-6">
         <!-- Toolbar -->
         <div class="flex items-center justify-between gap-4">
-          <div class="relative flex-1">
+          <div class="relative max-w-xs w-full">
             <Search class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
-            <Input v-model="userSearch" placeholder="Search users..." class="pl-9 w-full" />
+            <Input v-model="userSearch" placeholder="Search users..." class="pl-9" />
           </div>
           <Button @click="openCreateUser">
             <Plus class="size-4 mr-2" />
