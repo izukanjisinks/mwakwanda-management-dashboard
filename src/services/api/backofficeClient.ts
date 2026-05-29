@@ -49,7 +49,7 @@ async function request<T>(
     credentials: 'include',
   })
 
-  if (response.status === 401) {
+  if (response.status === 401 && path !== '/login') {
     localStorage.removeItem(TOKEN_KEY)
     window.location.href = '/backoffice/login'
     return undefined as T
