@@ -154,6 +154,12 @@ const router = createRouter({
           meta: { roles: ['admin', 'branch_admin', 'manager', 'receptionist'] },
         },
         {
+          path: 'workflow/tasks/:id',
+          name: 'workflow-task-detail',
+          component: () => import('@/views/admin/workflow/TaskDetailView.vue'),
+          meta: { roles: ['admin', 'branch_admin', 'manager', 'receptionist'] },
+        },
+        {
           path: 'workflow/:id',
           name: 'workflow-editor',
           component: () => import('@/views/admin/workflow/WorkflowView.vue'),

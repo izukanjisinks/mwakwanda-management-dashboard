@@ -23,6 +23,7 @@ export interface Booking {
   status: BookingStatus
   overstayed: boolean
   special_requests?: string
+  documents?: string[]
   created_at: string
   updated_at: string
 }
@@ -54,4 +55,28 @@ export interface PaginatedBookings {
   page: number
   page_size: number
   total: number
+}
+
+export interface CorporateGuestBooking {
+  booking_id: string
+  booking_number: string
+  client_name: string
+  room_name: string
+  check_in: string
+  check_out: string
+  guests: number
+  status: string
+}
+
+export interface CorporateBookingDetail {
+  id: string
+  company_name: string
+  contact_person: string
+  email: string
+  phone: string
+  company_reg_number?: string
+  industry?: string
+  status: string
+  documents: string[]
+  guests: CorporateGuestBooking[]
 }

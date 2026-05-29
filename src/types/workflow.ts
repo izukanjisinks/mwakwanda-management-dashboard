@@ -85,7 +85,8 @@ export interface TaskSenderDetails {
 
 export interface TaskDetails {
   task_id: string
-  task_type: string
+  task_ref: string
+  task_type: 'booking' | 'corporate_booking' | string
   task_description: string
   sender_details: TaskSenderDetails
 }

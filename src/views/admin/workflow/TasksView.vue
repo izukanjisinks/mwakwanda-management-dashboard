@@ -1,14 +1,17 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { getApiError } from '@/utils/errors'
-import { CheckCircle2, XCircle, Clock, CheckCheck, InboxIcon } from 'lucide-vue-next'
+import { CheckCircle2, XCircle, Clock, CheckCheck, InboxIcon, ChevronRight } from 'lucide-vue-next'
 import { useWorkflowStore } from '@/stores/workflow'
 import type { WorkflowTask } from '@/types/workflow'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import TaskActionDialog from '@/components/workflow/TaskActionDialog.vue'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+
+const router = useRouter()
 
 const store = useWorkflowStore()
 
@@ -105,7 +108,8 @@ function fmt(d?: string) {
       <div
         v-for="task in displayedTasks"
         :key="task.id"
-        class="rounded-xl border bg-card p-5 flex flex-col gap-4"
+        class="rounded-xl border bg-card p-5 flex flex-col gap-4 cursor-pointer hover:border-primary/40 transition-colors"
+        @click="router.push({ name: 'workflow-task-detail', params: { id: task.id } })"
       >
         <!-- Header -->
         <div class="flex items-start justify-between gap-2">
@@ -113,9 +117,12 @@ function fmt(d?: string) {
             <p class="text-xs text-muted-foreground mb-0.5">Step</p>
             <p class="font-semibold">{{ task.step_name }}</p>
           </div>
-          <Badge :variant="statusConfig(task.status).variant" class="shrink-0 capitalize">
-            {{ statusConfig(task.status).label }}
-          </Badge>
+          <div class="flex items-center gap-1 shrink-0">
+            <Badge :variant="statusConfig(task.status).variant" class="capitalize">
+              {{ statusConfig(task.status).label }}
+            </Badge>
+            <ChevronRight class="size-4 text-muted-foreground" />
+          </div>
         </div>
 
         <!-- Task details -->
@@ -157,12 +164,12 @@ function fmt(d?: string) {
             variant="outline"
             size="sm"
             class="flex-1 text-destructive border-destructive/30 hover:bg-destructive/5"
-            @click="openAction(task, 'reject')"
+            @click.stop="openAction(task, 'reject')"
           >
             <XCircle class="size-4 mr-1.5" />
             Reject
           </Button>
-          <Button size="sm" class="flex-1" @click="openAction(task, 'approve')">
+          <Button size="sm" class="flex-1" @click.stop="openAction(task, 'approve')">
             <CheckCircle2 class="size-4 mr-1.5" />
             Approve
           </Button>

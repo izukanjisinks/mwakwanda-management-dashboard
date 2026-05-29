@@ -1,5 +1,5 @@
 import { apiClient } from './client'
-import type { Booking, BookingPayload, BookingUpdatePayload, BookingStatusUpdate, PaginatedBookings } from '@/types/booking'
+import type { Booking, BookingPayload, BookingUpdatePayload, BookingStatusUpdate, PaginatedBookings, CorporateBookingDetail } from '@/types/booking'
 
 export interface BookingListParams extends Record<string, string | number | boolean | undefined> {
   page?: number
@@ -35,4 +35,7 @@ export const bookingApi = {
 
   delete: (id: string) =>
     apiClient.delete<void>(`/bookings/${id}`),
+
+  getCorporateDetail: (corporateClientId: string) =>
+    apiClient.get<CorporateBookingDetail>(`/clients/corporate/${corporateClientId}/bookings`),
 }
