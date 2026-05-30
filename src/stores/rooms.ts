@@ -17,7 +17,7 @@ export const useRoomsStore = defineStore('rooms', () => {
     loading.value = true
     error.value = null
     try {
-      const res = await roomApi.list({ page, page_size: pageSize, branch_id: branchFilter.selectedBranchId ?? undefined })
+      const res = await roomApi.list({ page, page_size: pageSize, branch_id: branchFilter.apiBranchId })
       rooms.value = res.data ?? []
       total.value = res.total
     } catch (err) {

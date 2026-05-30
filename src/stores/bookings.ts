@@ -16,7 +16,7 @@ export const useBookingsStore = defineStore('bookings', () => {
     loading.value = true
     error.value = null
     try {
-      const res = await bookingApi.list({ page, page_size: pageSize, status, overstayed, from, to, corporate_client_id: corporateClientId, branch_id: branchFilter.selectedBranchId ?? undefined })
+      const res = await bookingApi.list({ page, page_size: pageSize, status, overstayed, from, to, corporate_client_id: corporateClientId, branch_id: branchFilter.apiBranchId })
       bookings.value = res.data ?? []
       total.value = res.total
     } catch (err) {

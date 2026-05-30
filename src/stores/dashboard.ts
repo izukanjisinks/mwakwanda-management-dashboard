@@ -16,7 +16,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
     error.value = null
     try {
       stats.value = await dashboardApi.stats({
-        branch_id: branchFilter.selectedBranchId ?? undefined,
+        branch_id: branchFilter.apiBranchId,
       })
     } catch (err) {
       error.value = getApiError(err, 'Failed to load dashboard stats.')

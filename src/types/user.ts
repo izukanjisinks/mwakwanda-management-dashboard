@@ -23,7 +23,8 @@ export interface SystemUserPayload {
   role: SystemUserRole
   status: SystemUserStatus
   password?: string
-  branch_id?: string
+  branch_id?: string | null
+  branch_name?: string | null
 }
 
 export interface PaginatedUsers {

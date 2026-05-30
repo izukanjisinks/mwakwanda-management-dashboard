@@ -167,23 +167,26 @@ async function handleDeleteUser() {
 const currentUserEmail = computed(() => authStore.user?.email)
 
 // ── Branch assignment ─────────────────────────────────────────────────────────
+const UNASSIGNED = '__unassigned__'
 const assignDialogOpen = ref(false)
 const userToAssign = ref<SystemUser | null>(null)
-const assignBranchId = ref('')
+const assignBranchId = ref(UNASSIGNED)
 const assigning = ref(false)
 
 function openAssignBranch(user: SystemUser) {
   userToAssign.value = user
-  assignBranchId.value = user.branch_id ?? ''
+  assignBranchId.value = user.branch_id ?? UNASSIGNED
   assignDialogOpen.value = true
 }
 
 async function handleAssignBranch() {
   if (!userToAssign.value) return
   assigning.value = true
+  const branchId = assignBranchId.value === UNASSIGNED ? null : assignBranchId.value
+  const branchName = branchId ? (activeBranches.value.find(b => b.id === branchId)?.name ?? '') : ''
   try {
-    await usersStore.assignBranch(userToAssign.value.id, assignBranchId.value || null)
-    toast.success(`${userToAssign.value.full_name} assigned to branch.`)
+    await usersStore.assignBranch(userToAssign.value.id, branchId, branchName)
+    toast.success(`${userToAssign.value.full_name} updated successfully.`)
     assignDialogOpen.value = false
     loadUsers()
   } catch (err) {
@@ -196,6 +199,7 @@ async function handleAssignBranch() {
 const activeBranches = computed(() =>
   branchesStore.branches.filter(b => b.is_active),
 )
+
 
 function getBranchName(branchId?: string) {
   if (!branchId) return null
@@ -217,30 +221,29 @@ onMounted(() => {
     <div class="flex flex-col gap-6 p-6">
 
       <!-- Tab bar -->
-      <div class="flex items-center gap-1 bg-muted rounded-lg p-1 w-fit">
+      <div class="border-b flex">
         <button
-          class="flex items-center justify-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
-          :class="activeTab === 'users'
-            ? 'bg-background shadow text-foreground'
-            : 'text-muted-foreground hover:text-foreground'"
-          @click="activeTab = 'users'"
-        >
-          <Users class="size-4" />
-          System Users
-          <span v-if="usersStore.total" class="ml-0.5 text-xs bg-primary text-primary-foreground rounded-full px-1.5 py-0.5">{{ usersStore.total }}</span>
-        </button>
-        <button
-          class="flex items-center justify-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
+          class="flex items-center gap-2 px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors"
           :class="activeTab === 'branches'
-            ? 'bg-background shadow text-foreground'
-            : 'text-muted-foreground hover:text-foreground'"
+            ? 'border-primary text-foreground'
+            : 'border-transparent text-muted-foreground hover:text-foreground'"
           @click="activeTab = 'branches'"
         >
           <Network class="size-4" />
           Branches
-          <span v-if="branchesStore.total" class="ml-0.5 text-xs bg-primary text-primary-foreground rounded-full px-1.5 py-0.5">{{ branchesStore.total }}</span>
+          <span v-if="branchesStore.total" class="text-xs bg-muted text-muted-foreground rounded-full px-1.5 py-0.5 leading-none">{{ branchesStore.total }}</span>
         </button>
-        
+        <button
+          class="flex items-center gap-2 px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors"
+          :class="activeTab === 'users'
+            ? 'border-primary text-foreground'
+            : 'border-transparent text-muted-foreground hover:text-foreground'"
+          @click="activeTab = 'users'"
+        >
+          <Users class="size-4" />
+          System Users
+          <span v-if="usersStore.total" class="text-xs bg-muted text-muted-foreground rounded-full px-1.5 py-0.5 leading-none">{{ usersStore.total }}</span>
+        </button>
       </div>
 
       <!-- ── Branches tab ───────────────────────────────────────────────────── -->
@@ -355,7 +358,7 @@ onMounted(() => {
             <TableBody>
               <template v-if="usersStore.loading">
                 <TableRow v-for="i in 4" :key="i">
-                  <TableCell colspan="7">
+                  <TableCell :colspan="7">
                     <div class="h-4 rounded bg-muted animate-pulse" />
                   </TableCell>
                 </TableRow>
@@ -363,7 +366,7 @@ onMounted(() => {
 
               <template v-else-if="filteredUsers.length === 0">
                 <TableRow>
-                  <TableCell colspan="7" class="py-16 text-center text-muted-foreground">
+                  <TableCell :colspan="7" class="py-16 text-center text-muted-foreground">
                     {{ usersStore.users.length === 0 ? 'No users yet.' : 'No users match your search.' }}
                   </TableCell>
                 </TableRow>
@@ -384,10 +387,11 @@ onMounted(() => {
                   <TableCell>
                     <button
                       class="flex items-center gap-1.5 text-sm group/branch"
-                      :class="user.branch_id ? 'text-foreground' : 'text-muted-foreground'"
                       @click="openAssignBranch(user)"
                     >
-                      <span>{{ getBranchName(user.branch_id) ?? 'Unassigned' }}</span>
+                      <span :class="!user.branch_id ? 'text-muted-foreground' : ''">
+                        {{ getBranchName(user.branch_id) ?? 'Unassigned' }}
+                      </span>
                       <ArrowRightLeft class="size-3 opacity-0 group-hover/branch:opacity-60 transition-opacity" />
                     </button>
                   </TableCell>
@@ -453,7 +457,7 @@ onMounted(() => {
           <DialogTitle>Delete Branch</DialogTitle>
           <DialogDescription>
             Are you sure you want to delete <strong>{{ branchToDelete?.name }}</strong>?
-            Employees assigned to this branch will become unassigned.
+            Employees assigned to this branch will be automatically be unassigned and will need to be reassigned to a different branch to access the system.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter class="gap-2">
@@ -490,46 +494,41 @@ onMounted(() => {
     <Dialog :open="assignDialogOpen" @update:open="(v) => assignDialogOpen = v">
       <DialogContent class="max-w-sm">
         <DialogHeader>
-          <DialogTitle>{{ userToAssign?.branch_id ? 'Move to Branch' : 'Assign Branch' }}</DialogTitle>
+          <DialogTitle>Assign Branch</DialogTitle>
           <DialogDescription>
-            {{ userToAssign?.branch_id
-              ? `Move ${userToAssign?.full_name} to a different branch.`
-              : `Assign ${userToAssign?.full_name} to a branch.`
-            }}
+            Set the branch for {{ userToAssign?.full_name }}. Choose Unassigned to remove their branch.
           </DialogDescription>
         </DialogHeader>
 
-        <div class="py-2 flex flex-col gap-3">
+        <div class="py-2">
           <Select v-model="assignBranchId">
             <SelectTrigger>
-              <SelectValue placeholder="Select a branch..." />
+              <SelectValue placeholder="Unassigned" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem :value="UNASSIGNED">
+                <span class="text-muted-foreground">Unassigned</span>
+              </SelectItem>
               <SelectItem
                 v-for="b in activeBranches"
                 :key="b.id"
                 :value="b.id"
               >
-                {{ b.name }}
-                <span class="ml-1 text-xs text-muted-foreground font-mono">{{ b.branch_code }}</span>
+                <span class="flex items-center gap-2">
+                  <span class="size-2 rounded-full shrink-0" :class="b.is_main ? 'bg-primary' : 'bg-green-500'" />
+                  {{ b.name }}
+                  <span v-if="!b.is_main" class="text-xs text-muted-foreground font-mono">{{ b.branch_code }}</span>
+                </span>
               </SelectItem>
             </SelectContent>
           </Select>
-
-          <button
-            v-if="userToAssign?.branch_id"
-            class="text-xs text-muted-foreground hover:text-destructive text-left transition-colors"
-            @click="assignBranchId = ''"
-          >
-            Remove branch assignment
-          </button>
         </div>
 
         <DialogFooter class="gap-2">
           <Button variant="outline" :disabled="assigning" @click="assignDialogOpen = false">Cancel</Button>
-          <Button :disabled="assigning || !assignBranchId" @click="handleAssignBranch">
+          <Button :disabled="assigning" @click="handleAssignBranch">
             <Loader2 v-if="assigning" class="size-4 animate-spin mr-2" />
-            {{ userToAssign?.branch_id ? 'Move' : 'Assign' }}
+            Save
           </Button>
         </DialogFooter>
       </DialogContent>

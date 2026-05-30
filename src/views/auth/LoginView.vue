@@ -60,6 +60,7 @@ async function handleOrgSelect(orgId: string) {
 
 function handlePasswordChanged() {
   showChangePasswordDialog.value = false
+  if (authStore.user) authStore.user.change_password = false
   router.push({ name: 'dashboard' })
 }
 </script>

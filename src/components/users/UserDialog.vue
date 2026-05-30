@@ -26,6 +26,8 @@ import { useRolesStore } from '@/stores/roles'
 import { useAuthStore } from '@/stores/auth'
 import type { SystemUser, SystemUserRole, SystemUserStatus } from '@/types/user'
 
+const UNASSIGNED = '__unassigned__'
+
 const props = defineProps<{
   open: boolean
   user?: SystemUser | null
@@ -44,8 +46,6 @@ const saving = ref(false)
 const error = ref('')
 const showPassword = ref(false)
 const copied = ref(false)
-
-const activeBranches = computed(() => branchesStore.branches.filter(b => b.is_active))
 
 const visibleRoles = computed(() =>
   authStore.userRole === 'branch_admin'
@@ -103,10 +103,10 @@ watch(() => props.open, async (open) => {
       role: props.user.role,
       status: props.user.status,
       password: '',
-      branch_id: props.user.branch_id ?? '',
+      branch_id: props.user.branch_id ?? UNASSIGNED,
     }
   } else {
-    form.value = { full_name: '', email: '', role: '' as SystemUserRole, status: 'active', password: '', branch_id: '' }
+    form.value = { full_name: '', email: '', role: '' as SystemUserRole, status: 'active', password: '', branch_id: UNASSIGNED }
   }
 })
 
@@ -118,12 +118,17 @@ async function handleSave() {
 
   saving.value = true
   try {
+    const resolvedBranchId = form.value.branch_id === UNASSIGNED ? null : (form.value.branch_id || null)
+    const resolvedBranchName = resolvedBranchId
+      ? (branchesStore.branches.find(b => b.id === resolvedBranchId)?.name ?? '')
+      : ''
     const payload = {
-      full_name: form.value.full_name.trim(),
-      email: form.value.email.trim(),
-      role: form.value.role,
-      status: form.value.status,
-      ...(form.value.branch_id ? { branch_id: form.value.branch_id } : {}),
+      full_name:   form.value.full_name.trim(),
+      email:       form.value.email.trim(),
+      role:        form.value.role,
+      status:      form.value.status,
+      branch_id:   resolvedBranchId,
+      branch_name: resolvedBranchName,
       ...(form.value.password ? { password: form.value.password } : {}),
     }
     let saved: SystemUser
@@ -206,16 +211,19 @@ async function handleSave() {
           <Label>Branch</Label>
           <Select v-model="form.branch_id">
             <SelectTrigger>
-              <SelectValue placeholder="Select branch..." />
+              <SelectValue placeholder="Unassigned" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem :value="UNASSIGNED">
+                <span class="text-muted-foreground">Unassigned</span>
+              </SelectItem>
               <SelectItem
-                v-for="b in activeBranches"
+                v-for="b in branchesStore.branches"
                 :key="b.id"
                 :value="b.id"
               >
                 {{ b.name }}
-                <span class="ml-1 text-xs font-mono text-muted-foreground">{{ b.branch_code }}</span>
+                <span v-if="!b.is_main" class="ml-1 text-xs font-mono text-muted-foreground">{{ b.branch_code }}</span>
               </SelectItem>
             </SelectContent>
           </Select>

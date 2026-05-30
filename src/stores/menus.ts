@@ -74,7 +74,7 @@ export const useMenusStore = defineStore('menus', () => {
     ordersLoading.value = true
     ordersError.value = null
     try {
-      const res = await menusApi.listOrders({ ...params, branch_id: branchFilter.selectedBranchId ?? undefined })
+      const res = await menusApi.listOrders({ ...params, branch_id: branchFilter.apiBranchId })
       orders.value = res.data ?? []
       ordersTotal.value = res.total
     } catch (err) {

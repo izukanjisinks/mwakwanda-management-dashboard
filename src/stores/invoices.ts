@@ -16,7 +16,7 @@ export const useInvoicesStore = defineStore('invoices', () => {
     loading.value = true
     error.value = null
     try {
-      const res = await invoiceApi.list({ page, page_size: pageSize, status, branch_id: branchFilter.selectedBranchId ?? undefined })
+      const res = await invoiceApi.list({ page, page_size: pageSize, status, branch_id: branchFilter.apiBranchId })
       invoices.value = res.data ?? []
       total.value = res.total
     } catch (err) {

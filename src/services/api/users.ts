@@ -36,7 +36,7 @@ export const usersApi = {
       ...(payload.branch_id ? { branch_id: payload.branch_id } : {}),
     }),
 
-  update: (id: string, payload: Partial<SystemUserPayload>) =>
+  update: (id: string, payload: SystemUserPayload) =>
     apiClient.put<SystemUser>(`/users/${id}`, payload),
 
   delete: (id: string) =>
