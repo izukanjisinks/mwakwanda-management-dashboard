@@ -1,16 +1,15 @@
 import { apiClient } from './client'
-import type { Booking, BookingPayload, BookingUpdatePayload, BookingStatusUpdate, PaginatedBookings, CorporateBookingDetail } from '@/types/booking'
+import type {
+  Booking, BookingStatusUpdate, PaginatedBookings,
+  BookingRoomAssignment, BookingAttendee, CreateIndividualBookingPayload,
+} from '@/types/booking'
 
 export interface BookingListParams extends Record<string, string | number | boolean | undefined> {
   page?: number
   page_size?: number
   status?: string
-  client_type?: string
-  client_id?: string
-  corporate_client_id?: string
-  overstayed?: boolean
-  from?: string
-  to?: string
+  booker_type?: string
+  booking_type?: string
   branch_id?: string
 }
 
@@ -21,21 +20,32 @@ export const bookingApi = {
   get: (id: string) =>
     apiClient.get<Booking>(`/bookings/${id}`),
 
-  create: (payload: BookingPayload) =>
-    apiClient.post<Booking>('/bookings', payload),
-
-  update: (id: string, payload: BookingUpdatePayload) =>
-    apiClient.put<Booking>(`/bookings/${id}`, payload),
+  createIndividual: (payload: CreateIndividualBookingPayload) =>
+    apiClient.post<Booking>('/bookings/individual', payload),
 
   updateStatus: (id: string, payload: BookingStatusUpdate) =>
-    apiClient.patch<Booking>(`/bookings/${id}/status`, payload),
+    apiClient.put<Booking>(`/bookings/${id}/status`, payload),
 
-  clearOverstayed: (id: string) =>
-    apiClient.patch<Booking>(`/bookings/${id}/clear-overstayed`),
+  checkIn: (id: string) =>
+    apiClient.put<Booking>(`/bookings/${id}/checkin`),
+
+  checkOut: (id: string) =>
+    apiClient.put<Booking>(`/bookings/${id}/checkout`),
 
   delete: (id: string) =>
     apiClient.delete<void>(`/bookings/${id}`),
 
-  getCorporateDetail: (corporateClientId: string) =>
-    apiClient.get<CorporateBookingDetail>(`/clients/corporate/${corporateClientId}/bookings`),
+  // ── Room assignments ──────────────────────────────────────────────────────
+  listAssignments: (bookingId: string) =>
+    apiClient.get<BookingRoomAssignment[]>(`/bookings/${bookingId}/assignments`),
+
+  checkInAssignment: (bookingId: string, assignId: string) =>
+    apiClient.put<BookingRoomAssignment>(`/bookings/${bookingId}/assignments/${assignId}/checkin`),
+
+  checkOutAssignment: (bookingId: string, assignId: string) =>
+    apiClient.put<BookingRoomAssignment>(`/bookings/${bookingId}/assignments/${assignId}/checkout`),
+
+  // ── Attendees ─────────────────────────────────────────────────────────────
+  listAttendees: (bookingId: string) =>
+    apiClient.get<BookingAttendee[]>(`/bookings/${bookingId}/attendees`),
 }

@@ -49,7 +49,7 @@ const scheduleTime: Record<CleaningFrequency, string> = {
 
 // Assignments for the logged-in cleaner
 const myAssignments = computed(() =>
-  cleaningStore.assignments.filter(a => a.staff_id === authStore.user?.id)
+  cleaningStore.assignments.filter(a => a.staff_id === authStore.user?.user_id)
 )
 
 // Enrich with room data
@@ -59,19 +59,20 @@ const myRooms = computed(() =>
     .filter(a => !!a.room)
 )
 
+// A room that isn't available is treated as needing cleaning (no dedicated
+// housekeeping status exists on the room model yet).
 const urgent = computed(() =>
-  myRooms.value.filter(a => a.room?.status === 'not_ready')
+  myRooms.value.filter(a => a.room && !a.room.is_available)
 )
 
 const upNext = computed(() =>
-  myRooms.value.filter(a => a.room?.status !== 'not_ready')
+  myRooms.value.filter(a => a.room?.is_available)
 )
 
-const statusConfig: Record<string, { label: string; bgClass: string; dotClass: string }> = {
-  available: { label: 'Available',    bgClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',  dotClass: 'bg-emerald-500' },
-  occupied:  { label: 'Occupied',     bgClass: 'bg-blue-50 text-blue-700 border-blue-200',           dotClass: 'bg-blue-500' },
-  reserved:  { label: 'Reserved',     bgClass: 'bg-amber-50 text-amber-700 border-amber-200',        dotClass: 'bg-amber-500' },
-  not_ready: { label: 'Needs Clean',  bgClass: 'bg-rose-50 text-rose-700 border-rose-200',           dotClass: 'bg-rose-500' },
+function roomStatus(isAvailable: boolean) {
+  return isAvailable
+    ? { label: 'Ready',       bgClass: 'bg-emerald-50 text-emerald-700 border-emerald-200', dotClass: 'bg-emerald-500' }
+    : { label: 'Needs Clean', bgClass: 'bg-rose-50 text-rose-700 border-rose-200',          dotClass: 'bg-rose-500' }
 }
 
 const typeLabel: Record<string, string> = {
@@ -131,9 +132,9 @@ const typeLabel: Record<string, string> = {
               </div>
             </div>
             <div class="flex flex-col items-end gap-1.5">
-              <span class="text-xs font-medium px-2.5 py-1 rounded-full border" :class="statusConfig[a.room!.status].bgClass">
-                <span class="inline-block size-1.5 rounded-full mr-1.5 align-middle" :class="statusConfig[a.room!.status].dotClass" />
-                {{ statusConfig[a.room!.status].label }}
+              <span class="text-xs font-medium px-2.5 py-1 rounded-full border" :class="roomStatus(a.room!.is_available).bgClass">
+                <span class="inline-block size-1.5 rounded-full mr-1.5 align-middle" :class="roomStatus(a.room!.is_available).dotClass" />
+                {{ roomStatus(a.room!.is_available).label }}
               </span>
               <div class="flex items-center gap-1 text-xs text-rose-500">
                 <Clock class="size-3" />
@@ -176,9 +177,9 @@ const typeLabel: Record<string, string> = {
               </div>
             </div>
             <div class="flex flex-col items-end gap-1.5">
-              <span class="text-xs font-medium px-2.5 py-1 rounded-full border" :class="statusConfig[a.room!.status].bgClass">
-                <span class="inline-block size-1.5 rounded-full mr-1.5 align-middle" :class="statusConfig[a.room!.status].dotClass" />
-                {{ statusConfig[a.room!.status].label }}
+              <span class="text-xs font-medium px-2.5 py-1 rounded-full border" :class="roomStatus(a.room!.is_available).bgClass">
+                <span class="inline-block size-1.5 rounded-full mr-1.5 align-middle" :class="roomStatus(a.room!.is_available).dotClass" />
+                {{ roomStatus(a.room!.is_available).label }}
               </span>
               <div class="flex items-center gap-1 text-xs text-muted-foreground">
                 <Clock class="size-3" />

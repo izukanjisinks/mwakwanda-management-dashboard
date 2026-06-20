@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import {
   LayoutDashboard,
   Hotel,
+  Theater,
   CalendarDays,
   UtensilsCrossed,
   ReceiptText,
@@ -87,6 +88,7 @@ const adminNav = [
     label: 'Management',
     items: [
       { title: 'Rooms', icon: Hotel, routeName: 'rooms' },
+      { title: 'Venues', icon: Theater, routeName: 'venues' },
       { title: 'Bookings', icon: CalendarDays, routeName: 'admin-bookings' },
       { title: 'Menus', icon: UtensilsCrossed, routeName: 'menus' },
       { title: 'Orders', icon: BookOpen, routeName: 'orders' },

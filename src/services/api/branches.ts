@@ -4,7 +4,7 @@ import type { Branch, BranchPayload, PaginatedBranches } from '@/types/branch'
 function extractTime(val: string | null | undefined): string | null {
   if (!val) return null
   const m = val.match(/(\d{2}:\d{2})/)
-  return m ? m[1] : null
+  return m?.[1] ?? null
 }
 
 function sanitizeTimes<T extends Partial<Pick<BranchPayload, 'check_in_time' | 'check_out_time'>>>(payload: T): T {

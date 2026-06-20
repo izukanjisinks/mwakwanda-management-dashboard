@@ -4,9 +4,8 @@ import { Loader2, Minus, Plus, ShoppingCart, Search } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { getApiError } from '@/utils/errors'
 import { useMenusStore } from '@/stores/menus'
-import { bookingApi } from '@/services/api/bookings'
-import type { MenuItem, OrderItemInput } from '@/types/menu'
-import type { Booking } from '@/types/booking'
+import { menusApi } from '@/services/api/menus'
+import type { MenuItem, OrderItemInput, InHouseGuest } from '@/types/menu'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -31,7 +30,7 @@ const emit = defineEmits<{
 
 const store = useMenusStore()
 
-type Step = 'type' | 'booking' | 'items' | 'review'
+type Step = 'type' | 'guest' | 'items' | 'review'
 
 const step = ref<Step>('type')
 const orderType = ref<'in_house' | 'walk_in'>('in_house')
@@ -39,11 +38,11 @@ const notes = ref('')
 const cart = ref<Map<string, { item: MenuItem; qty: number }>>(new Map())
 const itemSearch = ref('')
 
-// Booking search
-const bookings = ref<Booking[]>([])
-const bookingSearch = ref('')
-const bookingsLoading = ref(false)
-const selectedBookingId = ref('')
+// In-house guest picker
+const guests = ref<InHouseGuest[]>([])
+const guestSearch = ref('')
+const guestsLoading = ref(false)
+const selectedGuest = ref<InHouseGuest | null>(null)
 
 const placing = ref(false)
 
@@ -56,36 +55,35 @@ watch(
       notes.value = ''
       cart.value = new Map()
       itemSearch.value = ''
-      bookingSearch.value = ''
-      selectedBookingId.value = ''
-      bookings.value = []
+      guestSearch.value = ''
+      selectedGuest.value = null
+      guests.value = []
       await store.fetchMenu(1)
     }
   },
 )
 
-async function fetchBookings() {
-  if (bookings.value.length > 0) return
-  bookingsLoading.value = true
+async function fetchGuests() {
+  if (guests.value.length > 0) return
+  guestsLoading.value = true
   try {
-    const res = await bookingApi.list({ page: 1, page_size: 100, status: 'checked_in' })
-    bookings.value = res.data ?? []
+    guests.value = await menusApi.listInHouseGuests()
   } catch (err) {
-    toast.error(getApiError(err, 'Failed to load active bookings.'))
+    toast.error(getApiError(err, 'Failed to load in-house guests.'))
   } finally {
-    bookingsLoading.value = false
+    guestsLoading.value = false
   }
 }
 
 function goNext() {
   if (step.value === 'type') {
     if (orderType.value === 'in_house') {
-      step.value = 'booking'
-      fetchBookings()
+      step.value = 'guest'
+      fetchGuests()
     } else {
       step.value = 'items'
     }
-  } else if (step.value === 'booking') {
+  } else if (step.value === 'guest') {
     step.value = 'items'
   } else if (step.value === 'items') {
     step.value = 'review'
@@ -93,8 +91,8 @@ function goNext() {
 }
 
 function goBack() {
-  if (step.value === 'booking') step.value = 'type'
-  else if (step.value === 'items') step.value = orderType.value === 'in_house' ? 'booking' : 'type'
+  if (step.value === 'guest') step.value = 'type'
+  else if (step.value === 'items') step.value = orderType.value === 'in_house' ? 'guest' : 'type'
   else if (step.value === 'review') step.value = 'items'
 }
 
@@ -148,18 +146,17 @@ const itemsByCategory = computed(() => {
   return Array.from(groups.entries()).map(([category, items]) => ({ category, items }))
 })
 
-// ── Booking filter ──────────────────────────────────────────────────────────
-const filteredBookings = computed(() => {
-  const q = bookingSearch.value.toLowerCase().trim()
-  if (!q) return bookings.value
-  return bookings.value.filter(
-    b =>
-      b.client_name?.toLowerCase().includes(q) ||
-      b.room_name?.toLowerCase().includes(q),
+// ── Guest filter ────────────────────────────────────────────────────────────
+const filteredGuests = computed(() => {
+  const q = guestSearch.value.toLowerCase().trim()
+  if (!q) return guests.value
+  return guests.value.filter(
+    g =>
+      g.GuestName.toLowerCase().includes(q) ||
+      g.RoomName.toLowerCase().includes(q) ||
+      g.CompanyName.toLowerCase().includes(q),
   )
 })
-
-const selectedBooking = computed(() => bookings.value.find(b => b.id === selectedBookingId.value) ?? null)
 
 // ── Place order ─────────────────────────────────────────────────────────────
 const orderItems = computed<OrderItemInput[]>(() =>
@@ -172,9 +169,10 @@ const orderItems = computed<OrderItemInput[]>(() =>
 async function placeOrder() {
   placing.value = true
   try {
-    if (orderType.value === 'in_house') {
+    if (orderType.value === 'in_house' && selectedGuest.value) {
       await store.placeInHouseOrder({
-        booking_id: selectedBookingId.value,
+        booking_id: selectedGuest.value.BookingID,
+        attendee_id: selectedGuest.value.AttendeeID ?? undefined,
         notes: notes.value.trim() || undefined,
         items: orderItems.value,
       })
@@ -196,7 +194,7 @@ async function placeOrder() {
 
 const stepLabels: Record<Step, string> = {
   type: 'Order Type',
-  booking: 'Select Booking',
+  guest: 'Select Guest',
   items: 'Select Items',
   review: 'Review & Place',
 }
@@ -205,7 +203,7 @@ function formatCategory(cat: string) {
   return cat.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
-const canProceedFromBooking = computed(() => !!selectedBookingId.value)
+const canProceedFromGuest = computed(() => !!selectedGuest.value)
 const canProceedFromItems = computed(() => cart.value.size > 0)
 </script>
 
@@ -238,36 +236,39 @@ const canProceedFromItems = computed(() => cart.value.size > 0)
         </div>
       </div>
 
-      <!-- Step: Select Booking -->
-      <div v-else-if="step === 'booking'" class="flex flex-col gap-4">
+      <!-- Step: Select Guest -->
+      <div v-else-if="step === 'guest'" class="flex flex-col gap-4">
         <div class="relative">
           <Search class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-          <Input v-model="bookingSearch" placeholder="Search by guest or room…" class="pl-9" />
+          <Input v-model="guestSearch" placeholder="Search by name, room, or company…" class="pl-9" />
         </div>
 
-        <div v-if="bookingsLoading" class="flex flex-col gap-2">
+        <div v-if="guestsLoading" class="flex flex-col gap-2">
           <div v-for="i in 3" :key="i" class="h-14 rounded-lg bg-muted animate-pulse" />
         </div>
 
-        <div v-else-if="filteredBookings.length === 0" class="py-8 text-center text-sm text-muted-foreground">
-          No active bookings found.
+        <div v-else-if="filteredGuests.length === 0" class="py-8 text-center text-sm text-muted-foreground">
+          No checked-in guests found.
         </div>
 
         <div v-else class="flex flex-col gap-2 max-h-64 overflow-y-auto pr-1">
           <button
-            v-for="b in filteredBookings"
-            :key="b.id"
+            v-for="g in filteredGuests"
+            :key="`${g.BookingID}-${g.AttendeeID ?? 'solo'}`"
             type="button"
             :class="[
               'rounded-lg border px-4 py-3 text-left transition-all',
-              selectedBookingId === b.id
+              selectedGuest?.BookingID === g.BookingID && selectedGuest?.AttendeeID === g.AttendeeID
                 ? 'border-primary bg-primary/5'
                 : 'border-border hover:border-primary/30',
             ]"
-            @click="selectedBookingId = b.id"
+            @click="selectedGuest = g"
           >
-            <p class="font-medium text-sm">{{ b.client_name }}</p>
-            <p class="text-xs text-muted-foreground">{{ b.room_name }} &middot; <span class="capitalize">{{ b.status.replace('_', ' ') }}</span></p>
+            <p class="font-medium text-sm">{{ g.GuestName }}</p>
+            <p class="text-xs text-muted-foreground">
+              {{ g.RoomName || '—' }}
+              <template v-if="g.CompanyName"> &middot; {{ g.CompanyName }}</template>
+            </p>
           </button>
         </div>
       </div>
@@ -336,9 +337,9 @@ const canProceedFromItems = computed(() => cart.value.size > 0)
             <span class="text-muted-foreground">Type</span>
             <Badge variant="outline">{{ orderType === 'in_house' ? 'In-House' : 'Walk-In' }}</Badge>
           </div>
-          <div v-if="selectedBooking" class="flex justify-between text-sm">
-            <span class="text-muted-foreground">Booking</span>
-            <span class="font-medium">{{ selectedBooking.client_name }} — {{ selectedBooking.room_name }}</span>
+          <div v-if="selectedGuest" class="flex justify-between text-sm">
+            <span class="text-muted-foreground">Guest</span>
+            <span class="font-medium">{{ selectedGuest.GuestName }} — {{ selectedGuest.RoomName || '—' }}</span>
           </div>
           <div class="border-t pt-3 flex flex-col gap-1">
             <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Items</p>
@@ -369,7 +370,7 @@ const canProceedFromItems = computed(() => cart.value.size > 0)
 
         <Button
           v-if="step !== 'review'"
-          :disabled="(step === 'booking' && !canProceedFromBooking) || (step === 'items' && !canProceedFromItems)"
+          :disabled="(step === 'guest' && !canProceedFromGuest) || (step === 'items' && !canProceedFromItems)"
           @click="goNext"
         >
           Next

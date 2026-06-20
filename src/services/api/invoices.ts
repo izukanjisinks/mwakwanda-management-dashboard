@@ -5,6 +5,7 @@ export interface InvoiceListParams extends Record<string, string | number | bool
   page?: number
   page_size?: number
   status?: string
+  client_type?: string
   branch_id?: string
 }
 

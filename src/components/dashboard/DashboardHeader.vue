@@ -30,7 +30,8 @@ onMounted(() => {
 
 const selectorValue = computed(() => branchFilterStore.selectedBranchId ?? 'all')
 
-function handleBranchChange(val: string) {
+function handleBranchChange(val: unknown) {
+  if (typeof val !== 'string') return
   branchFilterStore.setSelectedBranch(val === 'all' ? null : val)
 }
 

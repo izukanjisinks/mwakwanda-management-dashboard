@@ -263,6 +263,7 @@ async function removeItem(itemId: string) {
             </TableCell>
             <TableCell>
               <div v-if="order.client_name" class="text-sm font-medium truncate">{{ order.client_name }}</div>
+              <div v-if="order.company_name && order.company_name !== order.client_name" class="text-xs text-muted-foreground mt-0.5 truncate">{{ order.company_name }}</div>
               <div v-if="order.room_name" class="text-xs text-muted-foreground mt-0.5 truncate">{{ order.room_name }}</div>
               <div v-if="!order.client_name && !order.room_name" class="text-sm text-muted-foreground">—</div>
             </TableCell>
@@ -336,6 +337,10 @@ async function removeItem(itemId: string) {
               <div v-if="sheetOrder.client_name" class="flex justify-between">
                 <span class="text-muted-foreground">Name</span>
                 <span class="font-medium">{{ sheetOrder.client_name }}</span>
+              </div>
+              <div v-if="sheetOrder.company_name && sheetOrder.company_name !== sheetOrder.client_name" class="flex justify-between">
+                <span class="text-muted-foreground">Company</span>
+                <span class="font-medium">{{ sheetOrder.company_name }}</span>
               </div>
               <div v-if="sheetOrder.room_name" class="flex justify-between">
                 <span class="text-muted-foreground">Room</span>

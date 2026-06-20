@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { useBookingsStore } from '@/stores/bookings'
 import { useRoomsStore } from '@/stores/rooms'
+import { useAuthStore } from '@/stores/auth'
+import { bookingApi } from '@/services/api/bookings'
 import type { Room } from '@/types/room'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import { Button } from '@/components/ui/button'
@@ -15,8 +16,8 @@ import { toast } from 'vue-sonner'
 import { getApiError } from '@/utils/errors'
 
 const router = useRouter()
-const bookingsStore = useBookingsStore()
 const roomsStore = useRoomsStore()
+const authStore = useAuthStore()
 
 // Step: 1 = pick room, 2 = enter dates & details, 3 = confirm
 const step = ref(1)
@@ -34,7 +35,7 @@ const form = ref({
 
 const today = new Date().toISOString().split('T')[0]
 
-const availableRooms = computed(() => roomsStore.rooms.filter(r => r.status === 'available'))
+const availableRooms = computed(() => roomsStore.rooms.filter(r => r.is_available))
 
 const nights = computed(() => {
   if (!form.value.check_in || !form.value.check_out) return 0
@@ -75,13 +76,12 @@ async function handleSubmit() {
   saving.value = true
   error.value = ''
   try {
-    await bookingsStore.createBooking({
+    await bookingApi.createIndividual({
+      booker_name: authStore.user?.full_name || authStore.user?.email || 'Guest',
+      booker_email: authStore.user?.email || undefined,
       room_id: selectedRoom.value.id,
-      client_id: 0, // resolved server-side from auth token
-      client_type: 'individual',
       check_in: form.value.check_in,
       check_out: form.value.check_out,
-      guests: form.value.guests,
       special_requests: form.value.special_requests || undefined,
     })
     done.value = true

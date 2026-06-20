@@ -40,6 +40,7 @@ const DEFAULT_ZOOM = 12
 function parseValue(val: string | null): { lat: number; lng: number } | null {
   if (!val) return null
   const [a, b] = val.split(',')
+  if (a === undefined || b === undefined) return null
   const lat = parseFloat(a)
   const lng = parseFloat(b)
   if (isNaN(lat) || isNaN(lng)) return null

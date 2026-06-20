@@ -146,7 +146,7 @@ const isUnassignedNonAdmin = computed(() => !isAdmin.value && !authStore.user?.b
 
 function parseTime(val?: string | null): string {
   if (!val) return ''
-  if (val.includes('T')) return val.split('T')[1].substring(0, 5)
+  if (val.includes('T')) return (val.split('T')[1] ?? '').substring(0, 5)
   return val.substring(0, 5)
 }
 

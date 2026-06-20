@@ -11,12 +11,12 @@ export const useInvoicesStore = defineStore('invoices', () => {
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  async function fetchInvoices(page = 1, pageSize = 20, status?: string) {
+  async function fetchInvoices(page = 1, pageSize = 20, status?: string, clientType?: string) {
     const branchFilter = useBranchFilterStore()
     loading.value = true
     error.value = null
     try {
-      const res = await invoiceApi.list({ page, page_size: pageSize, status, branch_id: branchFilter.apiBranchId })
+      const res = await invoiceApi.list({ page, page_size: pageSize, status, client_type: clientType, branch_id: branchFilter.apiBranchId })
       invoices.value = res.data ?? []
       total.value = res.total
     } catch (err) {

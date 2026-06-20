@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, provide } from 'vue'
+import { ref, computed, onMounted, watch, provide, markRaw } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { VueFlow, useVueFlow, MarkerType } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
@@ -10,7 +10,7 @@ import { getApiError } from '@/utils/errors'
 import { Plus, GitBranch, Save, Pencil, ArrowLeft } from 'lucide-vue-next'
 import { useWorkflowStore } from '@/stores/workflow'
 import type { WorkflowStep, WorkflowTransition } from '@/types/workflow'
-import type { Connection } from '@vue-flow/core'
+import type { Connection, NodeTypesObject, EdgeTypesObject } from '@vue-flow/core'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import StateNode from '@/components/workflow/StateNode.vue'
 import TransitionEdge from '@/components/workflow/TransitionEdge.vue'
@@ -31,8 +31,11 @@ const store = useWorkflowStore()
 const route = useRoute()
 const router = useRouter()
 
-const nodeTypes = { state: StateNode }
-const edgeTypes = { default: TransitionEdge }
+// vue-flow's NodeComponent/EdgeComponent constructor types don't line up with
+// vue-tsc's SFC inference; markRaw keeps the definitions non-reactive and the cast
+// satisfies the prop types. Runtime behaviour is unaffected.
+const nodeTypes = { state: markRaw(StateNode) } as NodeTypesObject
+const edgeTypes = { default: markRaw(TransitionEdge) } as EdgeTypesObject
 
 const defaultEdgeOptions = {
   type: 'default',

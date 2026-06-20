@@ -27,8 +27,9 @@ function prevMonth(m: string) {
 // Pad to at least 2 points so Unovis can render a line
 const data = computed<DataPoint[]>(() => {
   const raw = props.data ?? []
-  if (raw.length === 0) return []
-  if (raw.length === 1) return [{ month: prevMonth(raw[0].month), revenue: 0 }, raw[0]]
+  const first = raw[0]
+  if (!first) return []
+  if (raw.length === 1) return [{ month: prevMonth(first.month), revenue: 0 }, first]
   return raw
 })
 

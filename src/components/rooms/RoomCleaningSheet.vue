@@ -220,8 +220,8 @@ async function handleFrequencyChange(staffId: string, frequency: CleaningFrequen
         <div class="flex items-center gap-2 flex-wrap mt-auto pt-4 border-t">
           <Badge variant="outline" class="capitalize">{{ room?.type }}</Badge>
           <Badge variant="outline">{{ room?.capacity }} guest{{ room?.capacity === 1 ? '' : 's' }}</Badge>
-          <Badge :variant="room?.status === 'available' ? 'default' : 'secondary'" class="capitalize">
-            {{ room?.status?.replace('_', ' ') }}
+          <Badge :variant="room?.is_available ? 'default' : 'secondary'">
+            {{ room?.is_available ? 'Available' : 'Unavailable' }}
           </Badge>
         </div>
       </div>

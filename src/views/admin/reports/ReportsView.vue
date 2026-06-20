@@ -66,10 +66,13 @@ const invoiceSegments = computed<Seg[]>(() => {
 const totalInvoices = computed(() => invoiceSegments.value.reduce((s, x) => s + x.value, 0))
 
 // ── Room type revenue ─────────────────────────────────────────────────────────
+// Room data now lives on the booking's room assignments (a corporate booking can
+// span several rooms); attribute the booking's total to its lead room's type.
 const roomTypeRevenue = computed(() => {
   const map: Record<string, number> = {}
   bookingsStore.bookings.forEach(b => {
-    const room = roomsStore.rooms.find(r => r.id === b.room_id)
+    const roomId = b.assignments?.[0]?.room_id
+    const room = roomsStore.rooms.find(r => r.id === roomId)
     if (!room) return
     map[room.type] = (map[room.type] ?? 0) + b.total_amount
   })
@@ -80,9 +83,11 @@ const roomTypeRevenue = computed(() => {
 const topRooms = computed(() => {
   const map: Record<string, { name: string; count: number; revenue: number }> = {}
   bookingsStore.bookings.forEach(b => {
-    if (!map[b.room_name]) map[b.room_name] = { name: b.room_name, count: 0, revenue: 0 }
-    map[b.room_name].count++
-    map[b.room_name].revenue += b.total_amount
+    const roomName = b.assignments?.[0]?.room_name
+    if (!roomName) return
+    if (!map[roomName]) map[roomName] = { name: roomName, count: 0, revenue: 0 }
+    map[roomName].count++
+    map[roomName].revenue += b.total_amount
   })
   return Object.values(map).sort((a, b) => b.count - a.count).slice(0, 5)
 })

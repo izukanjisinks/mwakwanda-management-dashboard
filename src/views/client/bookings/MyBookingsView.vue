@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { useBookingsStore } from '@/stores/bookings'
-import type { BookingStatus } from '@/types/booking'
+import type { Booking, BookingStatus, BookingRoomAssignment } from '@/types/booking'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -28,12 +28,20 @@ const statusConfig: Record<BookingStatus, { label: string; variant: 'default' | 
   cancelled:   { label: 'Cancelled',   variant: 'destructive' },
 }
 
-function formatDate(d: string) {
+// Room and stay dates now come from the booking's lead room assignment.
+function leadAssignment(b: Booking): BookingRoomAssignment | undefined {
+  return b.assignments?.[0]
+}
+
+function formatDate(d?: string) {
+  if (!d) return '—'
   return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-function nights(checkIn: string, checkOut: string) {
-  const diff = new Date(checkOut).getTime() - new Date(checkIn).getTime()
+function nights(b: Booking): number | string {
+  const a = leadAssignment(b)
+  if (!a) return '—'
+  const diff = new Date(a.check_out).getTime() - new Date(a.check_in).getTime()
   return Math.round(diff / (1000 * 60 * 60 * 24))
 }
 </script>
@@ -51,7 +59,6 @@ function nights(checkIn: string, checkOut: string) {
             <TableHead>Check-In</TableHead>
             <TableHead>Check-Out</TableHead>
             <TableHead>Nights</TableHead>
-            <TableHead>Guests</TableHead>
             <TableHead>Total (ZMW)</TableHead>
             <TableHead>Status</TableHead>
           </TableRow>
@@ -59,7 +66,7 @@ function nights(checkIn: string, checkOut: string) {
         <TableBody>
           <template v-if="store.loading">
             <TableRow v-for="i in 4" :key="i">
-              <TableCell colspan="8">
+              <TableCell colspan="7">
                 <div class="h-4 rounded bg-muted animate-pulse" />
               </TableCell>
             </TableRow>
@@ -67,7 +74,7 @@ function nights(checkIn: string, checkOut: string) {
 
           <template v-else-if="bookings.length === 0">
             <TableRow>
-              <TableCell colspan="8" class="py-16 text-center text-muted-foreground">
+              <TableCell colspan="7" class="py-16 text-center text-muted-foreground">
                 You have no bookings yet.
               </TableCell>
             </TableRow>
@@ -76,11 +83,10 @@ function nights(checkIn: string, checkOut: string) {
           <template v-else>
             <TableRow v-for="booking in bookings" :key="booking.id">
               <TableCell class="font-mono text-sm">{{ booking.booking_number }}</TableCell>
-              <TableCell class="font-medium">{{ booking.room_name }}</TableCell>
-              <TableCell>{{ formatDate(booking.check_in) }}</TableCell>
-              <TableCell>{{ formatDate(booking.check_out) }}</TableCell>
-              <TableCell>{{ nights(booking.check_in, booking.check_out) }}</TableCell>
-              <TableCell>{{ booking.guests }}</TableCell>
+              <TableCell class="font-medium">{{ leadAssignment(booking)?.room_name || '—' }}</TableCell>
+              <TableCell>{{ formatDate(leadAssignment(booking)?.check_in) }}</TableCell>
+              <TableCell>{{ formatDate(leadAssignment(booking)?.check_out) }}</TableCell>
+              <TableCell>{{ nights(booking) }}</TableCell>
               <TableCell class="font-medium">{{ booking.total_amount.toLocaleString() }}</TableCell>
               <TableCell>
                 <Badge :variant="statusConfig[booking.status].variant">

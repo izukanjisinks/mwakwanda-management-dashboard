@@ -15,7 +15,7 @@ import { Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { getApiError } from '@/utils/errors'
 import { useIndividualClientsStore } from '@/stores/clients'
-import type { IndividualClient } from '@/types/client'
+import type { IndividualClient, IndividualClientPayload } from '@/types/client'
 
 const props = defineProps<{
   open: boolean
@@ -72,7 +72,11 @@ async function handleSave() {
 
   saving.value = true
   try {
-    const payload = { ...form.value, notes: form.value.notes.trim() || undefined }
+    const payload: IndividualClientPayload = {
+      ...form.value,
+      notes: form.value.notes.trim() || undefined,
+      status: props.client?.status ?? 'active',
+    }
     let saved: IndividualClient
     if (isEdit.value && props.client) {
       saved = await store.updateClient(props.client.id, payload)

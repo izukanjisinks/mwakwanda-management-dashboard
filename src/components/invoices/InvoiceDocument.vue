@@ -115,7 +115,6 @@ const s = {
           <Text :style="s.metaValue">{{ invoice.client_name }}</Text>
           <Text :style="s.metaSmall">{{ invoice.client_type === 'corporate' ? 'Corporate' : 'Individual' }}</Text>
           <Text v-if="invoice.client_email" :style="s.metaSmall">{{ invoice.client_email }}</Text>
-          <Text v-if="invoice.company_reg_number" :style="s.metaSmall">Reg: {{ invoice.company_reg_number }}</Text>
         </View>
         <View :style="s.metaBox">
           <Text :style="s.metaLabel">Dates</Text>

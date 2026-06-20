@@ -71,7 +71,6 @@ const nextActions = computed(() => {
             <p class="text-xs text-muted-foreground mb-1">Billed To</p>
             <p class="font-medium">{{ invoice.client_name }}</p>
             <p class="text-muted-foreground">{{ invoice.client_email }}</p>
-            <p v-if="invoice.company_reg_number" class="text-muted-foreground text-xs mt-0.5">Reg: {{ invoice.company_reg_number }}</p>
           </div>
           <div class="text-right">
             <p class="text-xs text-muted-foreground mb-1">Dates</p>

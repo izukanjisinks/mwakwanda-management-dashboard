@@ -37,7 +37,7 @@ const isEdit = computed(() => !!props.branch)
 // Server returns ISO strings like "0000-01-01T11:00:00Z" — extract HH:mm for the time input
 function parseTime(val?: string | null): string {
   if (!val) return ''
-  if (val.includes('T')) return val.split('T')[1].substring(0, 5)
+  if (val.includes('T')) return (val.split('T')[1] ?? '').substring(0, 5)
   return val.substring(0, 5)
 }
 

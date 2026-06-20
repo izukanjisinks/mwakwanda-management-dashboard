@@ -161,7 +161,7 @@ async function handleDelete() {
         <div class="flex flex-col gap-1.5 text-sm text-muted-foreground">
           <div class="flex items-start gap-2">
             <MapPin class="size-4 mt-0.5 shrink-0" />
-            <span>{{ branch.address }}, {{ branch.city }}, {{ branch.country }}</span>
+            <span>{{ branch.street_address }}, {{ branch.city }}, {{ branch.country }}</span>
           </div>
           <div v-if="branch.phone" class="flex items-center gap-2">
             <Phone class="size-4 shrink-0" />

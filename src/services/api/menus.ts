@@ -9,6 +9,7 @@ import type {
   PlaceInHouseOrderPayload,
   PlaceWalkInOrderPayload,
   AddOrderItemsPayload,
+  InHouseGuest,
 } from '@/types/menu'
 
 export interface MenuItemsParams extends Record<string, string | number | boolean | undefined> {
@@ -46,6 +47,9 @@ export const menusApi = {
     apiClient.delete<void>(`/menu/items/${itemId}`),
 
   // ── Orders ─────────────────────────────────────────────────────────────────
+  listInHouseGuests: () =>
+    apiClient.get<InHouseGuest[]>('/orders/in-house-guests'),
+
   listOrders: (params?: OrderListParams) =>
     apiClient.get<PaginatedOrders>('/orders', { params }),
 

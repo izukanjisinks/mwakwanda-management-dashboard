@@ -27,7 +27,7 @@ export type MenuCategory =
   | 'salad'
   | 'side_dish'
   | 'special'
-
+  | 'buffet'
 export const MENU_CATEGORIES: { value: MenuCategory; label: string }[] = [
   { value: 'appetizer', label: 'Appetizers (Starters)' },
   { value: 'soup', label: 'Soups' },
@@ -39,6 +39,7 @@ export const MENU_CATEGORIES: { value: MenuCategory; label: string }[] = [
   { value: 'breakfast', label: 'Breakfast' },
   { value: 'brunch', label: 'Brunch' },
   { value: 'special', label: "Chef's Special" },
+  { value: 'buffet', label: "Executive Buffet" },
 ]
 
 export interface MenuItem {
@@ -71,9 +72,12 @@ export interface Order {
   id: string
   order_number: string
   booking_id?: string
+  attendee_id?: string
   booking_number?: string
   room_name?: string
   client_name?: string
+  company_name?: string
+  attendee_name?: string
   type: 'in_house' | 'walk_in'
   status?: 'open' | 'closed'
   notes?: string
@@ -81,6 +85,15 @@ export interface Order {
   items: OrderItem[]
   created_at: string
   updated_at: string
+}
+
+export interface InHouseGuest {
+  BookingID: string
+  BookingNumber: string
+  AttendeeID: string | null
+  GuestName: string
+  RoomName: string
+  CompanyName: string
 }
 
 export interface PaginatedOrders {
@@ -112,6 +125,7 @@ export interface OrderItemInput {
 
 export interface PlaceInHouseOrderPayload {
   booking_id: string
+  attendee_id?: string
   notes?: string
   items: OrderItemInput[]
 }

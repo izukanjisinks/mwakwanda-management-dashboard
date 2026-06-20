@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { Search, Eye, ChevronLeft, ChevronRight, FileText } from 'lucide-vue-next'
+import { Search, Eye, ChevronLeft, ChevronRight, FileText, User, Building2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { getApiError } from '@/utils/errors'
 import { useInvoicesStore } from '@/stores/invoices'
@@ -31,6 +31,9 @@ import {
 const store = useInvoicesStore()
 const branchFilterStore = useBranchFilterStore()
 
+type ClientTab = 'individual' | 'corporate'
+const activeTab = ref<ClientTab>('individual')
+
 const detailOpen = ref(false)
 const selectedInvoice = ref<Invoice | null>(null)
 const pdfSheetOpen = ref(false)
@@ -42,11 +45,17 @@ const page = ref(1)
 const pageSize = 10
 
 function loadInvoices() {
-  store.fetchInvoices(page.value, pageSize, statusFilter.value === 'all' ? undefined : statusFilter.value)
+  store.fetchInvoices(
+    page.value,
+    pageSize,
+    statusFilter.value === 'all' ? undefined : statusFilter.value,
+    activeTab.value,
+  )
 }
 
 onMounted(loadInvoices)
 watch(page, loadInvoices)
+watch(activeTab, () => { page.value = 1; search.value = ''; loadInvoices() })
 watch(() => branchFilterStore.selectedBranchId, () => { page.value = 1; loadInvoices() })
 
 function setStatus(val: InvoiceStatus | 'all') {
@@ -110,6 +119,26 @@ const summary = computed(() => ({
 
   <div class="flex flex-col gap-6 p-6">
 
+    <!-- Tabs -->
+    <div class="flex items-center gap-1 bg-muted rounded-lg p-1 w-fit">
+      <button
+        class="flex items-center justify-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
+        :class="activeTab === 'individual' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'"
+        @click="activeTab = 'individual'"
+      >
+        <User class="size-4" />
+        Individual
+      </button>
+      <button
+        class="flex items-center justify-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
+        :class="activeTab === 'corporate' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'"
+        @click="activeTab = 'corporate'"
+      >
+        <Building2 class="size-4" />
+        Corporate
+      </button>
+    </div>
+
     <!-- Summary cards -->
     <div class="grid gap-4 sm:grid-cols-4">
       <div class="rounded-xl border bg-card px-5 py-4">
@@ -159,8 +188,7 @@ const summary = computed(() => ({
         <TableHeader>
           <TableRow class="bg-muted/30">
             <TableHead>Invoice No.</TableHead>
-            <TableHead>Client</TableHead>
-            <TableHead>Type</TableHead>
+            <TableHead>{{ activeTab === 'corporate' ? 'Company' : 'Client' }}</TableHead>
             <TableHead>Issued</TableHead>
             <TableHead>Due</TableHead>
             <TableHead>Amount (ZMW)</TableHead>
@@ -171,7 +199,7 @@ const summary = computed(() => ({
         <TableBody>
           <template v-if="store.loading">
             <TableRow v-for="i in 5" :key="i">
-              <TableCell colspan="8">
+              <TableCell colspan="7">
                 <div class="h-4 rounded bg-muted animate-pulse" />
               </TableCell>
             </TableRow>
@@ -179,8 +207,8 @@ const summary = computed(() => ({
 
           <template v-else-if="filtered.length === 0">
             <TableRow>
-              <TableCell colspan="8" class="py-16 text-center text-muted-foreground">
-                {{ store.invoices.length === 0 ? 'No invoices yet.' : 'No invoices match your filters.' }}
+              <TableCell colspan="7" class="py-16 text-center text-muted-foreground">
+                {{ store.invoices.length === 0 ? `No ${activeTab} invoices yet.` : 'No invoices match your filters.' }}
               </TableCell>
             </TableRow>
           </template>
@@ -193,8 +221,7 @@ const summary = computed(() => ({
               @click="openDetail(invoice)"
             >
               <TableCell class="font-mono text-sm">{{ invoice.invoice_number }}</TableCell>
-              <TableCell class="font-medium">{{ invoice.client_name }}</TableCell>
-              <TableCell class="capitalize text-muted-foreground text-sm">{{ invoice.client_type }}</TableCell>
+              <TableCell class="font-medium">{{ invoice.client_name || '—' }}</TableCell>
               <TableCell>{{ formatDate(invoice.issued_date) }}</TableCell>
               <TableCell :class="invoice.status === 'overdue' ? 'text-destructive font-medium' : ''">
                 {{ formatDate(invoice.due_date) }}
