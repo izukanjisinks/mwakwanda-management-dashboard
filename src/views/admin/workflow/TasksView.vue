@@ -1,13 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { toast } from 'vue-sonner'
-import { getApiError } from '@/utils/errors'
-import { CheckCircle2, XCircle, Clock, CheckCheck, InboxIcon, ChevronRight } from 'lucide-vue-next'
+import { Clock, CheckCheck, InboxIcon, ChevronRight } from 'lucide-vue-next'
 import { useWorkflowStore } from '@/stores/workflow'
-import type { WorkflowTask } from '@/types/workflow'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
-import TaskActionDialog from '@/components/workflow/TaskActionDialog.vue'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 
@@ -16,37 +12,12 @@ const router = useRouter()
 const store = useWorkflowStore()
 
 const activeTab = ref<'active' | 'completed'>('active')
-const actionDialog = ref(false)
-const selectedTask = ref<WorkflowTask | null>(null)
-const dialogAction = ref<'approve' | 'reject' | null>(null)
 
 const displayedTasks = computed(() =>
   activeTab.value === 'active' ? store.pendingTasks : store.completedTasks,
 )
 
 onMounted(() => store.fetchTasks())
-
-function openAction(task: WorkflowTask, action: 'approve' | 'reject') {
-  selectedTask.value = task
-  dialogAction.value = action
-  actionDialog.value = true
-}
-
-async function handleConfirm(action: string, comments: string) {
-  if (!selectedTask.value) return
-  const payload = { action, comments: comments || undefined }
-  console.log('[processTask] instance_id:', selectedTask.value.instance_id, 'payload:', payload)
-  try {
-    await store.processTask(selectedTask.value.instance_id, payload)
-    console.log('[processTask] success')
-    toast.success(action === 'approve' ? 'Booking approved.' : 'Booking rejected.')
-    actionDialog.value = false
-    selectedTask.value = null
-  } catch (err) {
-    console.error('[processTask] error', err)
-    toast.error(getApiError(err, 'Failed to process task.'))
-  }
-}
 
 function statusConfig(status: string) {
   switch (status) {
@@ -65,6 +36,7 @@ function fmt(d?: string) {
 </script>
 
 <template>
+  <div>
   <DashboardHeader title="Task Inbox" />
 
   <div class="flex flex-col gap-6 p-6">
@@ -158,30 +130,20 @@ function fmt(d?: string) {
           </div>
         </div>
 
-        <!-- Action buttons (active only) -->
-        <div v-if="activeTab === 'active'" class="flex gap-2 pt-1 border-t mt-auto">
+        <!-- View Details -->
+        <div class="pt-1 border-t mt-auto">
           <Button
-            variant="outline"
             size="sm"
-            class="flex-1 text-destructive border-destructive/30 hover:bg-destructive/5"
-            @click.stop="openAction(task, 'reject')"
+            variant="outline"
+            class="w-full"
+            @click.stop="router.push({ name: 'workflow-task-detail', params: { id: task.id } })"
           >
-            <XCircle class="size-4 mr-1.5" />
-            Reject
-          </Button>
-          <Button size="sm" class="flex-1" @click.stop="openAction(task, 'approve')">
-            <CheckCircle2 class="size-4 mr-1.5" />
-            Approve
+            View Details
           </Button>
         </div>
       </div>
     </div>
   </div>
+  </div>
 
-  <TaskActionDialog
-    v-model:open="actionDialog"
-    :task="selectedTask"
-    :action="dialogAction"
-    @confirm="handleConfirm"
-  />
 </template>

@@ -178,13 +178,13 @@ function resetPasswordForm() {
         <!-- Account Status -->
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
-            <CheckCircle v-if="userDetails.isActive" class="size-4 text-green-600" />
+            <CheckCircle v-if="userDetails.isActive" class="size-4 text-primary" />
             <AlertCircle v-else class="size-4 text-destructive" />
             <span class="text-sm font-medium">Account Status</span>
           </div>
           <span
             class="text-sm px-2.5 py-0.5 rounded-full font-medium"
-            :class="userDetails.isActive ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-destructive/10 text-destructive'"
+            :class="userDetails.isActive ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'"
           >
             {{ userDetails.isActive ? 'Active' : 'Inactive' }}
           </span>
