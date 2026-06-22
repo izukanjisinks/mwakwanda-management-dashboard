@@ -138,6 +138,46 @@ const eventGuests = computed<GuestRow[]>(() => {
   return normaliseGuests(p)
 })
 
+// ─── Event sessions (standalone event booking, Flow B) ────────────────────────
+interface EventSession {
+  event_name?: string
+  event_type?: string
+  event_date?: string
+  start_time?: string
+  end_time?: string
+  expected_attendees?: number
+  setup_type?: string
+  venue_id?: string
+  venue_name?: string
+  special_requirements?: string
+}
+interface EventBlock {
+  reason_for_booking?: string
+  start_date?: string
+  end_date?: string
+  schedule_mode?: string
+  notes?: string
+  sessions?: EventSession[]
+}
+
+// Event payload comes from whichever request type is loaded (corporate or
+// individual) — both store it under payload.event in the new envelope.
+const eventBlock = computed<EventBlock | null>(() => {
+  const p = (isCorporate.value
+    ? corporateRequest.value?.payload
+    : individualRequest.value?.payload) as Record<string, unknown> | undefined
+  return (p?.event as EventBlock) ?? null
+})
+
+const eventSessions = computed<EventSession[]>(() => eventBlock.value?.sessions ?? [])
+
+const isEvent = computed(() => {
+  const t = isCorporate.value
+    ? corporateRequest.value?.booking_type
+    : individualRequest.value?.booking_type
+  return t === 'event'
+})
+
 // Price-resolved meals view (menu item names + prices + totals), built server-side.
 const mealsSummary = computed(() => corporateRequest.value?.meals_summary ?? null)
 
@@ -396,24 +436,59 @@ onMounted(async () => {
                 <p class="text-xs text-muted-foreground mb-0.5">Phone</p>
                 <p>{{ individualRequest.booker_phone }}</p>
               </div>
-              <div v-if="individualDetails?.rooms.length || individualRequest.room_name">
-                <p class="text-xs text-muted-foreground mb-0.5">Room</p>
-                <p class="font-medium">
-                  {{ individualDetails?.rooms.map(r => r.name).filter(Boolean).join(', ') || individualRequest.room_name }}
-                </p>
-              </div>
-              <div v-if="individualDetails?.check_in">
-                <p class="text-xs text-muted-foreground mb-0.5">Check-in</p>
-                <div class="flex items-center gap-1.5">
-                  <CalendarDays class="size-3.5 text-muted-foreground" />
-                  <p>{{ fmt(individualDetails.check_in) }}</p>
+              <template v-if="!isEvent">
+                <div v-if="individualDetails?.rooms.length || individualRequest.room_name">
+                  <p class="text-xs text-muted-foreground mb-0.5">Room</p>
+                  <p class="font-medium">
+                    {{ individualDetails?.rooms.map(r => r.name).filter(Boolean).join(', ') || individualRequest.room_name }}
+                  </p>
                 </div>
+                <div v-if="individualDetails?.check_in">
+                  <p class="text-xs text-muted-foreground mb-0.5">Check-in</p>
+                  <div class="flex items-center gap-1.5">
+                    <CalendarDays class="size-3.5 text-muted-foreground" />
+                    <p>{{ fmt(individualDetails.check_in) }}</p>
+                  </div>
+                </div>
+                <div v-if="individualDetails?.check_out">
+                  <p class="text-xs text-muted-foreground mb-0.5">Check-out</p>
+                  <div class="flex items-center gap-1.5">
+                    <CalendarDays class="size-3.5 text-muted-foreground" />
+                    <p>{{ fmt(individualDetails.check_out) }}</p>
+                  </div>
+                </div>
+              </template>
+              <template v-else>
+                <div v-if="eventBlock?.start_date">
+                  <p class="text-xs text-muted-foreground mb-0.5">Start Date</p>
+                  <p>{{ fmt(eventBlock.start_date) }}</p>
+                </div>
+                <div v-if="eventBlock?.end_date">
+                  <p class="text-xs text-muted-foreground mb-0.5">End Date</p>
+                  <p>{{ fmt(eventBlock.end_date) }}</p>
+                </div>
+              </template>
+            </div>
+
+            <!-- Event sessions (individual event booking) -->
+            <div v-if="isEvent && eventSessions.length" class="rounded-xl border bg-muted/20 overflow-hidden">
+              <div class="px-4 py-2 text-xs text-muted-foreground font-medium uppercase tracking-wide bg-muted/40">
+                Sessions ({{ eventSessions.length }})
               </div>
-              <div v-if="individualDetails?.check_out">
-                <p class="text-xs text-muted-foreground mb-0.5">Check-out</p>
-                <div class="flex items-center gap-1.5">
-                  <CalendarDays class="size-3.5 text-muted-foreground" />
-                  <p>{{ fmt(individualDetails.check_out) }}</p>
+              <div class="divide-y">
+                <div v-for="(s, i) in eventSessions" :key="i" class="px-4 py-3 text-sm">
+                  <div class="flex items-center justify-between gap-2 mb-1">
+                    <span class="font-medium">{{ s.event_name || ('Session ' + (i + 1)) }}</span>
+                    <span class="text-xs text-muted-foreground capitalize">{{ (s.event_type || 'event').replace('_', ' ') }}</span>
+                  </div>
+                  <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                    <span v-if="s.event_date">{{ fmt(s.event_date) }}</span>
+                    <span v-if="s.start_time">{{ s.start_time }}<template v-if="s.end_time">–{{ s.end_time }}</template></span>
+                    <span v-if="s.venue_name">Venue: {{ s.venue_name }}</span>
+                    <span v-if="s.expected_attendees">{{ s.expected_attendees }} pax</span>
+                    <span v-if="s.setup_type" class="capitalize">{{ s.setup_type.replace('_', ' ') }}</span>
+                  </div>
+                  <p v-if="s.special_requirements" class="text-xs mt-1">{{ s.special_requirements }}</p>
                 </div>
               </div>
             </div>
@@ -559,28 +634,48 @@ onMounted(async () => {
                   </div>
                 </div>
               </template>
-              <!-- Event (conference, gala, wedding, … — event_type tells the kind) -->
+              <!-- Event — standalone booking (Flow B): one or more sessions, each
+                   with its own venue / date / time -->
               <template v-else-if="corporateRequest.booking_type === 'event'">
                 <div class="px-5 py-4 text-sm grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  <div v-if="(corporateRequest.payload as any).event_type">
-                    <p class="text-xs text-muted-foreground mb-0.5">Event Type</p>
-                    <p class="capitalize">{{ (corporateRequest.payload as any).event_type.replace('_', ' ') }}</p>
+                  <div v-if="eventBlock?.start_date">
+                    <p class="text-xs text-muted-foreground mb-0.5">Start Date</p>
+                    <p>{{ fmt(eventBlock.start_date) }}</p>
                   </div>
-                  <div v-if="(corporateRequest.payload as any).start_date">
-                    <p class="text-xs text-muted-foreground mb-0.5">Start</p>
-                    <p>{{ (corporateRequest.payload as any).start_date }} {{ (corporateRequest.payload as any).start_time }}</p>
+                  <div v-if="eventBlock?.end_date">
+                    <p class="text-xs text-muted-foreground mb-0.5">End Date</p>
+                    <p>{{ fmt(eventBlock.end_date) }}</p>
                   </div>
-                  <div v-if="(corporateRequest.payload as any).end_date || (corporateRequest.payload as any).end_time">
-                    <p class="text-xs text-muted-foreground mb-0.5">End</p>
-                    <p>{{ (corporateRequest.payload as any).end_date || (corporateRequest.payload as any).start_date }} {{ (corporateRequest.payload as any).end_time }}</p>
+                  <div v-if="eventBlock?.schedule_mode">
+                    <p class="text-xs text-muted-foreground mb-0.5">Schedule</p>
+                    <p class="capitalize">{{ eventBlock.schedule_mode.replace('_', ' ') }}</p>
                   </div>
-                  <div v-if="(corporateRequest.payload as any).headcount">
-                    <p class="text-xs text-muted-foreground mb-0.5">Headcount</p>
-                    <p>{{ (corporateRequest.payload as any).headcount }}</p>
+                  <div v-if="eventBlock?.reason_for_booking" class="col-span-2 sm:col-span-3">
+                    <p class="text-xs text-muted-foreground mb-0.5">Reason</p>
+                    <p>{{ eventBlock.reason_for_booking }}</p>
                   </div>
-                  <div v-if="(corporateRequest.payload as any).catering_required">
-                    <p class="text-xs text-muted-foreground mb-0.5">Catering</p>
-                    <p>Required</p>
+                </div>
+
+                <!-- Sessions -->
+                <div v-if="eventSessions.length" class="border-t">
+                  <div class="px-5 py-2 text-xs text-muted-foreground font-medium uppercase tracking-wide bg-muted/40">
+                    Sessions ({{ eventSessions.length }})
+                  </div>
+                  <div class="divide-y">
+                    <div v-for="(s, i) in eventSessions" :key="i" class="px-5 py-3 text-sm">
+                      <div class="flex items-center justify-between gap-2 mb-1">
+                        <span class="font-medium">{{ s.event_name || ('Session ' + (i + 1)) }}</span>
+                        <span class="text-xs text-muted-foreground capitalize">{{ (s.event_type || 'event').replace('_', ' ') }}</span>
+                      </div>
+                      <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                        <span v-if="s.event_date">{{ fmt(s.event_date) }}</span>
+                        <span v-if="s.start_time">{{ s.start_time }}<template v-if="s.end_time">–{{ s.end_time }}</template></span>
+                        <span v-if="s.venue_name">Venue: {{ s.venue_name }}</span>
+                        <span v-if="s.expected_attendees">{{ s.expected_attendees }} pax</span>
+                        <span v-if="s.setup_type" class="capitalize">{{ s.setup_type.replace('_', ' ') }}</span>
+                      </div>
+                      <p v-if="s.special_requirements" class="text-xs mt-1">{{ s.special_requirements }}</p>
+                    </div>
                   </div>
                 </div>
 
