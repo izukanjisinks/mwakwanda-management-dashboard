@@ -39,20 +39,72 @@ const isCorporate = computed(() => task.value?.task_details?.task_type === 'corp
 
 // ─── Corporate room assignment (accommodation) ────────────────────────────────
 interface GuestRow {
-  first_name: string
-  last_name: string
+  full_name: string
   identification_card?: string
   email?: string
+  phone?: string
   check_in?: string
   check_out?: string
   room_type?: string
 }
 
+// New envelope shapes. Attendants carry full_name; dates + room type live in the
+// shared accommodation block, not per attendant.
+interface AttendantRow {
+  full_name?: string
+  email?: string
+  phone?: string
+  id_number?: string
+}
+interface AccommodationBlock {
+  check_in?: string
+  check_out?: string
+  room_count?: number
+  room_type_preference?: string
+}
+
+// normaliseGuests maps the corporate request payload to a flat GuestRow list,
+// supporting both the new envelope (attendants[] + shared accommodation block)
+// and the legacy shape (guests[] each with their own first/last name + dates).
+function normaliseGuests(p: Record<string, unknown> | undefined): GuestRow[] {
+  if (!p) return []
+  const acc = p.accommodation as AccommodationBlock | undefined
+
+  // New shape: attendants[] with a shared accommodation block.
+  const attendants = p.attendants as AttendantRow[] | undefined
+  if (Array.isArray(attendants) && attendants.length) {
+    return attendants.map((a) => ({
+      full_name: a.full_name ?? '',
+      identification_card: a.id_number,
+      email: a.email,
+      phone: a.phone,
+      check_in: acc?.check_in,
+      check_out: acc?.check_out,
+      room_type: acc?.room_type_preference,
+    }))
+  }
+
+  // Legacy shape: guests[] each with first/last name + per-guest dates.
+  const legacy = p.guests as Array<Record<string, string>> | undefined
+  if (Array.isArray(legacy) && legacy.length) {
+    return legacy.map((g) => ({
+      full_name: [g.first_name, g.last_name].filter(Boolean).join(' '),
+      identification_card: g.identification_card,
+      email: g.email,
+      check_in: g.check_in,
+      check_out: g.check_out,
+      room_type: g.room_type,
+    }))
+  }
+
+  return []
+}
+
 const corporateGuests = computed<GuestRow[]>(() => {
   if (!isCorporate.value) return []
-  const p = corporateRequest.value?.payload as Record<string, unknown> | undefined
   if (corporateRequest.value?.booking_type !== 'accommodation') return []
-  return (p?.guests as GuestRow[]) ?? []
+  const p = corporateRequest.value?.payload as Record<string, unknown> | undefined
+  return normaliseGuests(p)
 })
 
 const isAccommodation = computed(() =>
@@ -63,7 +115,7 @@ const isAccommodation = computed(() =>
 const eventGuests = computed<GuestRow[]>(() => {
   if (corporateRequest.value?.booking_type !== 'event') return []
   const p = corporateRequest.value?.payload as Record<string, unknown> | undefined
-  return (p?.guests as GuestRow[]) ?? []
+  return normaliseGuests(p)
 })
 
 // Price-resolved meals view (menu item names + prices + totals), built server-side.
@@ -455,7 +507,7 @@ onMounted(async () => {
                     :key="i"
                     class="grid grid-cols-12 gap-2 px-5 py-3 text-sm items-center"
                   >
-                    <div class="col-span-3 font-medium">{{ g.first_name }} {{ g.last_name }}</div>
+                    <div class="col-span-3 font-medium">{{ g.full_name || '—' }}</div>
                     <div class="col-span-2 text-muted-foreground text-xs font-mono">{{ g.identification_card || '—' }}</div>
                     <div class="col-span-2 text-muted-foreground text-xs">{{ g.check_in || '—' }}</div>
                     <div class="col-span-2 text-muted-foreground text-xs">{{ g.check_out || '—' }}</div>
@@ -521,7 +573,7 @@ onMounted(async () => {
                       :key="i"
                       class="flex items-center justify-between px-5 py-2.5 text-sm"
                     >
-                      <span class="font-medium">{{ g.first_name }} {{ g.last_name }}</span>
+                      <span class="font-medium">{{ g.full_name || '—' }}</span>
                       <span class="text-xs text-muted-foreground font-mono">{{ g.identification_card || g.email || '' }}</span>
                     </div>
                   </div>

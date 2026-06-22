@@ -3,7 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import {
   Eye, Search, ChevronLeft, ChevronRight, Building2, User, Theater,
   BedDouble, CalendarDays, LogIn, LogOut, Loader2, Plus, MapPin, Users,
-  Clock, UtensilsCrossed,
+  Clock, UtensilsCrossed, Download,
 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { useBookingsStore } from '@/stores/bookings'
@@ -63,6 +63,36 @@ function setStatus(val: unknown) {
   statusFilter.value = val as BookingStatus | 'all'
   page.value = 1
   loadBookings()
+}
+
+// ── CSV export ────────────────────────────────────────────────────────────────
+const exportFrom = ref('') // YYYY-MM-DD
+const exportTo = ref('')
+const exporting = ref(false)
+
+async function onExport() {
+  exporting.value = true
+  try {
+    // Map the active tab to the API's booker_type / booking_type so the export
+    // gets the column set matching the table on screen.
+    const params: Record<string, string | undefined> = {
+      status: statusFilter.value === 'all' ? undefined : statusFilter.value,
+      branch_id: branchFilterStore.apiBranchId,
+      from: exportFrom.value || undefined,
+      to: exportTo.value || undefined,
+    }
+    if (activeTab.value === 'events') {
+      params.booking_type = 'event'
+    } else {
+      params.booker_type = activeTab.value // 'individual' | 'corporate'
+    }
+    await bookingApi.exportCsv(params)
+    toast.success('Export started.')
+  } catch (err) {
+    toast.error(getApiError(err, 'Failed to export bookings.'))
+  } finally {
+    exporting.value = false
+  }
 }
 
 // Client-side search over the loaded page
@@ -326,7 +356,31 @@ function syncRowStatus(id: string, status: BookingStatus) {
         </SelectContent>
       </Select>
 
-      <Button v-if="activeTab === 'individual'" class="ml-auto" @click="walkInOpen = true">
+      <!-- Export controls: created_at date range + CSV download for the active tab -->
+      <div class="flex items-center gap-2 ml-auto">
+        <Input
+          v-model="exportFrom"
+          type="date"
+          class="w-40"
+          title="Bookings created from"
+          aria-label="From date"
+        />
+        <span class="text-muted-foreground text-sm">–</span>
+        <Input
+          v-model="exportTo"
+          type="date"
+          class="w-40"
+          title="Bookings created up to"
+          aria-label="To date"
+        />
+        <Button variant="outline" :disabled="exporting" @click="onExport">
+          <Loader2 v-if="exporting" class="size-4 mr-2 animate-spin" />
+          <Download v-else class="size-4 mr-2" />
+          Export CSV
+        </Button>
+      </div>
+
+      <Button v-if="activeTab === 'individual'" @click="walkInOpen = true">
         <Plus class="size-4 mr-2" />
         New Booking
       </Button>

@@ -1,4 +1,5 @@
 import { apiClient } from './client'
+import { downloadFile } from './download'
 import type {
   Booking, BookingStatusUpdate, PaginatedBookings,
   BookingRoomAssignment, BookingAttendee, CreateIndividualBookingPayload,
@@ -13,9 +14,24 @@ export interface BookingListParams extends Record<string, string | number | bool
   branch_id?: string
 }
 
+// Filters for a CSV export — same shape as the list, minus pagination.
+export interface BookingExportParams {
+  booker_type?: string
+  booking_type?: string
+  status?: string
+  branch_id?: string
+  from?: string   // YYYY-MM-DD
+  to?: string     // YYYY-MM-DD
+}
+
 export const bookingApi = {
   list: (params?: BookingListParams) =>
     apiClient.get<PaginatedBookings>('/bookings', { params }),
+
+  // Streams a CSV download (columns vary by booker/booking type). Bypasses the
+  // JSON apiClient since the response is a file, not JSON.
+  exportCsv: (params: BookingExportParams = {}) =>
+    downloadFile('/bookings', { ...params, format: 'csv' }),
 
   get: (id: string) =>
     apiClient.get<Booking>(`/bookings/${id}`),
