@@ -133,8 +133,8 @@ function resetPasswordForm() {
       <CardContent class="space-y-4">
         <div class="grid gap-4 sm:grid-cols-2">
           <div class="flex items-start gap-3">
-            <div class="size-9 rounded-lg bg-accent flex items-center justify-center shrink-0 mt-0.5">
-              <Mail class="size-4 text-muted-foreground" />
+            <div class="size-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+              <Mail class="size-4 text-primary" />
             </div>
             <div class="flex-1 min-w-0">
               <p class="text-sm text-muted-foreground">Email Address</p>
@@ -143,28 +143,28 @@ function resetPasswordForm() {
           </div>
 
           <div class="flex items-start gap-3">
-            <div class="size-9 rounded-lg bg-accent flex items-center justify-center shrink-0 mt-0.5">
-              <Shield class="size-4 text-muted-foreground" />
+            <div class="size-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+              <Shield class="size-4 text-primary" />
             </div>
             <div class="flex-1 min-w-0">
-              <p class="text-sm text-muted-foreground">Role</p>
+              <p class="text-sm text-primary">Role</p>
               <p class="font-medium capitalize">{{ userDetails.role }}</p>
             </div>
           </div>
 
           <div class="flex items-start gap-3">
-            <div class="size-9 rounded-lg bg-accent flex items-center justify-center shrink-0 mt-0.5">
-              <User class="size-4 text-muted-foreground" />
+            <div class="size-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+              <User class="size-4 text-primary" />
             </div>
             <div class="flex-1 min-w-0">
-              <p class="text-sm text-muted-foreground">Full Name</p>
+              <p class="text-sm text-primary">Full Name</p>
               <p class="font-medium">{{ userDetails.fullName }}</p>
             </div>
           </div>
 
           <div class="flex items-start gap-3">
-            <div class="size-9 rounded-lg bg-accent flex items-center justify-center shrink-0 mt-0.5">
-              <Calendar class="size-4 text-muted-foreground" />
+            <div class="size-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+              <Calendar class="size-4 text-primary" />
             </div>
             <div class="flex-1 min-w-0">
               <p class="text-sm text-muted-foreground">Account Created</p>
@@ -178,13 +178,13 @@ function resetPasswordForm() {
         <!-- Account Status -->
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
-            <CheckCircle v-if="userDetails.isActive" class="size-4 text-green-600" />
+            <CheckCircle v-if="userDetails.isActive" class="size-4 text-primary" />
             <AlertCircle v-else class="size-4 text-destructive" />
             <span class="text-sm font-medium">Account Status</span>
           </div>
           <span
             class="text-sm px-2.5 py-0.5 rounded-full font-medium"
-            :class="userDetails.isActive ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-destructive/10 text-destructive'"
+            :class="userDetails.isActive ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'"
           >
             {{ userDetails.isActive ? 'Active' : 'Inactive' }}
           </span>
