@@ -1,14 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { Clock, CheckCheck, InboxIcon, ChevronRight } from 'lucide-vue-next'
+import { Clock, CheckCheck, XCircle, InboxIcon, ChevronRight } from 'lucide-vue-next'
 import { useWorkflowStore } from '@/stores/workflow'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 
 const router = useRouter()
-
 const store = useWorkflowStore()
 
 const activeTab = ref<'active' | 'completed'>('active')
@@ -16,6 +15,19 @@ const activeTab = ref<'active' | 'completed'>('active')
 const displayedTasks = computed(() =>
   activeTab.value === 'active' ? store.pendingTasks : store.completedTasks,
 )
+
+const VIEWED_KEY = 'workflow_viewed_tasks'
+const viewedIds = ref<Set<string>>(new Set(JSON.parse(localStorage.getItem(VIEWED_KEY) ?? '[]')))
+
+function isNew(taskId: string) {
+  return !viewedIds.value.has(taskId)
+}
+
+function openTask(taskId: string) {
+  viewedIds.value.add(taskId)
+  localStorage.setItem(VIEWED_KEY, JSON.stringify([...viewedIds.value]))
+  router.push({ name: 'workflow-task-detail', params: { id: taskId } })
+}
 
 onMounted(() => store.fetchTasks())
 
@@ -80,9 +92,17 @@ function fmt(d?: string) {
       <div
         v-for="task in displayedTasks"
         :key="task.id"
-        class="rounded-xl border bg-card p-5 flex flex-col gap-4 cursor-pointer hover:border-primary/40 transition-colors"
-        @click="router.push({ name: 'workflow-task-detail', params: { id: task.id } })"
+        class="relative rounded-xl border bg-card p-5 flex flex-col gap-4 cursor-pointer hover:border-primary/40 transition-colors"
+        @click="openTask(task.id)"
       >
+        <!-- New chip -->
+        <span
+          v-if="activeTab === 'active' && isNew(task.id)"
+          class="absolute -top-2 -right-2 z-10 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-green-500 text-white shadow-sm"
+        >
+          New
+        </span>
+
         <!-- Header -->
         <div class="flex items-start justify-between gap-2">
           <div>
@@ -136,7 +156,7 @@ function fmt(d?: string) {
             size="sm"
             variant="outline"
             class="w-full"
-            @click.stop="router.push({ name: 'workflow-task-detail', params: { id: task.id } })"
+            @click.stop="openTask(task.id)"
           >
             View Details
           </Button>
