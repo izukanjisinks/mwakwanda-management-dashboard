@@ -142,11 +142,35 @@ export interface IndividualBookingRequest {
   status: 'pending' | 'approved' | 'rejected' | 'cancelled'
   notes?: string
   documents?: string[]
+  // Unified envelope from accommodationBooking.js. Legacy flat fields
+  // (room_id/check_in at top level) are kept optional for old requests.
   payload?: {
-    room_id: string
-    check_in: string
-    check_out: string
+    room_id?: string
+    check_in?: string
+    check_out?: string
     special_requests?: string
+    booked_by?: { name?: string; email?: string; phone?: string }
+    participant_mode?: string
+    attendants?: Array<{
+      full_name?: string
+      email?: string
+      phone?: string
+      id_number?: string
+      is_lead_contact?: boolean
+    }>
+    accommodation?: {
+      check_in?: string
+      check_out?: string
+      notes?: string
+      rooms?: Array<{
+        room_id: string
+        room_name?: string
+        room_type?: string
+        rate_per_night?: number
+        attendant_idx?: number
+        slot_index?: number
+      }>
+    }
   }
   room_name?: string
   created_at: string

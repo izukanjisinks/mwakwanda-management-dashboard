@@ -37,6 +37,26 @@ const corporateRequest = ref<CorporateBookingRequest | null>(null)
 
 const isCorporate = computed(() => task.value?.task_details?.task_type === 'corporate_booking')
 
+// ─── Individual accommodation details ─────────────────────────────────────────
+// Reads the unified envelope (payload.accommodation.*) and falls back to the
+// legacy flat payload (check_in/special_requests at top level) for old requests.
+const individualDetails = computed(() => {
+  const p = individualRequest.value?.payload
+  if (!p) return null
+  const acc = p.accommodation
+  const rooms = acc?.rooms ?? []
+  return {
+    check_in: acc?.check_in ?? p.check_in ?? '',
+    check_out: acc?.check_out ?? p.check_out ?? '',
+    notes: acc?.notes ?? p.special_requests ?? '',
+    // Guest pre-selects rooms on the website; show the first room's name as the
+    // headline, but keep the full list for multi-room bookings.
+    rooms: rooms.length
+      ? rooms.map(r => ({ name: r.room_name ?? '', type: r.room_type ?? '', rate: r.rate_per_night }))
+      : [],
+  }
+})
+
 // ─── Corporate room assignment (accommodation) ────────────────────────────────
 interface GuestRow {
   full_name: string
@@ -376,28 +396,30 @@ onMounted(async () => {
                 <p class="text-xs text-muted-foreground mb-0.5">Phone</p>
                 <p>{{ individualRequest.booker_phone }}</p>
               </div>
-              <div v-if="individualRequest.room_name">
+              <div v-if="individualDetails?.rooms.length || individualRequest.room_name">
                 <p class="text-xs text-muted-foreground mb-0.5">Room</p>
-                <p class="font-medium">{{ individualRequest.room_name }}</p>
+                <p class="font-medium">
+                  {{ individualDetails?.rooms.map(r => r.name).filter(Boolean).join(', ') || individualRequest.room_name }}
+                </p>
               </div>
-              <div v-if="individualRequest.payload?.check_in">
+              <div v-if="individualDetails?.check_in">
                 <p class="text-xs text-muted-foreground mb-0.5">Check-in</p>
                 <div class="flex items-center gap-1.5">
                   <CalendarDays class="size-3.5 text-muted-foreground" />
-                  <p>{{ fmt(individualRequest.payload.check_in) }}</p>
+                  <p>{{ fmt(individualDetails.check_in) }}</p>
                 </div>
               </div>
-              <div v-if="individualRequest.payload?.check_out">
+              <div v-if="individualDetails?.check_out">
                 <p class="text-xs text-muted-foreground mb-0.5">Check-out</p>
                 <div class="flex items-center gap-1.5">
                   <CalendarDays class="size-3.5 text-muted-foreground" />
-                  <p>{{ fmt(individualRequest.payload.check_out) }}</p>
+                  <p>{{ fmt(individualDetails.check_out) }}</p>
                 </div>
               </div>
             </div>
-            <div v-if="individualRequest.payload?.special_requests" class="pt-3 border-t text-sm">
+            <div v-if="individualDetails?.notes" class="pt-3 border-t text-sm">
               <p class="text-xs text-muted-foreground mb-0.5">Special Requests</p>
-              <p>{{ individualRequest.payload.special_requests }}</p>
+              <p>{{ individualDetails.notes }}</p>
             </div>
             <div v-if="individualRequest.notes" class="pt-3 border-t text-sm">
               <p class="text-xs text-muted-foreground mb-0.5">Notes</p>
