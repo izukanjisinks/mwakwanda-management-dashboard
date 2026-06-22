@@ -133,8 +133,8 @@ function resetPasswordForm() {
       <CardContent class="space-y-4">
         <div class="grid gap-4 sm:grid-cols-2">
           <div class="flex items-start gap-3">
-            <div class="size-9 rounded-lg bg-accent flex items-center justify-center shrink-0 mt-0.5">
-              <Mail class="size-4 text-muted-foreground" />
+            <div class="size-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+              <Mail class="size-4 text-primary" />
             </div>
             <div class="flex-1 min-w-0">
               <p class="text-sm text-muted-foreground">Email Address</p>
@@ -143,28 +143,28 @@ function resetPasswordForm() {
           </div>
 
           <div class="flex items-start gap-3">
-            <div class="size-9 rounded-lg bg-accent flex items-center justify-center shrink-0 mt-0.5">
-              <Shield class="size-4 text-muted-foreground" />
+            <div class="size-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+              <Shield class="size-4 text-primary" />
             </div>
             <div class="flex-1 min-w-0">
-              <p class="text-sm text-muted-foreground">Role</p>
+              <p class="text-sm text-primary">Role</p>
               <p class="font-medium capitalize">{{ userDetails.role }}</p>
             </div>
           </div>
 
           <div class="flex items-start gap-3">
-            <div class="size-9 rounded-lg bg-accent flex items-center justify-center shrink-0 mt-0.5">
-              <User class="size-4 text-muted-foreground" />
+            <div class="size-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+              <User class="size-4 text-primary" />
             </div>
             <div class="flex-1 min-w-0">
-              <p class="text-sm text-muted-foreground">Full Name</p>
+              <p class="text-sm text-primary">Full Name</p>
               <p class="font-medium">{{ userDetails.fullName }}</p>
             </div>
           </div>
 
           <div class="flex items-start gap-3">
-            <div class="size-9 rounded-lg bg-accent flex items-center justify-center shrink-0 mt-0.5">
-              <Calendar class="size-4 text-muted-foreground" />
+            <div class="size-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+              <Calendar class="size-4 text-primary" />
             </div>
             <div class="flex-1 min-w-0">
               <p class="text-sm text-muted-foreground">Account Created</p>
