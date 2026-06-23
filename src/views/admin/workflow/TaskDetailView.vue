@@ -19,7 +19,7 @@ import {
 import {
   ArrowLeft, FileText, ImageIcon, ExternalLink,
   CheckCircle2, XCircle, Clock, Building2, User, CalendarDays,
-  BedDouble, Users, Loader2, UtensilsCrossed,
+  BedDouble, Users, Loader2, UtensilsCrossed, Theater,
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -176,6 +176,41 @@ const isEvent = computed(() => {
     ? corporateRequest.value?.booking_type
     : individualRequest.value?.booking_type
   return t === 'event'
+})
+
+// ─── Meal sessions (standalone meal booking, Flow B) ─────────────────────────
+interface MealSession {
+  session_name?: string
+  meal_date?: string
+  meal_period?: string
+  service_type?: string
+  pax_count?: number
+  dietary_notes?: string
+  arrangements_notes?: string
+}
+interface MealBlock {
+  reason_for_booking?: string
+  start_date?: string
+  end_date?: string
+  schedule_mode?: string
+  notes?: string
+  sessions?: MealSession[]
+}
+
+const mealBlock = computed<MealBlock | null>(() => {
+  const p = (isCorporate.value
+    ? corporateRequest.value?.payload
+    : individualRequest.value?.payload) as Record<string, unknown> | undefined
+  return (p?.meal as MealBlock) ?? null
+})
+
+const mealSessions = computed<MealSession[]>(() => mealBlock.value?.sessions ?? [])
+
+const isMeal = computed(() => {
+  const t = isCorporate.value
+    ? corporateRequest.value?.booking_type
+    : individualRequest.value?.booking_type
+  return t === 'meals'
 })
 
 // Price-resolved meals view (menu item names + prices + totals), built server-side.
@@ -416,7 +451,9 @@ onMounted(async () => {
           <!-- Individual booking request details -->
           <div v-if="!isCorporate && individualRequest" class="rounded-xl border bg-card p-6 flex flex-col gap-4">
             <div class="flex items-center gap-2 mb-1">
-              <BedDouble class="size-4 text-primary" />
+              <UtensilsCrossed v-if="isMeal" class="size-4 text-primary" />
+              <Theater v-else-if="isEvent" class="size-4 text-primary" />
+              <BedDouble v-else class="size-4 text-primary" />
               <h3 class="font-semibold">Booking Request</h3>
               <Badge :variant="statusVariant(individualRequest.status)" class="ml-auto capitalize text-xs">
                 {{ individualRequest.status }}
@@ -436,7 +473,7 @@ onMounted(async () => {
                 <p class="text-xs text-muted-foreground mb-0.5">Phone</p>
                 <p>{{ individualRequest.booker_phone }}</p>
               </div>
-              <template v-if="!isEvent">
+              <template v-if="!isEvent && !isMeal">
                 <div v-if="individualDetails?.rooms.length || individualRequest.room_name">
                   <p class="text-xs text-muted-foreground mb-0.5">Room</p>
                   <p class="font-medium">
@@ -458,7 +495,7 @@ onMounted(async () => {
                   </div>
                 </div>
               </template>
-              <template v-else>
+              <template v-else-if="isEvent">
                 <div v-if="eventBlock?.start_date">
                   <p class="text-xs text-muted-foreground mb-0.5">Start Date</p>
                   <p>{{ fmt(eventBlock.start_date) }}</p>
@@ -468,6 +505,42 @@ onMounted(async () => {
                   <p>{{ fmt(eventBlock.end_date) }}</p>
                 </div>
               </template>
+              <template v-else-if="isMeal">
+                <div v-if="mealBlock?.start_date">
+                  <p class="text-xs text-muted-foreground mb-0.5">Start Date</p>
+                  <p>{{ fmt(mealBlock.start_date) }}</p>
+                </div>
+                <div v-if="mealBlock?.end_date">
+                  <p class="text-xs text-muted-foreground mb-0.5">End Date</p>
+                  <p>{{ fmt(mealBlock.end_date) }}</p>
+                </div>
+                <div v-if="mealSessions.length">
+                  <p class="text-xs text-muted-foreground mb-0.5">Sessions</p>
+                  <p class="font-medium">{{ mealSessions.length }} meal session{{ mealSessions.length !== 1 ? 's' : '' }}</p>
+                </div>
+              </template>
+            </div>
+
+            <!-- Meal sessions (individual meal booking) -->
+            <div v-if="isMeal && mealSessions.length" class="rounded-xl border bg-muted/20 overflow-hidden">
+              <div class="px-4 py-2 text-xs text-muted-foreground font-medium uppercase tracking-wide bg-muted/40">
+                Meal Sessions ({{ mealSessions.length }})
+              </div>
+              <div class="divide-y">
+                <div v-for="(s, i) in mealSessions" :key="i" class="px-4 py-3 text-sm">
+                  <div class="flex items-center justify-between gap-2 mb-1">
+                    <span class="font-medium">{{ s.session_name || fmt(s.meal_date || '') }}</span>
+                    <span class="text-xs text-muted-foreground capitalize">{{ (s.meal_period || '').replace('_', ' ') }}</span>
+                  </div>
+                  <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                    <span v-if="s.meal_date">{{ fmt(s.meal_date) }}</span>
+                    <span v-if="s.service_type" class="capitalize">{{ s.service_type.replace('_', ' ') }}</span>
+                    <span v-if="s.pax_count">{{ s.pax_count }} pax</span>
+                  </div>
+                  <p v-if="s.dietary_notes" class="text-xs mt-1 text-muted-foreground">{{ s.dietary_notes }}</p>
+                  <p v-if="s.arrangements_notes" class="text-xs mt-1">{{ s.arrangements_notes }}</p>
+                </div>
+              </div>
             </div>
 
             <!-- Event sessions (individual event booking) -->
