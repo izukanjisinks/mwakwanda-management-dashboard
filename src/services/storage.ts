@@ -47,3 +47,15 @@ export async function deleteVenueImage(url: string): Promise<void> {
 export async function deleteAllVenueImages(urls: string[]): Promise<void> {
   await Promise.all(urls.map(u => deleteRoomImage(u)))
 }
+
+export async function uploadOrgLogo(orgId: string, file: File): Promise<string> {
+  const ext = file.name.split('.').pop()
+  const filename = `${randomUUID()}.${ext}`
+  const ref = storageRef(storage, `organisations/${orgId}/${filename}`)
+  await uploadBytes(ref, file)
+  return getDownloadURL(ref)
+}
+
+export async function deleteOrgLogo(url: string): Promise<void> {
+  return deleteRoomImage(url)
+}

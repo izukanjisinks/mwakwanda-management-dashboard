@@ -77,6 +77,13 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     if (idx !== -1) organisations.value[idx] = res
   }
 
+  async function updateOrgLogo(id: string, logo_url: string) {
+    const res = await backofficeApi.updateOrganisation(id, { logo_url })
+    const idx = organisations.value.findIndex(o => o.id === id)
+    if (idx !== -1) organisations.value[idx] = res
+    return res
+  }
+
   // Provisioning
   async function provision(payload: Parameters<typeof backofficeApi.provision>[0]) {
     loading.value = true
@@ -145,6 +152,7 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     logout,
     fetchOrganisations,
     toggleOrgStatus,
+    updateOrgLogo,
     provision,
     fetchAdmins,
     createAdmin,

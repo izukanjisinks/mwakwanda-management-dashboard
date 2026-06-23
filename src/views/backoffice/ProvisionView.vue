@@ -2,12 +2,13 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useBackofficeStore } from '@/stores/backoffice'
-import { Loader2, CheckCircle, ChevronRight, ChevronLeft } from 'lucide-vue-next'
+import { Loader2, CheckCircle, ChevronRight, ChevronLeft, ImagePlus, X } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import MapLocationPicker from '@/components/branches/MapLocationPicker.vue'
+import { uploadOrgLogo } from '@/services/storage'
 
 const router = useRouter()
 const store = useBackofficeStore()
@@ -15,6 +16,34 @@ const store = useBackofficeStore()
 const step = ref(1)
 const TOTAL_STEPS = 2
 const stepLabels = ['Organisation Details', 'Admin Account']
+
+// ── Logo picker state ─────────────────────────────────────────────────────────
+const logoFile = ref<File | null>(null)
+const logoPreview = ref<string>('')
+const logoDragging = ref(false)
+const logoInput = ref<HTMLInputElement | null>(null)
+
+const LOGO_ACCEPTED = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml']
+const LOGO_MAX = 5 * 1024 * 1024
+
+function onLogoFiles(files: FileList | File[]) {
+  const file = Array.from(files)[0]
+  if (!file) return
+  if (!LOGO_ACCEPTED.includes(file.type)) {
+    return
+  }
+  if (file.size > LOGO_MAX) return
+  if (logoPreview.value) URL.revokeObjectURL(logoPreview.value)
+  logoFile.value = file
+  logoPreview.value = URL.createObjectURL(file)
+}
+
+function clearLogo() {
+  if (logoPreview.value) URL.revokeObjectURL(logoPreview.value)
+  logoFile.value = null
+  logoPreview.value = ''
+  if (logoInput.value) logoInput.value.value = ''
+}
 
 interface OrgForm {
   name: string
@@ -66,12 +95,13 @@ async function submit() {
   submitting.value = true
   submitError.value = ''
   try {
+    // Provision first to get the org id, then upload logo if provided.
     const res = await store.provision({
       organization: {
         name:           org.value.name.trim(),
         email:          org.value.email.trim(),
         phone:          org.value.phone?.trim()        || undefined,
-        logo_url:       org.value.logo_url?.trim()     || undefined,
+        logo_url:       undefined,
         street_address: org.value.street_address.trim(),
         city:           org.value.city.trim(),
         country:        org.value.country.trim(),
@@ -83,6 +113,16 @@ async function submit() {
       },
       admin: { full_name: admin.value.full_name, email: admin.value.email },
     })
+
+    if (logoFile.value) {
+      try {
+        const url = await uploadOrgLogo(res.organization.id, logoFile.value)
+        await store.updateOrgLogo(res.organization.id, url)
+      } catch {
+        // Logo upload failing shouldn't block provisioning success
+      }
+    }
+
     provisionedOrgName.value = res.organization.name
     done.value = true
   } catch (err: any) {
@@ -103,6 +143,7 @@ function reset() {
   }
   admin.value = { full_name: '', email: '' }
   submitError.value = ''
+  clearLogo()
 }
 </script>
 
@@ -171,10 +212,48 @@ function reset() {
               <Input id="org_name" v-model="org.name" placeholder="e.g. The Meridian Inn" />
             </div>
 
-            <!-- Logo URL -->
+            <!-- Logo upload -->
             <div class="grid gap-2">
-              <Label for="org_logo">Logo URL <span class="text-muted-foreground font-normal text-xs">(optional)</span></Label>
-              <Input id="org_logo" v-model="org.logo_url" type="url" placeholder="https://..." />
+              <Label>Logo <span class="text-muted-foreground font-normal text-xs">(optional · JPG, PNG, WebP, SVG · max 5 MB)</span></Label>
+
+              <!-- Preview -->
+              <div v-if="logoPreview" class="relative w-24 h-24 rounded-xl border overflow-hidden bg-muted group">
+                <img :src="logoPreview" alt="Logo preview" class="w-full h-full object-contain p-1" />
+                <button
+                  type="button"
+                  class="absolute top-1 right-1 size-5 rounded-full bg-destructive/90 text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  @click="clearLogo"
+                >
+                  <X class="size-3" />
+                </button>
+              </div>
+
+              <!-- Drop zone (shown when no file selected) -->
+              <div
+                v-else
+                class="relative rounded-xl border-2 border-dashed transition-colors cursor-pointer"
+                :class="logoDragging ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/40 bg-muted/20'"
+                @click="logoInput?.click()"
+                @dragover.prevent="logoDragging = true"
+                @dragleave="logoDragging = false"
+                @drop.prevent="e => { logoDragging = false; if (e.dataTransfer?.files) onLogoFiles(e.dataTransfer.files) }"
+              >
+                <div class="flex flex-col items-center justify-center gap-2 py-6 text-center">
+                  <div class="size-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                    <ImagePlus class="size-5" />
+                  </div>
+                  <p class="text-sm font-medium text-foreground">Drag & drop or click to upload</p>
+                  <p class="text-xs text-muted-foreground">JPG, PNG, WebP, SVG</p>
+                </div>
+              </div>
+
+              <input
+                ref="logoInput"
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/svg+xml"
+                class="hidden"
+                @change="e => { const t = e.target as HTMLInputElement; if (t.files) onLogoFiles(t.files) }"
+              />
             </div>
 
             <!-- Address -->
