@@ -37,6 +37,9 @@ export const backofficeApi = {
   toggleOrganisationStatus: (id: string, is_active: boolean) =>
     backofficeClient.patch<Organisation>(`/organizations/${id}/status`, { is_active }),
 
+  deleteOrganisation: (id: string) =>
+    backofficeClient.delete<void>(`/organizations/${id}`),
+
   // Provisioning
   provision: (payload: ProvisionPayload) =>
     backofficeClient.post<{ message: string; organization: Organisation }>('/organizations/provision', payload),

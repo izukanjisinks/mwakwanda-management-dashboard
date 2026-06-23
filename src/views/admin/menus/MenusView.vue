@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { Plus, Pencil, Trash2, PackageOpen, Loader2, Check, X, ChevronLeft, ChevronRight } from 'lucide-vue-next'
+import { Plus, Pencil, Trash2, PackageOpen, Loader2, Check, X, ChevronLeft, ChevronRight, ImagePlus } from 'lucide-vue-next'
+import { Switch } from '@/components/ui/switch'
 import { toast } from 'vue-sonner'
 import { getApiError } from '@/utils/errors'
 import { useMenusStore } from '@/stores/menus'
 import { useAuthStore } from '@/stores/auth'
+import { uploadMenuItemImage, deleteMenuItemImage } from '@/services/storage'
 import type { MenuItem, MenuCategory } from '@/types/menu'
 import { MENU_CATEGORIES } from '@/types/menu'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
@@ -85,6 +87,38 @@ async function saveMenuName() {
   }
 }
 
+// ── Add item image picker ──────────────────────────────────────────────────
+const addImageFile = ref<File | null>(null)
+const addImagePreview = ref('')
+const addImageDragging = ref(false)
+const addImageInput = ref<HTMLInputElement | null>(null)
+
+const IMAGE_ACCEPTED = ['image/jpeg', 'image/png', 'image/webp']
+const IMAGE_MAX = 10 * 1024 * 1024
+
+function onAddImageFiles(files: FileList | File[]) {
+  const file = Array.from(files)[0]
+  if (!file) return
+  if (!IMAGE_ACCEPTED.includes(file.type)) {
+    toast.error('Unsupported format. Use JPG, PNG, or WebP.')
+    return
+  }
+  if (file.size > IMAGE_MAX) {
+    toast.error('Image exceeds the 10 MB limit.')
+    return
+  }
+  if (addImagePreview.value) URL.revokeObjectURL(addImagePreview.value)
+  addImageFile.value = file
+  addImagePreview.value = URL.createObjectURL(file)
+}
+
+function clearAddImage() {
+  if (addImagePreview.value) URL.revokeObjectURL(addImagePreview.value)
+  addImageFile.value = null
+  addImagePreview.value = ''
+  if (addImageInput.value) addImageInput.value.value = ''
+}
+
 // ── Add item form ──────────────────────────────────────────────────────────
 const itemForm = ref({
   name: '',
@@ -99,6 +133,7 @@ const itemFormError = ref('')
 function resetItemForm() {
   itemForm.value = { name: '', description: '', price: '', category: '', is_available: true }
   itemFormError.value = ''
+  clearAddImage()
 }
 
 async function handleAddItem() {
@@ -109,15 +144,24 @@ async function handleAddItem() {
 
   savingItem.value = true
   try {
-    const payload = {
+    const item = await store.createMenuItem({
       name: itemForm.value.name.trim(),
       description: itemForm.value.description.trim() || undefined,
       price: priceNum,
       category: itemForm.value.category || undefined,
       is_available: itemForm.value.is_available,
+    })
+
+    // Upload image after item is created (we now have the item ID)
+    if (addImageFile.value) {
+      try {
+        const url = await uploadMenuItemImage(item.id, addImageFile.value)
+        await store.updateMenuItem(item.id, { image_url: url })
+      } catch {
+        toast.error('Item created but image upload failed.')
+      }
     }
-    console.log('[menu] create item payload', payload)
-    await store.createMenuItem(payload)
+
     resetItemForm()
     toast.success('Item added.')
   } catch (err) {
@@ -136,7 +180,27 @@ const editForm = ref({
   category: '' as MenuCategory | '',
   is_available: true,
 })
+const editImageFile = ref<File | null>(null)
+const editImagePreview = ref('')
+const editImageInput = ref<HTMLInputElement | null>(null)
 const savingEdit = ref(false)
+
+function onEditImageFiles(files: FileList | File[]) {
+  const file = Array.from(files)[0]
+  if (!file) return
+  if (!IMAGE_ACCEPTED.includes(file.type)) { toast.error('Unsupported format. Use JPG, PNG, or WebP.'); return }
+  if (file.size > IMAGE_MAX) { toast.error('Image exceeds the 10 MB limit.'); return }
+  if (editImagePreview.value && !editingItem.value?.image_url) URL.revokeObjectURL(editImagePreview.value)
+  editImageFile.value = file
+  editImagePreview.value = URL.createObjectURL(file)
+}
+
+function clearEditImage() {
+  if (editImagePreview.value && !editingItem.value?.image_url) URL.revokeObjectURL(editImagePreview.value)
+  editImageFile.value = null
+  editImagePreview.value = editingItem.value?.image_url ?? ''
+  if (editImageInput.value) editImageInput.value.value = ''
+}
 
 function startEdit(item: MenuItem) {
   editingItem.value = item
@@ -147,9 +211,16 @@ function startEdit(item: MenuItem) {
     category: item.category ?? '',
     is_available: item.is_available,
   }
+  editImageFile.value = null
+  editImagePreview.value = item.image_url ?? ''
 }
 
-function cancelEdit() { editingItem.value = null }
+function cancelEdit() {
+  if (editImagePreview.value && !editingItem.value?.image_url) URL.revokeObjectURL(editImagePreview.value)
+  editingItem.value = null
+  editImageFile.value = null
+  editImagePreview.value = ''
+}
 
 async function handleSaveEdit() {
   if (!editingItem.value) return
@@ -158,14 +229,25 @@ async function handleSaveEdit() {
 
   savingEdit.value = true
   try {
+    let image_url = editingItem.value.image_url
+
+    if (editImageFile.value) {
+      // Delete old image if there was one
+      if (editingItem.value.image_url) {
+        try { await deleteMenuItemImage(editingItem.value.image_url) } catch { /* ignore */ }
+      }
+      image_url = await uploadMenuItemImage(editingItem.value.id, editImageFile.value)
+    }
+
     await store.updateMenuItem(editingItem.value.id, {
       name: editForm.value.name.trim(),
       description: editForm.value.description.trim() || undefined,
       price: priceNum,
       category: editForm.value.category || undefined,
+      image_url,
       is_available: editForm.value.is_available,
     })
-    editingItem.value = null
+    cancelEdit()
     toast.success('Item updated.')
   } catch (err) {
     toast.error(getApiError(err, 'Failed to update item.'))
@@ -188,6 +270,9 @@ async function handleDeleteItem() {
   if (!itemToDelete.value) return
   deletingItem.value = true
   try {
+    if (itemToDelete.value.image_url) {
+      try { await deleteMenuItemImage(itemToDelete.value.image_url) } catch { /* ignore */ }
+    }
     await store.deleteMenuItem(itemToDelete.value.id)
     toast.success('Item removed.')
   } catch (err) {
@@ -198,7 +283,6 @@ async function handleDeleteItem() {
     itemToDelete.value = null
   }
 }
-
 
 function categoryLabel(cat?: MenuCategory) {
   return MENU_CATEGORIES.find(c => c.value === cat)?.label ?? '—'
@@ -226,79 +310,124 @@ function categoryLabel(cat?: MenuCategory) {
 
   <div class="flex flex-col gap-6 p-6">
 
-    <!-- Loading skeleton -->
-    <template v-if="store.menuLoading && !store.menu">
-      <div class="rounded-xl border bg-card p-6 space-y-4">
-        <div class="h-5 w-32 rounded bg-muted animate-pulse" />
-        <div class="grid grid-cols-4 gap-4">
-          <div v-for="i in 4" :key="i" class="h-9 rounded bg-muted animate-pulse" />
-        </div>
-      </div>
-      <div class="h-64 rounded-xl bg-muted animate-pulse" />
-    </template>
-
-    <template v-else-if="store.menu">
-      <!-- ── Add Item Form ──────────────────────────────────────────────────── -->
-      <div v-if="canWrite" class="rounded-xl border bg-card p-6">
-        <div class="mb-5">
+    <!-- ── Add Item Form ──────────────────────────────────────────────────── -->
+      <div v-if="canWrite" class="rounded-xl border bg-card overflow-hidden">
+        <div class="px-6 py-4 border-b">
           <h3 class="font-semibold text-base">Add Menu Item</h3>
-          <p class="text-sm text-muted-foreground mt-0.5">Fill in the details below and click Add Item.</p>
+          <p class="text-sm text-muted-foreground mt-0.5">Populate your menu with a new culinary item.</p>
         </div>
 
-        <div v-if="itemFormError" class="mb-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-sm text-destructive">
-          {{ itemFormError }}
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div class="grid gap-2">
-            <Label>Item Name <span class="text-destructive">*</span></Label>
-            <Input v-model="itemForm.name" placeholder="e.g. Grilled Chicken" />
+        <div class="p-6">
+          <div v-if="itemFormError" class="mb-5 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-sm text-destructive">
+            {{ itemFormError }}
           </div>
 
-          <div class="grid gap-2">
-            <Label>Category</Label>
-            <Select v-model="itemForm.category">
-              <SelectTrigger class="w-full">
-                <SelectValue placeholder="Select category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem v-for="cat in MENU_CATEGORIES" :key="cat.value" :value="cat.value">
-                  {{ cat.label }}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <!-- Left: image upload -->
+            <div class="lg:col-span-4 flex flex-col gap-2">
+              <Label class="text-xs text-muted-foreground uppercase tracking-wider">Item Photo <span class="normal-case font-normal">(optional)</span></Label>
 
-          <div class="grid gap-2">
-            <Label>Price (ZMW) <span class="text-destructive">*</span></Label>
-            <Input v-model="itemForm.price" type="number" min="0" step="0.01" placeholder="0.00" />
-          </div>
+              <!-- Preview -->
+              <div v-if="addImagePreview" class="relative group rounded-xl overflow-hidden border aspect-3/2 bg-muted">
+                <img :src="addImagePreview" alt="Preview" class="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  class="absolute top-2 right-2 size-6 rounded-full bg-destructive/90 text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  @click="clearAddImage"
+                >
+                  <X class="size-3" />
+                </button>
+              </div>
 
-          <div class="grid gap-2">
-            <Label>Availability</Label>
-            <div class="flex items-center gap-2 h-9">
-              <button
-                type="button"
-                :class="['relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors', itemForm.is_available ? 'bg-primary' : 'bg-input']"
-                @click="itemForm.is_available = !itemForm.is_available"
+              <!-- Drop zone -->
+              <div
+                v-else
+                class="relative rounded-xl border-2 border-dashed transition-colors cursor-pointer flex flex-col items-center justify-center gap-3 aspect-3/2"
+                :class="addImageDragging ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/40 bg-muted/20'"
+                @click="addImageInput?.click()"
+                @dragover.prevent="addImageDragging = true"
+                @dragleave="addImageDragging = false"
+                @drop.prevent="e => { addImageDragging = false; if (e.dataTransfer?.files) onAddImageFiles(e.dataTransfer.files) }"
               >
-                <span :class="['pointer-events-none inline-block size-4 rounded-full bg-background shadow-lg transition-transform', itemForm.is_available ? 'translate-x-4' : 'translate-x-0']" />
-              </button>
-              <span class="text-sm text-muted-foreground">{{ itemForm.is_available ? 'Available' : 'Unavailable' }}</span>
+                <div class="size-12 rounded-xl bg-background flex items-center justify-center shadow-sm">
+                  <ImagePlus class="size-5 text-primary" />
+                </div>
+                <div class="text-center px-4">
+                  <p class="text-sm font-medium">Upload a clear photo</p>
+                  <p class="text-xs text-muted-foreground mt-1">Drag & drop or click to browse<br/>JPG, PNG, WebP · max 10 MB</p>
+                </div>
+              </div>
+
+              <input
+                ref="addImageInput"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                class="hidden"
+                @change="e => { const t = e.target as HTMLInputElement; if (t.files) onAddImageFiles(t.files) }"
+              />
+              <p class="text-xs text-muted-foreground text-center">Recommended aspect ratio: 3:2</p>
             </div>
-          </div>
 
-          <div class="grid gap-2 sm:col-span-2 lg:col-span-3">
-            <Label>Description <span class="text-muted-foreground text-xs">(optional)</span></Label>
-            <Input v-model="itemForm.description" placeholder="Brief description of the item…" />
-          </div>
+            <!-- Right: form fields -->
+            <div class="lg:col-span-8 flex flex-col gap-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="grid gap-2">
+                  <Label>Item Name <span class="text-destructive">*</span></Label>
+                  <Input v-model="itemForm.name" placeholder="e.g. Grilled Lemon Herb Chicken" />
+                </div>
+                <div class="grid gap-2">
+                  <Label>Category</Label>
+                  <Select v-model="itemForm.category">
+                    <SelectTrigger class="w-full">
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem v-for="cat in MENU_CATEGORIES" :key="cat.value" :value="cat.value">
+                        {{ cat.label }}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-          <div class="flex items-end">
-            <Button class="w-full" :disabled="savingItem || !itemForm.name.trim() || !itemForm.price" @click="handleAddItem">
-              <Loader2 v-if="savingItem" class="size-4 mr-2 animate-spin" />
-              <Plus v-else class="size-4 mr-2" />
-              Add Item
-            </Button>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="grid gap-2">
+                  <Label>Price (ZMW) <span class="text-destructive">*</span></Label>
+                  <Input v-model="itemForm.price" type="number" min="0" step="0.01" placeholder="0.00" />
+                </div>
+                <div class="grid gap-2">
+                  <Label>Availability</Label>
+                  <div class="flex items-center gap-3 h-9 px-3 rounded-md border bg-muted/20">
+                    <Switch
+                      :checked="itemForm.is_available"
+                      @update:checked="(v: boolean) => itemForm.is_available = v"
+                    />
+                    <span class="text-sm text-muted-foreground">{{ itemForm.is_available ? 'Available' : 'Unavailable' }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="grid gap-2">
+                <Label>Description <span class="text-muted-foreground text-xs font-normal">(optional)</span></Label>
+                <textarea
+                  v-model="itemForm.description"
+                  rows="4"
+                  placeholder="Detail the unique flavors, ingredients, and preparation method…"
+                  class="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none"
+                />
+              </div>
+
+              <div class="flex items-center justify-end gap-3 pt-2">
+                <Button variant="outline" :disabled="savingItem" @click="resetItemForm">
+                  Discard
+                </Button>
+                <Button :disabled="savingItem || !itemForm.name.trim() || !itemForm.price" @click="handleAddItem">
+                  <Loader2 v-if="savingItem" class="size-4 mr-2 animate-spin" />
+                  <Plus v-else class="size-4 mr-2" />
+                  Add Item to Menu
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -334,6 +463,7 @@ function categoryLabel(cat?: MenuCategory) {
           <Table>
             <TableHeader>
               <TableRow class="bg-muted/30">
+                <TableHead class="w-12"></TableHead>
                 <TableHead>Item Name</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead>Price</TableHead>
@@ -345,7 +475,7 @@ function categoryLabel(cat?: MenuCategory) {
               <!-- Loading rows -->
               <template v-if="store.menuLoading">
                 <TableRow v-for="i in store.itemsPageSize" :key="i">
-                  <TableCell colspan="5">
+                  <TableCell colspan="6">
                     <div class="h-4 rounded bg-muted animate-pulse" />
                   </TableCell>
                 </TableRow>
@@ -355,9 +485,16 @@ function categoryLabel(cat?: MenuCategory) {
                 <template v-for="item in items" :key="item.id">
                   <!-- Display row -->
                   <TableRow v-if="editingItem?.id !== item.id" :class="['transition-colors', !item.is_available && 'opacity-50']">
+                    <!-- Thumbnail -->
+                    <TableCell class="pr-0">
+                      <div class="size-9 rounded-md overflow-hidden bg-muted shrink-0 flex items-center justify-center">
+                        <img v-if="item.image_url" :src="item.image_url" :alt="item.name" class="size-full object-cover" />
+                        <PackageOpen v-else class="size-4 text-muted-foreground/40" />
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <p class="font-medium text-sm">{{ item.name }}</p>
-                      <p v-if="item.description" class="text-xs text-muted-foreground mt-0.5">{{ item.description }}</p>
+                      <p v-if="item.description" class="text-xs text-muted-foreground mt-0.5 line-clamp-1">{{ item.description }}</p>
                     </TableCell>
                     <TableCell>
                       <span v-if="item.category" class="inline-block px-2 py-0.5 bg-muted text-muted-foreground rounded text-xs font-medium uppercase tracking-tight">
@@ -382,14 +519,38 @@ function categoryLabel(cat?: MenuCategory) {
                   </TableRow>
 
                   <!-- Inline edit row -->
-                  <TableRow v-else class="bg-muted/20">
-                    <TableCell>
+                  <TableRow v-else class="bg-muted/20 align-top">
+                    <!-- Image picker in edit row -->
+                    <TableCell class="pr-0 pt-3">
+                      <div class="relative group size-9 rounded-md overflow-hidden border bg-muted cursor-pointer">
+                        <img v-if="editImagePreview" :src="editImagePreview" alt="Item image" class="size-full object-cover" @click="editImageInput?.click()" />
+                        <div v-else class="size-full flex items-center justify-center" @click="editImageInput?.click()">
+                          <ImagePlus class="size-4 text-muted-foreground/50" />
+                        </div>
+                        <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-0.5">
+                          <button type="button" class="p-0.5 rounded hover:bg-white/20" @click.stop="editImageInput?.click()">
+                            <ImagePlus class="size-3 text-white" />
+                          </button>
+                          <button v-if="editImagePreview" type="button" class="p-0.5 rounded hover:bg-white/20" @click.stop="clearEditImage">
+                            <X class="size-3 text-white" />
+                          </button>
+                        </div>
+                      </div>
+                      <input
+                        ref="editImageInput"
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        class="hidden"
+                        @change="e => { const t = e.target as HTMLInputElement; if (t.files) onEditImageFiles(t.files) }"
+                      />
+                    </TableCell>
+                    <TableCell class="pt-3">
                       <div class="flex flex-col gap-1.5">
                         <Input v-model="editForm.name" placeholder="Item name" class="h-8 text-sm" />
                         <Input v-model="editForm.description" placeholder="Description (optional)" class="h-8 text-sm" />
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell class="pt-3">
                       <Select v-model="editForm.category">
                         <SelectTrigger class="h-8 text-sm w-44">
                           <SelectValue placeholder="Category" />
@@ -401,10 +562,10 @@ function categoryLabel(cat?: MenuCategory) {
                         </SelectContent>
                       </Select>
                     </TableCell>
-                    <TableCell>
+                    <TableCell class="pt-3">
                       <Input v-model="editForm.price" type="number" min="0" step="0.01" class="h-8 text-sm w-28" />
                     </TableCell>
-                    <TableCell>
+                    <TableCell class="pt-3">
                       <button
                         type="button"
                         :class="['relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors', editForm.is_available ? 'bg-primary' : 'bg-input']"
@@ -413,7 +574,7 @@ function categoryLabel(cat?: MenuCategory) {
                         <span :class="['pointer-events-none inline-block size-4 rounded-full bg-background shadow-lg transition-transform', editForm.is_available ? 'translate-x-4' : 'translate-x-0']" />
                       </button>
                     </TableCell>
-                    <TableCell class="text-right">
+                    <TableCell class="text-right pt-3">
                       <div class="flex items-center justify-end gap-1">
                         <Button size="sm" :disabled="savingEdit" @click="handleSaveEdit">
                           <Loader2 v-if="savingEdit" class="size-3.5 animate-spin" />
@@ -443,13 +604,6 @@ function categoryLabel(cat?: MenuCategory) {
           </div>
         </div>
       </div>
-    </template>
-
-    <!-- No menu -->
-    <div v-else class="flex flex-col items-center justify-center py-24 text-center gap-3">
-      <PackageOpen class="size-10 text-muted-foreground/40" />
-      <p class="text-muted-foreground">No menu found.</p>
-    </div>
 
   </div>
 

@@ -59,3 +59,15 @@ export async function uploadOrgLogo(orgId: string, file: File): Promise<string> 
 export async function deleteOrgLogo(url: string): Promise<void> {
   return deleteRoomImage(url)
 }
+
+export async function uploadMenuItemImage(itemId: string, file: File): Promise<string> {
+  const ext = file.name.split('.').pop()
+  const filename = `${randomUUID()}.${ext}`
+  const ref = storageRef(storage, `menu-items/${itemId}/${filename}`)
+  await uploadBytes(ref, file)
+  return getDownloadURL(ref)
+}
+
+export async function deleteMenuItemImage(url: string): Promise<void> {
+  return deleteRoomImage(url)
+}

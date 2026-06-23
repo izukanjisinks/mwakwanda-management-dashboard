@@ -1,6 +1,7 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import { backofficeApi } from '@/services/api/backoffice'
+import { deleteOrgLogo } from '@/services/storage'
 import type { BackofficeUser, Organisation } from '@/types/backoffice'
 
 const TOKEN_KEY = 'lodge_backoffice_token'

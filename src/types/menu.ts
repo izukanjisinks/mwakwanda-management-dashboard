@@ -49,6 +49,7 @@ export interface MenuItem {
   description?: string
   price: number
   category?: MenuCategory
+  image_url?: string
   is_available: boolean
   created_at: string
   updated_at: string
@@ -114,6 +115,7 @@ export interface MenuItemPayload {
   description?: string
   price: number
   category?: MenuCategory
+  image_url?: string
   is_available: boolean
 }
 
