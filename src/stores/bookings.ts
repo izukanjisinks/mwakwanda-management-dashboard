@@ -16,6 +16,7 @@ export const useBookingsStore = defineStore('bookings', () => {
     pageSize = 10,
     bookerType?: string,
     status?: string,
+    bookingType?: string,
   ) {
     const branchFilter = useBranchFilterStore()
     loading.value = true
@@ -25,6 +26,7 @@ export const useBookingsStore = defineStore('bookings', () => {
         page,
         page_size: pageSize,
         booker_type: bookerType,
+        booking_type: bookingType,
         status,
         branch_id: branchFilter.apiBranchId,
       })

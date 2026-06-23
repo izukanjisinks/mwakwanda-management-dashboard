@@ -49,7 +49,8 @@ function loadBookings() {
     // Events are corporate bookings of type 'event'; event_type holds the kind.
     store.fetchEventBookings(page.value, pageSize, statusVal)
   } else {
-    store.fetchBookings(page.value, pageSize, activeTab.value, statusVal)
+    // Filter to room bookings only — events (booking_type='event') belong in the Events tab.
+    store.fetchBookings(page.value, pageSize, activeTab.value, statusVal, 'room')
   }
 }
 
@@ -85,6 +86,8 @@ async function onExport() {
       params.booking_type = 'event'
     } else {
       params.booker_type = activeTab.value // 'individual' | 'corporate'
+      // Filter to room bookings — events (booking_type='event') belong in the Events tab only.
+      params.booking_type = 'room'
     }
     await bookingApi.exportCsv(params)
     toast.success('Export started.')
@@ -245,8 +248,15 @@ function assignmentStatusVariant(status: string) {
 // attendee — so the sheet drives the booking's own status transitions.
 const eventSheetOpen = ref(false)
 const eventBooking = ref<Booking | null>(null)
-const eventDetail = ref<BookingEvent | null>(null)
+// A booking can carry multiple sessions (one booking_events row per session, each
+// with its own venue/date/time). eventSessions holds them all.
+const eventSessions = ref<BookingEvent[]>([])
 const eventAttendees = ref<BookingAttendee[]>([])
+// Headcount fallback: the largest session pax (sessions usually share attendees
+// rather than summing — the biggest session is the meaningful expected count).
+const eventExpectedPax = computed(() =>
+  eventSessions.value.reduce((max, s) => Math.max(max, s.pax_count ?? 0), 0),
+)
 const eventSheetLoading = ref(false)
 const eventActioning = ref(false)
 
@@ -254,12 +264,12 @@ async function openEventSheet(b: Booking) {
   eventBooking.value = b
   eventSheetOpen.value = true
   eventSheetLoading.value = true
-  eventDetail.value = null
+  eventSessions.value = []
   eventAttendees.value = []
   try {
     const full = await bookingApi.get(b.id)
     eventBooking.value = full
-    eventDetail.value = full.events?.[0] ?? null
+    eventSessions.value = full.events ?? []
     eventAttendees.value = full.attendees ?? []
   } catch (err) {
     toast.error(getApiError(err, 'Failed to load event details.'))
@@ -710,38 +720,54 @@ function syncRowStatus(id: string, status: BookingStatus) {
         </div>
 
         <template v-else>
-          <!-- Venue reservation card -->
-          <div v-if="eventDetail" class="rounded-lg border p-4 flex flex-col gap-3">
-            <div class="flex items-start justify-between gap-3">
-              <div class="flex items-center gap-2">
-                <MapPin class="size-4 text-primary" />
+          <!-- Sessions — one venue reservation card per session -->
+          <div v-if="eventSessions.length" class="flex flex-col gap-3">
+            <div class="flex items-center gap-2">
+              <MapPin class="size-4 text-primary" />
+              <h3 class="font-semibold text-sm">
+                {{ eventSessions.length > 1 ? `Sessions (${eventSessions.length})` : 'Venue Reservation' }}
+              </h3>
+            </div>
+
+            <div
+              v-for="(sess, i) in eventSessions"
+              :key="sess.id ?? i"
+              class="rounded-lg border p-4 flex flex-col gap-3"
+            >
+              <div class="flex items-start justify-between gap-3">
                 <div>
-                  <p class="font-medium text-sm">{{ eventDetail.venue_name || 'Venue' }}</p>
-                  <p class="text-xs text-muted-foreground mt-0.5 capitalize">{{ eventDetail.event_type }}</p>
+                  <p class="font-medium text-sm">{{ sess.venue_name || 'Venue' }}</p>
+                  <p class="text-xs text-muted-foreground mt-0.5 capitalize">{{ sess.event_type }}</p>
+                </div>
+                <Badge variant="outline" class="text-xs shrink-0">
+                  {{ sess.pax_count }} pax
+                </Badge>
+              </div>
+              <div class="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
+                <div class="flex items-center gap-1">
+                  <CalendarDays class="size-3.5" />
+                  {{ fmt(sess.start_date) }}<template v-if="sess.end_date && sess.end_date !== sess.start_date"> → {{ fmt(sess.end_date) }}</template>
+                </div>
+                <div v-if="sess.start_time" class="flex items-center gap-1">
+                  <Clock class="size-3.5" />
+                  {{ sess.start_time }}<template v-if="sess.end_time"> – {{ sess.end_time }}</template>
                 </div>
               </div>
-              <Badge variant="outline" class="text-xs shrink-0">
-                {{ eventDetail.pax_count }} pax
-              </Badge>
-            </div>
-            <div class="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
-              <div class="flex items-center gap-1">
-                <CalendarDays class="size-3.5" />
-                {{ fmt(eventDetail.start_date) }} → {{ fmt(eventDetail.end_date) }}
+              <div v-if="sess.catering_required" class="flex items-center gap-1.5 text-xs text-amber-600">
+                <UtensilsCrossed class="size-3.5" />
+                Catering required
               </div>
-              <div>{{ eventDetail.days }} day{{ eventDetail.days !== 1 ? 's' : '' }}</div>
-              <div v-if="eventDetail.start_time" class="flex items-center gap-1">
-                <Clock class="size-3.5" />
-                {{ eventDetail.start_time }}<template v-if="eventDetail.end_time"> – {{ eventDetail.end_time }}</template>
+              <div v-if="sess.notes" class="text-xs text-muted-foreground">{{ sess.notes }}</div>
+              <div class="flex items-center justify-between text-sm pt-1 border-t">
+                <span class="text-muted-foreground">Hire</span>
+                <span class="font-medium">ZMW {{ sess.price?.toLocaleString() }}</span>
               </div>
             </div>
-            <div v-if="eventDetail.catering_required" class="flex items-center gap-1.5 text-xs text-amber-600">
-              <UtensilsCrossed class="size-3.5" />
-              Catering required
-            </div>
-            <div class="flex items-center justify-between text-sm pt-1 border-t">
-              <span class="text-muted-foreground">Hire ({{ eventDetail.days }} × ZMW {{ eventDetail.price?.toLocaleString() }})</span>
-              <span class="font-medium">ZMW {{ eventBooking?.total_amount?.toLocaleString() }}</span>
+
+            <!-- Booking total = sum of all session hire charges -->
+            <div class="rounded-lg bg-muted/40 px-4 py-3 flex items-center justify-between text-sm">
+              <span class="text-muted-foreground">Total ({{ eventSessions.length }} session{{ eventSessions.length !== 1 ? 's' : '' }})</span>
+              <span class="font-semibold">ZMW {{ eventBooking?.total_amount?.toLocaleString() }}</span>
             </div>
           </div>
 
@@ -775,7 +801,7 @@ function syncRowStatus(id: string, status: BookingStatus) {
               <Users class="size-4 text-primary" />
               <h3 class="font-semibold text-sm">{{ eventAttendees.length ? 'Guest List' : 'Attendees' }}</h3>
               <span class="text-xs text-muted-foreground ml-auto">
-                {{ eventAttendees.length ? `${eventAttendees.length} named` : `${eventDetail?.pax_count ?? 0} expected` }}
+                {{ eventAttendees.length ? `${eventAttendees.length} named` : `${eventExpectedPax} expected` }}
               </span>
             </div>
 
@@ -798,7 +824,7 @@ function syncRowStatus(id: string, status: BookingStatus) {
             <div v-else class="rounded-lg border p-4 flex flex-col gap-3 text-sm">
               <div class="flex items-center justify-between">
                 <span class="text-muted-foreground">Expected attendees</span>
-                <span class="font-medium">{{ eventDetail?.pax_count ?? 0 }}</span>
+                <span class="font-medium">{{ eventExpectedPax }}</span>
               </div>
               <div v-if="eventBooking?.company_name" class="flex items-center justify-between">
                 <span class="text-muted-foreground">Company</span>
