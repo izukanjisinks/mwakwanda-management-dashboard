@@ -28,9 +28,11 @@ export type MenuCategory =
   | 'side_dish'
   | 'special'
   | 'buffet'
+  | 'drinks'
 export const MENU_CATEGORIES: { value: MenuCategory; label: string }[] = [
   { value: 'appetizer', label: 'Appetizers (Starters)' },
   { value: 'soup', label: 'Soups' },
+  { value: 'drinks', label: 'Drinks' },
   { value: 'salad', label: 'Salads' },
   { value: 'main_course', label: 'Main Course' },
   { value: 'side_dish', label: 'Side Dishes' },
