@@ -216,6 +216,11 @@ const isMeal = computed(() => {
 // Price-resolved meals view (menu item names + prices + totals), built server-side.
 const mealsSummary = computed(() => corporateRequest.value?.meals_summary ?? null)
 
+const corpCompany  = computed(() => corporateRequest.value?.payload?.company)
+const corpBookedBy = computed(() => corporateRequest.value?.payload?.booked_by)
+const corpCurrency = computed(() => corporateRequest.value?.payload?.currency ?? 'ZMW')
+const corpParticipantCount = computed(() => corporateRequest.value?.payload?.participant_count)
+
 // guest index → selected room id
 const guestRoomSelection = ref<Record<number, string>>({})
 // guest index → available rooms for that guest's dates
@@ -587,6 +592,7 @@ onMounted(async () => {
                 </Badge>
               </div>
               <hr class="border-border" />
+              <!-- Company identity -->
               <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
                 <div v-if="corporateRequest.company_name">
                   <p class="text-xs text-muted-foreground mb-0.5">Company</p>
@@ -596,15 +602,49 @@ onMounted(async () => {
                   <p class="text-xs text-muted-foreground mb-0.5">Branch</p>
                   <p>{{ corporateRequest.branch_name }}</p>
                 </div>
-                <div v-if="corporateRequest.profile_name">
-                  <p class="text-xs text-muted-foreground mb-0.5">Booked By</p>
-                  <p>{{ corporateRequest.profile_name }}</p>
+                <div v-if="corpCompany?.industry">
+                  <p class="text-xs text-muted-foreground mb-0.5">Industry</p>
+                  <p>{{ corpCompany.industry }}</p>
                 </div>
+                <div v-if="corpCompany?.tpin">
+                  <p class="text-xs text-muted-foreground mb-0.5">TPIN</p>
+                  <p class="font-mono text-xs">{{ corpCompany.tpin }}</p>
+                </div>
+                <div v-if="corpCompany?.email">
+                  <p class="text-xs text-muted-foreground mb-0.5">Company Email</p>
+                  <p>{{ corpCompany.email }}</p>
+                </div>
+                <div v-if="corpCompany?.phone">
+                  <p class="text-xs text-muted-foreground mb-0.5">Company Phone</p>
+                  <p>{{ corpCompany.phone }}</p>
+                </div>
+                <div v-if="corpCompany?.cost_center">
+                  <p class="text-xs text-muted-foreground mb-0.5">Cost Center</p>
+                  <p class="font-mono text-xs">{{ corpCompany.cost_center }}</p>
+                </div>
+                <div v-if="corpCompany?.gl_code">
+                  <p class="text-xs text-muted-foreground mb-0.5">GL Code</p>
+                  <p class="font-mono text-xs">{{ corpCompany.gl_code }}</p>
+                </div>
+              </div>
+
+              <hr class="border-border" />
+
+              <!-- Booking meta -->
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
                 <div>
                   <p class="text-xs text-muted-foreground mb-0.5">Status</p>
                   <Badge :variant="statusVariant(corporateRequest.status)" class="capitalize text-xs">
                     {{ corporateRequest.status }}
                   </Badge>
+                </div>
+                <div v-if="corpCurrency">
+                  <p class="text-xs text-muted-foreground mb-0.5">Currency</p>
+                  <p>{{ corpCurrency }}</p>
+                </div>
+                <div v-if="corpParticipantCount">
+                  <p class="text-xs text-muted-foreground mb-0.5">Participants</p>
+                  <p>{{ corpParticipantCount }}</p>
                 </div>
                 <div v-if="corporateRequest.reason_for_booking">
                   <p class="text-xs text-muted-foreground mb-0.5">Reason</p>
@@ -613,6 +653,29 @@ onMounted(async () => {
                 <div v-if="corporateRequest.notes">
                   <p class="text-xs text-muted-foreground mb-0.5">Notes</p>
                   <p>{{ corporateRequest.notes }}</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Booked By -->
+            <div v-if="corpBookedBy?.name" class="rounded-xl border bg-card p-6 flex flex-col gap-4">
+              <div class="flex items-center gap-2 mb-1">
+                <User class="size-4 text-primary" />
+                <h3 class="font-semibold">Booked By</h3>
+              </div>
+              <hr class="border-border" />
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+                <div>
+                  <p class="text-xs text-muted-foreground mb-0.5">Name</p>
+                  <p class="font-medium">{{ corpBookedBy.name }}</p>
+                </div>
+                <div v-if="corpBookedBy.email">
+                  <p class="text-xs text-muted-foreground mb-0.5">Email</p>
+                  <p>{{ corpBookedBy.email }}</p>
+                </div>
+                <div v-if="corpBookedBy.phone">
+                  <p class="text-xs text-muted-foreground mb-0.5">Phone</p>
+                  <p>{{ corpBookedBy.phone }}</p>
                 </div>
               </div>
             </div>
