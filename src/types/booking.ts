@@ -199,6 +199,59 @@ export interface CorBookingAuthoriser {
   gl_code?: string
 }
 
+export interface CorBookingCompany {
+  name?: string
+  tpin?: string
+  email?: string
+  phone?: string
+  gl_code?: string
+  industry?: string
+  branch_name?: string
+  cost_center?: string
+}
+
+export interface CorBookingPerson {
+  name?: string
+  email?: string
+  phone?: string
+  title?: string
+}
+
+export interface CorBookingAttendant {
+  full_name?: string
+  email?: string
+  phone?: string
+  id_number?: string
+  is_lead_contact?: boolean
+}
+
+export interface CorBookingAccommodation {
+  check_in?: string
+  check_out?: string
+  room_count?: number
+  room_type_preference?: string
+}
+
+export interface CorporateBookingPayload {
+  org_id?: string
+  source?: string
+  currency?: string
+  booking_type?: string
+  booking_context?: string
+  participant_mode?: string
+  participant_count?: number
+  branch_id?: string
+  documents?: string[]
+  company?: CorBookingCompany
+  approver?: CorBookingPerson
+  booked_by?: CorBookingPerson
+  attendants?: CorBookingAttendant[]
+  accommodation?: CorBookingAccommodation
+  guests?: Array<Record<string, string>>
+  // event / meals / conference sub-objects remain unstructured
+  [key: string]: unknown
+}
+
 export interface CorporateBookingRequest {
   id: string
   org_id: string
@@ -216,7 +269,7 @@ export interface CorporateBookingRequest {
   authoriser_department?: string
   authoriser_gl_code?: string
   documents?: string[]
-  payload?: Record<string, unknown>
+  payload?: CorporateBookingPayload
   company_name?: string
   branch_name?: string
   profile_name?: string
