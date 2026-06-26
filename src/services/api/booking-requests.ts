@@ -18,6 +18,8 @@ export interface PaginatedBookingRequests {
 export interface MaterialiseAssignment {
   guest_index: number
   room_id: string
+  room_name?: string
+  room_type?: string
 }
 
 export const bookingRequestApi = {

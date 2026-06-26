@@ -14,10 +14,10 @@ Feedback items to incorporate into the hospitality marketplace platform, focused
 
 ## 4. Tracking per Cost Center
 - a. Track all costs under a given cost center.
-- b. Show paid invoices and those pending payment.
+- b. Show paid invoices and those pending payment. 
 
 ## 5. Cost Tracking for Corporate client as a whole
-- a. Produce reports of accumulated costs for each cost center.
+- a. Produce reports of accumulated costs for each cost center. (use your previous booking section to show everything)
 - b. Show paid invoices and those pending payment (company-wide view).
 
 ## 6. Purpose of Booking Meal to Show on Invoice
@@ -26,8 +26,8 @@ Feedback items to incorporate into the hospitality marketplace platform, focused
 ## 7. Include Man Number for Person Booking
 - To strictly differentiate employee names in cases of identical names, include the employee ID ("man number") alongside the name.
 
-## 8. Meal Tracking / RFID Cards
-- For proof of meal collection and meal collection tracking for residents, link RFID card data to room and occupant.
+<!-- ## 8. Meal Tracking / RFID Cards
+- For proof of meal collection and meal collection tracking for residents, link RFID card data to room and occupant. -->
 
 ## 9. History for Person Booking
 - Include booking history per person to reduce data repetition and minimize possible errors during entry.

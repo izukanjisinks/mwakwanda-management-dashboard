@@ -38,6 +38,11 @@ const corporateRequest = ref<CorporateBookingRequest | null>(null)
 
 const isCorporate = computed(() => task.value?.task_details?.task_type === 'corporate_booking')
 
+const isCancelled = computed(() =>
+  corporateRequest.value?.status === 'cancelled' ||
+  individualRequest.value?.status === 'cancelled',
+)
+
 // ─── Individual accommodation details ─────────────────────────────────────────
 // Reads the unified envelope (payload.accommodation.*) and falls back to the
 // legacy flat payload (check_in/special_requests at top level) for old requests.
@@ -316,9 +321,13 @@ async function handleConfirm(action: string, comments: string) {
         // Accommodation requests materialise into a booking with the rooms
         // staff assigned to each guest
         if (isAccommodation.value) {
-          const assignments: MaterialiseAssignment[] = corporateGuests.value
-            .map((_, i) => ({ guest_index: i, room_id: guestRoomSelection.value[i] }))
-            .filter((a): a is MaterialiseAssignment => !!a.room_id)
+          const assignments = corporateGuests.value.reduce<MaterialiseAssignment[]>((acc, _, i) => {
+            const roomId = guestRoomSelection.value[i]
+            if (!roomId) return acc
+            const room = guestAvailableRooms.value[i]?.find(r => r.id === roomId)
+            acc.push({ guest_index: i, room_id: roomId, room_name: room?.name, room_type: room?.type as string | undefined })
+            return acc
+          }, [])
           await bookingRequestApi.materialise(refId, assignments)
         }
       }
@@ -985,8 +994,13 @@ onMounted(async () => {
             </div>
           </div>
 
+          <!-- Cancelled banner -->
+          <div v-if="isCancelled" class="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive text-center">
+            This request was <strong>cancelled by the guest</strong>. No further action is required.
+          </div>
+
           <!-- Action buttons -->
-          <div v-if="task.status === 'pending' || task.status === 'in_progress'" class="flex flex-col gap-2">
+          <div v-else-if="task.status === 'pending' || task.status === 'in_progress'" class="flex flex-col gap-2">
             <Button class="w-full" :disabled="!allGuestsAssigned" @click="openAction('approve')">
               <CheckCircle2 class="size-4 mr-2" />
               Approve
