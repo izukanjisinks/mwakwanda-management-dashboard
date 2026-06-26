@@ -50,7 +50,7 @@ function loadBookings() {
     store.fetchEventBookings(page.value, pageSize, statusVal)
   } else {
     // Filter to room bookings only — events (booking_type='event') belong in the Events tab.
-    store.fetchBookings(page.value, pageSize, activeTab.value, statusVal, 'room')
+    store.fetchBookings(page.value, pageSize, activeTab.value, statusVal, 'accommodation')
   }
 }
 
@@ -86,8 +86,8 @@ async function onExport() {
       params.booking_type = 'event'
     } else {
       params.booker_type = activeTab.value // 'individual' | 'corporate'
-      // Filter to room bookings — events (booking_type='event') belong in the Events tab only.
-      params.booking_type = 'room'
+      // Filter to accommodation bookings — events (booking_type='event') belong in the Events tab only.
+      params.booking_type = 'accommodation'
     }
     await bookingApi.exportCsv(params)
     toast.success('Export started.')
