@@ -78,6 +78,13 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     if (idx !== -1) organisations.value[idx] = res
   }
 
+  async function updateOrg(id: string, data: Partial<Organisation>) {
+    const res = await backofficeApi.updateOrganisation(id, data)
+    const idx = organisations.value.findIndex(o => o.id === id)
+    if (idx !== -1) organisations.value[idx] = res
+    return res
+  }
+
   async function updateOrgLogo(id: string, logo_url: string) {
     const res = await backofficeApi.updateOrganisation(id, { logo_url })
     const idx = organisations.value.findIndex(o => o.id === id)
@@ -153,6 +160,7 @@ export const useBackofficeStore = defineStore('backoffice', () => {
     logout,
     fetchOrganisations,
     toggleOrgStatus,
+    updateOrg,
     updateOrgLogo,
     provision,
     fetchAdmins,

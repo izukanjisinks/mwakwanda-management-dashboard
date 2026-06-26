@@ -11,6 +11,7 @@ import type { Room } from '@/types/room'
 import type { WorkflowTask } from '@/types/workflow'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import TaskActionDialog from '@/components/workflow/TaskActionDialog.vue'
+import PersonHistoryDialog, { type PersonRef } from '@/components/workflow/PersonHistoryDialog.vue'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -19,7 +20,7 @@ import {
 import {
   ArrowLeft, FileText, ImageIcon, ExternalLink,
   CheckCircle2, XCircle, Clock, Building2, User, CalendarDays,
-  BedDouble, Users, Loader2, UtensilsCrossed, Theater,
+  BedDouble, Users, Loader2, UtensilsCrossed, Theater, History,
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -280,6 +281,15 @@ function openDoc(url: string) {
   docSheetOpen.value = true
 }
 
+// Person history dialog
+const personHistoryOpen = ref(false)
+const selectedPerson = ref<PersonRef | null>(null)
+
+function openPersonHistory(name: string, email?: string) {
+  selectedPerson.value = { name, email }
+  personHistoryOpen.value = true
+}
+
 // Action dialog
 const actionDialog = ref(false)
 const dialogAction = ref<'approve' | 'reject' | null>(null)
@@ -384,6 +394,7 @@ onMounted(async () => {
 </script>
 
 <template>
+<div>
   <DashboardHeader title="Task Detail" />
 
   <div class="flex flex-col gap-6 p-6">
@@ -522,6 +533,10 @@ onMounted(async () => {
                 <div v-if="mealSessions.length">
                   <p class="text-xs text-muted-foreground mb-0.5">Sessions</p>
                   <p class="font-medium">{{ mealSessions.length }} meal session{{ mealSessions.length !== 1 ? 's' : '' }}</p>
+                </div>
+                <div v-if="mealBlock?.reason_for_booking" class="col-span-2 sm:col-span-3">
+                  <p class="text-xs text-muted-foreground mb-0.5">Purpose of Meal</p>
+                  <p class="font-medium">{{ mealBlock.reason_for_booking }}</p>
                 </div>
               </template>
             </div>
@@ -740,7 +755,18 @@ onMounted(async () => {
                     :key="i"
                     class="grid grid-cols-12 gap-2 px-5 py-3 text-sm items-center"
                   >
-                    <div class="col-span-3 font-medium">{{ g.full_name || '—' }}</div>
+                    <div class="col-span-3 font-medium flex items-center gap-1.5">
+                      <span>{{ g.full_name || '—' }}</span>
+                      <button
+                        v-if="g.full_name"
+                        type="button"
+                        class="text-muted-foreground hover:text-primary transition-colors"
+                        title="View booking history"
+                        @click="openPersonHistory(g.full_name, g.email)"
+                      >
+                        <History class="size-3.5" />
+                      </button>
+                    </div>
                     <div class="col-span-2 text-muted-foreground text-xs font-mono">{{ g.identification_card || '—' }}</div>
                     <div class="col-span-2 text-muted-foreground text-xs">{{ g.check_in || '—' }}</div>
                     <div class="col-span-2 text-muted-foreground text-xs">{{ g.check_out || '—' }}</div>
@@ -850,6 +876,10 @@ onMounted(async () => {
                   <div v-if="mealsSummary?.headcount">
                     <p class="text-xs text-muted-foreground mb-0.5">Headcount</p>
                     <p>{{ mealsSummary.headcount }}</p>
+                  </div>
+                  <div v-if="corporateRequest?.reason_for_booking" class="col-span-2 sm:col-span-4">
+                    <p class="text-xs text-muted-foreground mb-0.5">Purpose of Meal</p>
+                    <p class="font-medium">{{ corporateRequest.reason_for_booking }}</p>
                   </div>
                   <div v-if="mealsSummary?.dietary_notes" class="col-span-2 sm:col-span-4">
                     <p class="text-xs text-muted-foreground mb-0.5">Dietary Notes</p>
@@ -1010,4 +1040,11 @@ onMounted(async () => {
     :action="dialogAction"
     @confirm="handleConfirm"
   />
+
+  <PersonHistoryDialog
+    :open="personHistoryOpen"
+    :person="selectedPerson"
+    @update:open="personHistoryOpen = $event"
+  />
+</div>
 </template>

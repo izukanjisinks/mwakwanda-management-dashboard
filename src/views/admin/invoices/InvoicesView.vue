@@ -95,14 +95,17 @@ function openDetail(invoice: Invoice) {
 
 async function handleStatusChange(status: InvoiceStatus) {
   if (!selectedInvoice.value) return
-  const paidDate = status === 'paid' ? new Date().toISOString().split('T')[0] : undefined
   try {
-    const updated = await store.updateStatus(selectedInvoice.value.id, status, paidDate)
+    const updated = await store.updateStatus(selectedInvoice.value.id, status)
     selectedInvoice.value = updated
     toast.success(`Invoice marked as ${statusConfig[status].label}.`)
   } catch (err) {
     toast.error(getApiError(err, 'Failed to update invoice status.'))
   }
+}
+
+function handleInvoiceUpdated(invoice: Invoice) {
+  selectedInvoice.value = invoice
 }
 
 const summary = computed(() => ({
@@ -115,6 +118,7 @@ const summary = computed(() => ({
 </script>
 
 <template>
+<div>
   <DashboardHeader title="Invoices" />
 
   <div class="flex flex-col gap-6 p-6">
@@ -264,5 +268,6 @@ const summary = computed(() => ({
   </div>
 
   <InvoicePdfSheet v-model:open="pdfSheetOpen" :invoice="pdfInvoice" />
-  <InvoiceDetailDialog v-model:open="detailOpen" :invoice="selectedInvoice" @status-change="handleStatusChange" />
+  <InvoiceDetailDialog v-model:open="detailOpen" :invoice="selectedInvoice" @status-change="handleStatusChange" @updated="handleInvoiceUpdated" />
+</div>
 </template>

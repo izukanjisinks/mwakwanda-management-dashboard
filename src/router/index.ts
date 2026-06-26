@@ -94,6 +94,12 @@ const router = createRouter({
           meta: { roles: ['admin', 'branch_admin', 'manager', 'receptionist'] },
         },
         {
+          path: 'meal-tracking',
+          name: 'meal-tracking',
+          component: () => import('@/views/admin/meals/MealTrackingView.vue'),
+          meta: { roles: ['admin', 'branch_admin', 'manager', 'receptionist'] },
+        },
+        {
           path: 'invoices',
           name: 'admin-invoices',
           component: () => import('@/views/admin/invoices/InvoicesView.vue'),
@@ -115,6 +121,12 @@ const router = createRouter({
           path: 'reports',
           name: 'reports',
           component: () => import('@/views/admin/reports/ReportsView.vue'),
+          meta: { roles: ['admin', 'branch_admin', 'manager'] },
+        },
+        {
+          path: 'reports/corporate-billing',
+          name: 'reports-corporate-billing',
+          component: () => import('@/views/admin/reports/CorporateBillingReportView.vue'),
           meta: { roles: ['admin', 'branch_admin', 'manager'] },
         },
         {

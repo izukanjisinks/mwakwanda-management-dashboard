@@ -12,6 +12,8 @@ export interface BookingListParams extends Record<string, string | number | bool
   booker_type?: string
   booking_type?: string
   branch_id?: string
+  attendant_email?: string
+  attendant_name?: string
 }
 
 // Filters for a CSV export — same shape as the list, minus pagination.

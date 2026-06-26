@@ -21,4 +21,7 @@ export const invoiceApi = {
 
   updateStatus: (id: string, payload: InvoiceStatusUpdate) =>
     apiClient.patch<Invoice>(`/invoices/${id}/status`, payload),
+
+  notifyApprover: (id: string) =>
+    apiClient.post<Invoice>(`/invoices/${id}/notify-approver`),
 }

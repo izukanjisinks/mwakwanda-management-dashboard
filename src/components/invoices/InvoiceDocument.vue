@@ -164,6 +164,12 @@ const s = {
         </View>
       </View>
 
+      <!-- Meal purpose -->
+      <View v-if="invoice.meal_purpose" :style="[s.notesSection, { borderLeftColor: '#d97706', backgroundColor: '#fffbeb' }]">
+        <Text :style="s.notesLabel">Purpose of Meal</Text>
+        <Text :style="s.notesText">{{ invoice.meal_purpose }}</Text>
+      </View>
+
       <!-- Notes -->
       <View v-if="invoice.notes" :style="s.notesSection">
         <Text :style="s.notesLabel">Notes</Text>

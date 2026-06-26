@@ -174,6 +174,7 @@ const assignBranchId = ref(UNASSIGNED)
 const assigning = ref(false)
 
 function openAssignBranch(user: SystemUser) {
+  if (user.role === 'admin') return
   userToAssign.value = user
   assignBranchId.value = user.branch_id ?? UNASSIGNED
   assignDialogOpen.value = true
@@ -385,7 +386,11 @@ onMounted(() => {
                     </Badge>
                   </TableCell>
                   <TableCell>
+                    <span v-if="user.role === 'admin'" class="text-xs text-muted-foreground italic">
+                      Not applicable
+                    </span>
                     <button
+                      v-else
                       class="flex items-center gap-1.5 text-sm group/branch"
                       @click="openAssignBranch(user)"
                     >

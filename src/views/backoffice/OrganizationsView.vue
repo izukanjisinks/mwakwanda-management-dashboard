@@ -2,9 +2,10 @@
 import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useBackofficeStore } from '@/stores/backoffice'
-import { Search, Ban, CheckCircle, Loader2, ChevronLeft, ChevronRight, Building2 } from 'lucide-vue-next'
+import { Search, Ban, CheckCircle, Loader2, ChevronLeft, ChevronRight, Building2, Pencil } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
@@ -22,6 +23,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { toast } from 'vue-sonner'
+import type { Organisation } from '@/types/backoffice'
 
 const router = useRouter()
 const store = useBackofficeStore()
@@ -30,26 +33,15 @@ const search = ref('')
 const page = ref(1)
 const PAGE_SIZE = 20
 
+// ── Toggle status ─────────────────────────────────────────────────────────────
 const confirmDialog = ref<{
   open: boolean
-  org: typeof store.organisations[0] | null
+  org: Organisation | null
   action: 'activate' | 'deactivate'
 }>({ open: false, org: null, action: 'deactivate' })
 const actionLoading = ref(false)
 
-async function load() {
-  await store.fetchOrganisations({ page: page.value, page_size: PAGE_SIZE, search: search.value || undefined })
-}
-
-onMounted(load)
-
-let searchTimer: ReturnType<typeof setTimeout>
-watch(search, () => {
-  clearTimeout(searchTimer)
-  searchTimer = setTimeout(() => { page.value = 1; load() }, 400)
-})
-
-function openToggle(org: typeof store.organisations[0]) {
+function openToggle(org: Organisation) {
   confirmDialog.value = { open: true, org, action: org.is_active ? 'deactivate' : 'activate' }
 }
 
@@ -63,6 +55,56 @@ async function confirmToggle() {
     confirmDialog.value.open = false
   }
 }
+
+// ── Edit ──────────────────────────────────────────────────────────────────────
+const editDialog = ref(false)
+const editTarget = ref<Organisation | null>(null)
+const editForm = ref({ name: '', email: '', phone: '' })
+const editSaving = ref(false)
+const editError = ref('')
+
+function openEdit(org: Organisation) {
+  editTarget.value = org
+  editForm.value = { name: org.name, email: org.email ?? '', phone: org.phone ?? '' }
+  editError.value = ''
+  editDialog.value = true
+}
+
+async function handleEditSave() {
+  if (!editTarget.value) return
+  if (!editForm.value.name.trim()) { editError.value = 'Organisation name is required.'; return }
+  if (!editForm.value.email.trim()) { editError.value = 'Email is required.'; return }
+
+  editSaving.value = true
+  editError.value = ''
+  try {
+    await store.updateOrg(editTarget.value.id, {
+      name:  editForm.value.name.trim(),
+      email: editForm.value.email.trim(),
+      phone: editForm.value.phone.trim() || undefined,
+    })
+    toast.success('Organisation updated.')
+    editDialog.value = false
+  } catch (err: any) {
+    editError.value = err?.error?.message ?? 'Failed to update organisation.'
+    toast.error(editError.value)
+  } finally {
+    editSaving.value = false
+  }
+}
+
+// ── Data loading ──────────────────────────────────────────────────────────────
+async function load() {
+  await store.fetchOrganisations({ page: page.value, page_size: PAGE_SIZE, search: search.value || undefined })
+}
+
+onMounted(load)
+
+let searchTimer: ReturnType<typeof setTimeout>
+watch(search, () => {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => { page.value = 1; load() }, 400)
+})
 
 function formatDate(d: string) {
   return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -95,7 +137,7 @@ const totalPages = () => Math.ceil(store.orgTotal / PAGE_SIZE)
             <TableHead>Phone</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Joined</TableHead>
-            <TableHead class="w-20 text-right">Actions</TableHead>
+            <TableHead class="w-24 text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -141,17 +183,28 @@ const totalPages = () => Math.ceil(store.orgTotal / PAGE_SIZE)
               </TableCell>
               <TableCell class="text-muted-foreground text-sm">{{ formatDate(org.created_at) }}</TableCell>
               <TableCell class="text-right">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  class="size-8"
-                  :class="org.is_active ? 'text-destructive hover:text-destructive' : 'text-accent hover:text-accent'"
-                  :title="org.is_active ? 'Deactivate' : 'Activate'"
-                  @click="openToggle(org)"
-                >
-                  <Ban v-if="org.is_active" class="size-4" />
-                  <CheckCircle v-else class="size-4" />
-                </Button>
+                <div class="flex items-center justify-end gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    class="size-8"
+                    title="Edit organisation"
+                    @click="openEdit(org)"
+                  >
+                    <Pencil class="size-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    class="size-8"
+                    :class="org.is_active ? 'text-destructive hover:text-destructive' : 'text-accent hover:text-accent'"
+                    :title="org.is_active ? 'Deactivate' : 'Activate'"
+                    @click="openToggle(org)"
+                  >
+                    <Ban v-if="org.is_active" class="size-4" />
+                    <CheckCircle v-else class="size-4" />
+                  </Button>
+                </div>
               </TableCell>
             </TableRow>
           </template>
@@ -183,7 +236,46 @@ const totalPages = () => Math.ceil(store.orgTotal / PAGE_SIZE)
     </div>
   </div>
 
-  <!-- Confirm dialog -->
+  <!-- Edit dialog -->
+  <Dialog :open="editDialog" @update:open="editDialog = $event">
+    <DialogContent class="sm:max-w-md">
+      <DialogHeader>
+        <DialogTitle>Edit Organisation</DialogTitle>
+        <DialogDescription>Update the organisation's basic details.</DialogDescription>
+      </DialogHeader>
+
+      <form class="flex flex-col gap-4 py-2" @submit.prevent="handleEditSave">
+        <div v-if="editError" class="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-sm text-destructive">
+          {{ editError }}
+        </div>
+
+        <div class="grid gap-2">
+          <Label for="edit-name">Organisation Name *</Label>
+          <Input id="edit-name" v-model="editForm.name" placeholder="e.g. Pine Ridge Lodge" />
+        </div>
+
+        <div class="grid gap-2">
+          <Label for="edit-email">Email *</Label>
+          <Input id="edit-email" v-model="editForm.email" type="email" placeholder="info@lodge.com" />
+        </div>
+
+        <div class="grid gap-2">
+          <Label for="edit-phone">Phone</Label>
+          <Input id="edit-phone" v-model="editForm.phone" type="tel" placeholder="+260 97 000 0000" />
+        </div>
+      </form>
+
+      <DialogFooter class="gap-2">
+        <Button variant="outline" :disabled="editSaving" @click="editDialog = false">Cancel</Button>
+        <Button :disabled="editSaving" @click="handleEditSave">
+          <Loader2 v-if="editSaving" class="size-4 animate-spin mr-2" />
+          Save Changes
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+
+  <!-- Confirm toggle dialog -->
   <Dialog :open="confirmDialog.open" @update:open="confirmDialog.open = $event">
     <DialogContent class="max-w-sm">
       <DialogHeader>

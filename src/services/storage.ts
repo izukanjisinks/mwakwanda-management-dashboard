@@ -48,6 +48,14 @@ export async function deleteAllVenueImages(urls: string[]): Promise<void> {
   await Promise.all(urls.map(u => deleteRoomImage(u)))
 }
 
+export async function uploadProofOfPayment(invoiceId: string, file: File): Promise<string> {
+  const ext = file.name.split('.').pop()
+  const filename = `${randomUUID()}.${ext}`
+  const ref = storageRef(storage, `invoices/${invoiceId}/proof/${filename}`)
+  await uploadBytes(ref, file)
+  return getDownloadURL(ref)
+}
+
 export async function uploadOrgLogo(orgId: string, file: File): Promise<string> {
   const ext = file.name.split('.').pop()
   const filename = `${randomUUID()}.${ext}`

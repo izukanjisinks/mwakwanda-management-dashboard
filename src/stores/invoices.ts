@@ -26,8 +26,8 @@ export const useInvoicesStore = defineStore('invoices', () => {
     }
   }
 
-  async function updateStatus(id: string, status: InvoiceStatus, paid_date?: string): Promise<Invoice> {
-    const payload: InvoiceStatusUpdate = { status, paid_date }
+  async function updateStatus(id: string, status: InvoiceStatus, paid_date?: string, proof_of_payment_url?: string): Promise<Invoice> {
+    const payload: InvoiceStatusUpdate = { status, paid_date, proof_of_payment_url }
     const updated = await invoiceApi.updateStatus(id, payload)
     const idx = invoices.value.findIndex(i => i.id === id)
     if (idx !== -1) invoices.value[idx] = updated
@@ -38,5 +38,12 @@ export const useInvoicesStore = defineStore('invoices', () => {
     return invoiceApi.getByBookingId(bookingId)
   }
 
-  return { invoices, total, loading, error, fetchInvoices, updateStatus, fetchByBookingId }
+  async function notifyApprover(id: string): Promise<Invoice> {
+    const updated = await invoiceApi.notifyApprover(id)
+    const idx = invoices.value.findIndex(i => i.id === id)
+    if (idx !== -1) invoices.value[idx] = updated
+    return updated
+  }
+
+  return { invoices, total, loading, error, fetchInvoices, updateStatus, fetchByBookingId, notifyApprover }
 })

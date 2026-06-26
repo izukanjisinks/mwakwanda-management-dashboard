@@ -20,6 +20,11 @@ export interface Invoice {
   client_name: string
   client_type: ClientType
   client_email?: string
+  cost_center?: string
+  gl_code?: string
+  approver_name?: string
+  approver_email?: string
+  notification_sent_at?: string
   line_items: InvoiceLineItem[]
   subtotal: number
   tax_rate: number
@@ -29,6 +34,8 @@ export interface Invoice {
   issued_date?: string
   due_date?: string
   paid_date?: string
+  proof_of_payment_url?: string
+  meal_purpose?: string
   notes?: string
   created_at: string
   updated_at: string
@@ -37,6 +44,7 @@ export interface Invoice {
 export interface InvoiceStatusUpdate {
   status: InvoiceStatus
   paid_date?: string
+  proof_of_payment_url?: string
   notes?: string | null
 }
 

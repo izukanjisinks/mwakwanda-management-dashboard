@@ -118,7 +118,8 @@ async function handleSave() {
 
   saving.value = true
   try {
-    const resolvedBranchId = form.value.branch_id === UNASSIGNED ? null : (form.value.branch_id || null)
+    const isAdmin = form.value.role === 'admin'
+    const resolvedBranchId = isAdmin ? null : (form.value.branch_id === UNASSIGNED ? null : (form.value.branch_id || null))
     const resolvedBranchName = resolvedBranchId
       ? (branchesStore.branches.find(b => b.id === resolvedBranchId)?.name ?? '')
       : ''
@@ -207,7 +208,7 @@ async function handleSave() {
           </div>
         </div>
 
-        <div class="grid gap-2">
+        <div v-if="form.role !== 'admin'" class="grid gap-2">
           <Label>Branch</Label>
           <Select v-model="form.branch_id">
             <SelectTrigger>
@@ -228,6 +229,9 @@ async function handleSave() {
             </SelectContent>
           </Select>
         </div>
+        <p v-else class="text-xs text-muted-foreground -mt-1">
+          Admins are organisation-wide and cannot be assigned to a branch.
+        </p>
 
         <div class="grid gap-2">
           <Label for="password">{{ isEdit ? 'New Password' : 'Password *' }}</Label>
