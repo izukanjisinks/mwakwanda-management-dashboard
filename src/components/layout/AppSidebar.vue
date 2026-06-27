@@ -108,7 +108,6 @@ const adminNav = [
     label: 'Reports',
     items: [
       { title: 'Reports', icon: BarChart3, routeName: 'reports' },
-      { title: 'Corporate Billing', icon: Building2, routeName: 'reports-corporate-billing' },
     ],
   },
   {

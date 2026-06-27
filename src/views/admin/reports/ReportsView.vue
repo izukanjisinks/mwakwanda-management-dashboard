@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useBookingsStore } from '@/stores/bookings'
 import { useInvoicesStore } from '@/stores/invoices'
 import { useRoomsStore } from '@/stores/rooms'
@@ -8,6 +8,10 @@ import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { VisSingleContainer, VisDonut, VisXYContainer, VisGroupedBar, VisAxis, VisTooltip } from '@unovis/vue'
+import CorporateBillingTab from '@/components/reports/CorporateBillingTab.vue'
+
+type Tab = 'overview' | 'corporate-billing'
+const activeTab = ref<Tab>('overview')
 
 const bookingsStore = useBookingsStore()
 const invoicesStore = useInvoicesStore()
@@ -117,7 +121,37 @@ const tickFormat = (_: number, i: number) => {
 <template>
   <DashboardHeader title="Reports" />
 
-  <div class="flex flex-col gap-6 p-6">
+  <!-- Tab bar -->
+  <div class="border-b bg-background px-6">
+    <nav class="flex gap-0">
+      <button
+        class="relative px-4 py-3 text-sm font-medium transition-colors focus:outline-none"
+        :class="activeTab === 'overview'
+          ? 'text-foreground after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-primary'
+          : 'text-muted-foreground hover:text-foreground'"
+        @click="activeTab = 'overview'"
+      >
+        Overview
+      </button>
+      <button
+        class="relative px-4 py-3 text-sm font-medium transition-colors focus:outline-none"
+        :class="activeTab === 'corporate-billing'
+          ? 'text-foreground after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-primary'
+          : 'text-muted-foreground hover:text-foreground'"
+        @click="activeTab = 'corporate-billing'"
+      >
+        Corporate Billing
+      </button>
+    </nav>
+  </div>
+
+  <!-- Corporate Billing tab -->
+  <div v-if="activeTab === 'corporate-billing'" class="p-6">
+    <CorporateBillingTab />
+  </div>
+
+  <!-- Overview tab -->
+  <div v-else class="flex flex-col gap-6 p-6">
 
     <!-- KPI Cards -->
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -275,4 +309,5 @@ const tickFormat = (_: number, i: number) => {
     </Card>
 
   </div>
+
 </template>
