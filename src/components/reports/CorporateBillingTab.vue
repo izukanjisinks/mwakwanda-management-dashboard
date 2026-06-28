@@ -68,9 +68,9 @@ const companyInvoices = computed(() =>
     : [],
 )
 
-// Hierarchy: GL Code → Cost Center → Invoice[]
-interface CostCenterNode {
-  costCenter: string
+// Hierarchy: Cost Center → GL Code → Invoice[]
+interface GlCodeNode {
+  glCode: string
   invoices: Invoice[]
   paid: number
   pending: number
@@ -81,33 +81,33 @@ interface CostCenterNode {
   totalAmount: number
 }
 
-interface GlCodeNode {
-  glCode: string
-  costCenters: CostCenterNode[]
+interface CostCenterNode {
+  costCenter: string
+  glCodes: GlCodeNode[]
   totalAmount: number
   paidAmount: number
   pendingAmount: number
   overdueAmount: number
 }
 
-const hierarchy = computed<GlCodeNode[]>(() => {
-  const glMap = new Map<string, Map<string, Invoice[]>>()
+const hierarchy = computed<CostCenterNode[]>(() => {
+  const ccMap = new Map<string, Map<string, Invoice[]>>()
 
   for (const inv of companyInvoices.value) {
-    const gl = inv.gl_code || '(No GL Code)'
     const cc = inv.cost_center || '(No Cost Center)'
-    if (!glMap.has(gl)) glMap.set(gl, new Map())
-    const ccMap = glMap.get(gl)!
-    if (!ccMap.has(cc)) ccMap.set(cc, [])
-    ccMap.get(cc)!.push(inv)
+    const gl = inv.gl_code || '(No GL Code)'
+    if (!ccMap.has(cc)) ccMap.set(cc, new Map())
+    const glMap = ccMap.get(cc)!
+    if (!glMap.has(gl)) glMap.set(gl, [])
+    glMap.get(gl)!.push(inv)
   }
 
-  const glNodes: GlCodeNode[] = []
-  for (const [glCode, ccMap] of glMap) {
-    const costCenters: CostCenterNode[] = []
-    for (const [costCenter, invoices] of ccMap) {
-      const node: CostCenterNode = {
-        costCenter,
+  const ccNodes: CostCenterNode[] = []
+  for (const [costCenter, glMap] of ccMap) {
+    const glCodes: GlCodeNode[] = []
+    for (const [glCode, invoices] of glMap) {
+      const node: GlCodeNode = {
+        glCode,
         invoices,
         paid:          invoices.filter(i => i.status === 'paid').length,
         pending:       invoices.filter(i => i.status === 'issued' || i.status === 'draft').length,
@@ -117,20 +117,20 @@ const hierarchy = computed<GlCodeNode[]>(() => {
         overdueAmount: invoices.filter(i => i.status === 'overdue').reduce((s, i) => s + i.total_amount, 0),
         totalAmount:   invoices.reduce((s, i) => s + i.total_amount, 0),
       }
-      costCenters.push(node)
+      glCodes.push(node)
     }
-    costCenters.sort((a, b) => b.totalAmount - a.totalAmount)
+    glCodes.sort((a, b) => b.totalAmount - a.totalAmount)
 
-    glNodes.push({
-      glCode,
-      costCenters,
-      totalAmount:   costCenters.reduce((s, c) => s + c.totalAmount, 0),
-      paidAmount:    costCenters.reduce((s, c) => s + c.paidAmount, 0),
-      pendingAmount: costCenters.reduce((s, c) => s + c.pendingAmount, 0),
-      overdueAmount: costCenters.reduce((s, c) => s + c.overdueAmount, 0),
+    ccNodes.push({
+      costCenter,
+      glCodes,
+      totalAmount:   glCodes.reduce((s, g) => s + g.totalAmount, 0),
+      paidAmount:    glCodes.reduce((s, g) => s + g.paidAmount, 0),
+      pendingAmount: glCodes.reduce((s, g) => s + g.pendingAmount, 0),
+      overdueAmount: glCodes.reduce((s, g) => s + g.overdueAmount, 0),
     })
   }
-  return glNodes.sort((a, b) => b.totalAmount - a.totalAmount)
+  return ccNodes.sort((a, b) => b.totalAmount - a.totalAmount)
 })
 
 const companySummary = computed(() => {
@@ -145,20 +145,20 @@ const companySummary = computed(() => {
 })
 
 // ── Expand / collapse ─────────────────────────────────────────────────────────
-const expandedGl = ref(new Set<string>())
 const expandedCc = ref(new Set<string>())
+const expandedGl = ref(new Set<string>())
 
-function toggleGl(glCode: string) {
-  expandedGl.value.has(glCode) ? expandedGl.value.delete(glCode) : expandedGl.value.add(glCode)
+function toggleCc(costCenter: string) {
+  expandedCc.value.has(costCenter) ? expandedCc.value.delete(costCenter) : expandedCc.value.add(costCenter)
 }
-function toggleCc(key: string) {
-  expandedCc.value.has(key) ? expandedCc.value.delete(key) : expandedCc.value.add(key)
+function toggleGl(key: string) {
+  expandedGl.value.has(key) ? expandedGl.value.delete(key) : expandedGl.value.add(key)
 }
-function ccKey(glCode: string, costCenter: string) { return `${glCode}::${costCenter}` }
+function glKey(costCenter: string, glCode: string) { return `${costCenter}::${glCode}` }
 
 watch(selectedCompany, () => {
-  expandedGl.value = new Set()
   expandedCc.value = new Set()
+  expandedGl.value = new Set()
 })
 
 // ── Invoice detail + PDF ──────────────────────────────────────────────────────
@@ -257,7 +257,7 @@ function fmtDate(d?: string) {
       <Building2 class="size-12 opacity-20" />
       <div class="text-center">
         <p class="text-base font-medium text-foreground">Select a Company</p>
-        <p class="text-sm mt-1">Choose a corporate client above to view their billing broken down by GL code and cost center.</p>
+        <p class="text-sm mt-1">Choose a corporate client above to view their billing broken down by cost center and GL code.</p>
       </div>
     </div>
 
@@ -297,85 +297,85 @@ function fmtDate(d?: string) {
         <p class="text-sm">No invoices found for {{ selectedCompany }}.</p>
       </div>
 
-      <!-- GL Code → Cost Center → Invoices -->
+      <!-- Cost Center → GL Code → Invoices -->
       <div v-else class="flex flex-col gap-3">
         <div
-          v-for="glNode in hierarchy"
-          :key="glNode.glCode"
+          v-for="ccNode in hierarchy"
+          :key="ccNode.costCenter"
           class="rounded-xl border bg-card overflow-hidden"
         >
-          <!-- GL Code header -->
+          <!-- Cost Center header -->
           <button
             class="w-full flex items-center gap-3 px-5 py-4 hover:bg-muted/40 transition-colors text-left"
-            @click="toggleGl(glNode.glCode)"
+            @click="toggleCc(ccNode.costCenter)"
           >
             <div class="flex items-center gap-2 flex-1 min-w-0">
-              <Tag class="size-4 text-primary shrink-0" />
-              <span class="font-semibold text-sm">GL Code: {{ glNode.glCode }}</span>
+              <Layers class="size-4 text-primary shrink-0" />
+              <span class="font-semibold text-sm">{{ ccNode.costCenter }}</span>
               <span class="text-xs text-muted-foreground">
-                ({{ glNode.costCenters.length }} cost center{{ glNode.costCenters.length !== 1 ? 's' : '' }})
+                ({{ ccNode.glCodes.length }} GL code{{ ccNode.glCodes.length !== 1 ? 's' : '' }})
               </span>
             </div>
             <div class="hidden sm:flex items-center gap-6 text-sm shrink-0">
               <div class="text-right">
                 <span class="text-xs text-muted-foreground block">Paid</span>
-                <span class="text-green-600 dark:text-green-400 font-medium">{{ fmt(glNode.paidAmount) }}</span>
+                <span class="text-green-600 dark:text-green-400 font-medium">{{ fmt(ccNode.paidAmount) }}</span>
               </div>
               <div class="text-right">
                 <span class="text-xs text-muted-foreground block">Pending</span>
-                <span class="font-medium">{{ fmt(glNode.pendingAmount) }}</span>
+                <span class="font-medium">{{ fmt(ccNode.pendingAmount) }}</span>
               </div>
-              <div v-if="glNode.overdueAmount > 0" class="text-right">
+              <div v-if="ccNode.overdueAmount > 0" class="text-right">
                 <span class="text-xs text-muted-foreground block">Overdue</span>
-                <span class="text-destructive font-medium">{{ fmt(glNode.overdueAmount) }}</span>
+                <span class="text-destructive font-medium">{{ fmt(ccNode.overdueAmount) }}</span>
               </div>
               <div class="text-right min-w-[100px]">
                 <span class="text-xs text-muted-foreground block">Total</span>
-                <span class="font-semibold">ZMW {{ fmt(glNode.totalAmount) }}</span>
+                <span class="font-semibold">ZMW {{ fmt(ccNode.totalAmount) }}</span>
               </div>
             </div>
             <ChevronDown
               class="size-4 text-muted-foreground shrink-0 transition-transform duration-200"
-              :class="expandedGl.has(glNode.glCode) ? 'rotate-180' : ''"
+              :class="expandedCc.has(ccNode.costCenter) ? 'rotate-180' : ''"
             />
           </button>
 
-          <!-- Cost Centers -->
-          <template v-if="expandedGl.has(glNode.glCode)">
-            <div v-for="ccNode in glNode.costCenters" :key="ccNode.costCenter" class="border-t">
+          <!-- GL Codes -->
+          <template v-if="expandedCc.has(ccNode.costCenter)">
+            <div v-for="glNode in ccNode.glCodes" :key="glNode.glCode" class="border-t">
 
-              <!-- Cost center row -->
+              <!-- GL code row -->
               <button
                 class="w-full flex items-center gap-3 px-6 py-3 hover:bg-muted/30 transition-colors text-left bg-muted/10"
-                @click="toggleCc(ccKey(glNode.glCode, ccNode.costCenter))"
+                @click="toggleGl(glKey(ccNode.costCenter, glNode.glCode))"
               >
                 <ChevronRightIcon
                   class="size-3.5 text-muted-foreground shrink-0 transition-transform duration-200"
-                  :class="expandedCc.has(ccKey(glNode.glCode, ccNode.costCenter)) ? 'rotate-90' : ''"
+                  :class="expandedGl.has(glKey(ccNode.costCenter, glNode.glCode)) ? 'rotate-90' : ''"
                 />
                 <div class="flex items-center gap-2 flex-1 min-w-0">
-                  <Layers class="size-3.5 text-muted-foreground shrink-0" />
-                  <span class="text-sm font-medium">{{ ccNode.costCenter }}</span>
+                  <Tag class="size-3.5 text-muted-foreground shrink-0" />
+                  <span class="text-sm font-medium">GL Code: {{ glNode.glCode }}</span>
                   <span class="text-xs text-muted-foreground">
-                    · {{ ccNode.invoices.length }} invoice{{ ccNode.invoices.length !== 1 ? 's' : '' }}
+                    · {{ glNode.invoices.length }} invoice{{ glNode.invoices.length !== 1 ? 's' : '' }}
                   </span>
                 </div>
                 <div class="hidden sm:flex items-center gap-2 shrink-0">
-                  <span v-if="ccNode.paid" class="text-xs text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-900/30 rounded-full px-2 py-0.5">
-                    {{ ccNode.paid }} paid
+                  <span v-if="glNode.paid" class="text-xs text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-900/30 rounded-full px-2 py-0.5">
+                    {{ glNode.paid }} paid
                   </span>
-                  <span v-if="ccNode.pending" class="text-xs bg-muted rounded-full px-2 py-0.5">
-                    {{ ccNode.pending }} pending
+                  <span v-if="glNode.pending" class="text-xs bg-muted rounded-full px-2 py-0.5">
+                    {{ glNode.pending }} pending
                   </span>
-                  <span v-if="ccNode.overdue" class="text-xs text-destructive bg-destructive/10 rounded-full px-2 py-0.5">
-                    {{ ccNode.overdue }} overdue
+                  <span v-if="glNode.overdue" class="text-xs text-destructive bg-destructive/10 rounded-full px-2 py-0.5">
+                    {{ glNode.overdue }} overdue
                   </span>
-                  <span class="text-sm font-semibold ml-2 min-w-[90px] text-right">ZMW {{ fmt(ccNode.totalAmount) }}</span>
+                  <span class="text-sm font-semibold ml-2 min-w-[90px] text-right">ZMW {{ fmt(glNode.totalAmount) }}</span>
                 </div>
               </button>
 
-              <!-- Invoice list for cost center -->
-              <template v-if="expandedCc.has(ccKey(glNode.glCode, ccNode.costCenter))">
+              <!-- Invoice list for GL code -->
+              <template v-if="expandedGl.has(glKey(ccNode.costCenter, glNode.glCode))">
                 <div class="divide-y border-t bg-background">
                   <div class="grid grid-cols-12 gap-2 px-8 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide bg-muted/20">
                     <span class="col-span-3">Invoice No.</span>
@@ -386,7 +386,7 @@ function fmtDate(d?: string) {
                     <span class="col-span-1 text-right">Actions</span>
                   </div>
                   <div
-                    v-for="inv in ccNode.invoices"
+                    v-for="inv in glNode.invoices"
                     :key="inv.id"
                     class="grid grid-cols-12 gap-2 items-center px-8 py-2.5 text-sm hover:bg-muted/20 transition-colors"
                   >
@@ -414,18 +414,18 @@ function fmtDate(d?: string) {
                     </span>
                   </div>
                   <div class="grid grid-cols-12 gap-2 items-center px-8 py-2.5 bg-muted/30 text-xs font-semibold">
-                    <span class="col-span-8 text-muted-foreground">Cost Center Total</span>
-                    <span class="col-span-2 text-right">{{ fmt(ccNode.totalAmount) }}</span>
+                    <span class="col-span-8 text-muted-foreground">GL Code Total</span>
+                    <span class="col-span-2 text-right">{{ fmt(glNode.totalAmount) }}</span>
                     <span class="col-span-2" />
                   </div>
                 </div>
               </template>
             </div>
 
-            <!-- GL code total -->
+            <!-- Cost center total -->
             <div class="border-t px-5 py-3 bg-muted/20 flex items-center justify-between text-sm">
-              <span class="text-muted-foreground font-medium">GL Code Total · {{ glNode.glCode }}</span>
-              <span class="font-semibold">ZMW {{ fmt(glNode.totalAmount) }}</span>
+              <span class="text-muted-foreground font-medium">Cost Center Total · {{ ccNode.costCenter }}</span>
+              <span class="font-semibold">ZMW {{ fmt(ccNode.totalAmount) }}</span>
             </div>
           </template>
         </div>
