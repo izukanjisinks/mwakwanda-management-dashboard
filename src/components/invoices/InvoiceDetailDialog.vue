@@ -50,9 +50,13 @@ const clientTpin    = computed(() => props.invoice?.client_tpin       || '200045
 const clientAddress = computed(() => props.invoice?.client_address    || '15th Floor, Cairo Road, Lusaka, Zambia')
 const clientBranch  = computed(() => props.invoice?.client_branch     || 'Lusaka Central Branch')
 const clientDept    = computed(() => props.invoice?.client_department || 'Finance & Administration')
-const glCode        = computed(() => props.invoice?.gl_code           || '—')
-const costCenter    = computed(() => props.invoice?.cost_center       || '—')
-const internalOrder = computed(() => props.invoice?.internal_order    || '—')
+const glCode           = computed(() => props.invoice?.gl_code        || '—')
+const costCenterType   = computed(() => props.invoice?.cost_center_type)
+const costCenterLabel  = computed(() => costCenterType.value === 'internal_order' ? 'Internal Order' : 'Cost Center')
+const costCenterValue  = computed(() => {
+  if (costCenterType.value === 'internal_order') return props.invoice?.internal_order || '—'
+  return props.invoice?.cost_center || '—'
+})
 
 const statusConfig: Record<InvoiceStatus, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
   draft:     { label: 'Draft',     variant: 'outline' },
@@ -401,12 +405,8 @@ const groupedLineItems = computed(() => {
                 <span class="font-medium">{{ glCode }}</span>
               </div>
               <div class="flex gap-2 text-xs">
-                <span class="w-24 shrink-0 text-muted-foreground">Cost Center</span>
-                <span class="font-medium">{{ costCenter }}</span>
-              </div>
-              <div class="flex gap-2 text-xs">
-                <span class="w-24 shrink-0 text-muted-foreground">Internal Order</span>
-                <span class="font-medium">{{ internalOrder }}</span>
+                <span class="w-24 shrink-0 text-muted-foreground">{{ costCenterLabel }}</span>
+                <span class="font-medium">{{ costCenterValue }}</span>
               </div>
             </div>
           </div>

@@ -43,9 +43,13 @@ const clientTpin    = computed(() => props.invoice.client_tpin       || '2000456
 const clientAddress = computed(() => props.invoice.client_address    || '15th Floor, Cairo Road, Lusaka, Zambia')
 const clientBranch  = computed(() => props.invoice.client_branch     || 'Lusaka Central Branch')
 const clientDept    = computed(() => props.invoice.client_department || 'Finance & Administration')
-const glCode        = computed(() => props.invoice.gl_code           || '—')
-const costCenter    = computed(() => props.invoice.cost_center       || '—')
-const internalOrder = computed(() => props.invoice.internal_order    || '—')
+const glCode          = computed(() => props.invoice.gl_code        || '—')
+const costCenterType  = computed(() => props.invoice.cost_center_type)
+const costCenterLabel = computed(() => costCenterType.value === 'internal_order' ? 'Internal Order' : 'Cost Center')
+const costCenterValue = computed(() => {
+  if (costCenterType.value === 'internal_order') return props.invoice.internal_order || '—'
+  return props.invoice.cost_center || '—'
+})
 
 // ── Attendee grouping ─────────────────────────────────────────────────────────
 interface DisplayItem {
@@ -340,12 +344,8 @@ const s = {
               <Text :style="s.billValLight">{{ glCode }}</Text>
             </View>
             <View :style="s.billRow">
-              <Text :style="s.billKeyDark">Cost Center</Text>
-              <Text :style="s.billValLight">{{ costCenter }}</Text>
-            </View>
-            <View :style="s.billRow">
-              <Text :style="s.billKeyDark">Internal Order</Text>
-              <Text :style="s.billValLight">{{ internalOrder }}</Text>
+              <Text :style="s.billKeyDark">{{ costCenterLabel }}</Text>
+              <Text :style="s.billValLight">{{ costCenterValue }}</Text>
             </View>
           </View>
         </View>

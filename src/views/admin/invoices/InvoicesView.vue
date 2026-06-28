@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { Search, Eye, ChevronLeft, ChevronRight, FileText, User, Building2 } from 'lucide-vue-next'
+import { Search, Eye, ChevronLeft, ChevronRight, FileText, User, Building2, Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { getApiError } from '@/utils/errors'
 import { useInvoicesStore } from '@/stores/invoices'
@@ -12,6 +12,14 @@ import InvoicePdfSheet from '@/components/invoices/InvoicePdfSheet.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   Select,
   SelectContent,
@@ -40,6 +48,9 @@ const pdfSheetOpen = ref(false)
 const pdfInvoice = ref<Invoice | null>(null)
 const search = ref('')
 const statusFilter = ref<InvoiceStatus | 'all'>('all')
+
+const issueConfirmOpen = ref(false)
+const issueConfirmLoading = ref(false)
 
 const page = ref(1)
 const pageSize = 10
@@ -93,7 +104,17 @@ function openDetail(invoice: Invoice) {
   detailOpen.value = true
 }
 
-async function handleStatusChange(status: InvoiceStatus) {
+function handleStatusChange(status: InvoiceStatus) {
+  if (!selectedInvoice.value) return
+  if (status === 'issued') {
+    detailOpen.value = false
+    issueConfirmOpen.value = true
+    return
+  }
+  applyStatusChange(status)
+}
+
+async function applyStatusChange(status: InvoiceStatus) {
   if (!selectedInvoice.value) return
   try {
     const updated = await store.updateStatus(selectedInvoice.value.id, status)
@@ -101,6 +122,16 @@ async function handleStatusChange(status: InvoiceStatus) {
     toast.success(`Invoice marked as ${statusConfig[status].label}.`)
   } catch (err) {
     toast.error(getApiError(err, 'Failed to update invoice status.'))
+  }
+}
+
+async function confirmIssue() {
+  issueConfirmLoading.value = true
+  try {
+    await applyStatusChange('issued')
+    issueConfirmOpen.value = false
+  } finally {
+    issueConfirmLoading.value = false
   }
 }
 
@@ -269,5 +300,29 @@ const summary = computed(() => ({
 
   <InvoicePdfSheet v-model:open="pdfSheetOpen" :invoice="pdfInvoice" />
   <InvoiceDetailDialog v-model:open="detailOpen" :invoice="selectedInvoice" @status-change="handleStatusChange" @updated="handleInvoiceUpdated" />
+
+  <Dialog v-model:open="issueConfirmOpen">
+    <DialogContent class="sm:max-w-md">
+      <DialogHeader>
+        <DialogTitle>Issue Invoice</DialogTitle>
+        <DialogDescription>
+          Are you sure you want to issue
+          <span class="font-semibold text-foreground">{{ selectedInvoice?.invoice_number }}</span>
+          to
+          <span class="font-semibold text-foreground">{{ selectedInvoice?.client_name }}</span>?
+          Once issued, the invoice will be visible to the client and can no longer be edited.
+        </DialogDescription>
+      </DialogHeader>
+      <DialogFooter class="gap-2">
+        <Button variant="outline" :disabled="issueConfirmLoading" @click="issueConfirmOpen = false">
+          Cancel
+        </Button>
+        <Button :disabled="issueConfirmLoading" @click="confirmIssue">
+          <Loader2 v-if="issueConfirmLoading" class="size-4 animate-spin mr-2" />
+          {{ issueConfirmLoading ? 'Issuing...' : 'Issue Invoice' }}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 </div>
 </template>

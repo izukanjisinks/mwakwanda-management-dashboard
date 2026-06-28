@@ -33,6 +33,7 @@ export interface Invoice {
   client_department?: string
   internal_order?: string
   cost_center?: string
+  cost_center_type?: 'cost_center' | 'internal_order'
   gl_code?: string
   // Org billing — Bill From (overrides auth store defaults when set)
   org_branch?: string
