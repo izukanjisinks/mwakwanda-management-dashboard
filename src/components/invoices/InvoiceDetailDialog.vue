@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Loader2, Upload, X, FileText, ExternalLink, CheckCircle2, Mail, RefreshCw } from 'lucide-vue-next'
+import { Loader2, Upload, X, FileText, ExternalLink, CheckCircle2, Mail, RefreshCw, User, ChevronDown, ChevronRight } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { useInvoicesStore } from '@/stores/invoices'
 import { useAuthStore } from '@/stores/auth'
@@ -201,6 +201,114 @@ const canMarkPaid = computed(() =>
 const isProofImage = computed(() => {
   const url = props.invoice?.proof_of_payment_url
   return !!url && /\.(jpe?g|png|webp)(\?|$)/i.test(url)
+})
+
+// ── Attendee grouping ─────────────────────────────────────────────────────────
+interface DisplayItem {
+  id: string
+  itemNo: number
+  description: string
+  quantity: number
+  unit_price: number
+  total: number
+  created_at: string
+}
+
+interface BookingTypeGroup {
+  typeKey: string
+  label: string
+  firstItemNo: number
+  subtotal: number
+  items: DisplayItem[]
+}
+
+interface AttendeeGroup {
+  key: string
+  name: string
+  reference: string
+  total: number
+  bookingTypes: BookingTypeGroup[]
+}
+
+const TYPE_LABELS: Record<string, string> = {
+  accommodation: 'Accommodation',
+  meals: 'Meals',
+  event: 'Events',
+  general: 'General',
+}
+
+function parseDescription(raw: string): { name: string; description: string; bookingType: string } {
+  // Room format: "ROOM_ID (NAME) — details"
+  const roomMatch = raw.match(/^(.+?)\s*\(([^)]+)\)\s*—\s*(.+)$/)
+  if (roomMatch) {
+    return { name: roomMatch[2].trim(), description: `${roomMatch[1].trim()} — ${roomMatch[3].trim()}`, bookingType: 'accommodation' }
+  }
+  // Meal format: "NAME — item details"
+  const mealMatch = raw.match(/^(.+?)\s*—\s*(.+)$/)
+  if (mealMatch) {
+    return { name: mealMatch[1].trim(), description: mealMatch[2].trim(), bookingType: 'meals' }
+  }
+  return { name: '', description: raw, bookingType: 'general' }
+}
+
+const expandedBookingTypes = ref(new Set<string>())
+
+watch(() => props.invoice?.id, () => { expandedBookingTypes.value = new Set() })
+
+function toggleBookingType(key: string) {
+  const next = new Set(expandedBookingTypes.value)
+  next.has(key) ? next.delete(key) : next.add(key)
+  expandedBookingTypes.value = next
+}
+
+const groupedLineItems = computed(() => {
+  if (!props.invoice) return [] as AttendeeGroup[]
+  const attendeeMap = new Map<string, AttendeeGroup>()
+  let itemNo = 0
+
+  for (const item of props.invoice.line_items) {
+    itemNo++
+    let attendeeKey: string, attendeeName: string, reference: string, description: string, bookingType: string
+
+    if (item.attendee_name) {
+      attendeeKey  = item.attendee_id ?? item.attendee_passport ?? item.attendee_name
+      attendeeName = item.attendee_name
+      reference    = item.attendee_passport ?? item.attendee_id ?? ''
+      description  = item.description
+      bookingType  = item.booking_type ?? 'general'
+    } else {
+      const parsed = parseDescription(item.description)
+      if (parsed.name) {
+        attendeeKey  = parsed.name
+        attendeeName = parsed.name
+        reference    = item.attendee_passport ?? item.attendee_id ?? ''
+        description  = parsed.description
+        bookingType  = item.booking_type ?? parsed.bookingType
+      } else {
+        attendeeKey  = '__general__'
+        attendeeName = 'General Charges'
+        reference    = ''
+        description  = item.description
+        bookingType  = item.booking_type ?? 'general'
+      }
+    }
+
+    if (!attendeeMap.has(attendeeKey)) {
+      attendeeMap.set(attendeeKey, { key: attendeeKey, name: attendeeName, reference, total: 0, bookingTypes: [] })
+    }
+    const group = attendeeMap.get(attendeeKey)!
+    group.total += item.total
+
+    let typeGroup = group.bookingTypes.find(bt => bt.typeKey === bookingType)
+    if (!typeGroup) {
+      typeGroup = { typeKey: bookingType, label: TYPE_LABELS[bookingType] ?? bookingType, firstItemNo: itemNo, subtotal: 0, items: [] }
+      group.bookingTypes.push(typeGroup)
+    }
+    typeGroup.subtotal += item.total
+    typeGroup.items.push({ id: item.id, itemNo, description, quantity: item.quantity, unit_price: item.unit_price, total: item.total, created_at: item.created_at })
+  }
+
+  return [...attendeeMap.values()]
 })
 </script>
 
@@ -467,23 +575,71 @@ const isProofImage = computed(() => {
 
         <Separator />
 
-        <!-- Line items -->
-        <div class="flex flex-col gap-2">
-          <div class="grid grid-cols-12 text-xs text-muted-foreground font-medium px-1">
-            <span class="col-span-6">Description</span>
-            <span class="col-span-2 text-right">Qty</span>
-            <span class="col-span-2 text-right">Unit Price</span>
-            <span class="col-span-2 text-right">Total</span>
-          </div>
+        <!-- Line items: person → booking type (collapsible) → items with numbers -->
+        <div class="flex flex-col gap-3">
           <div
-            v-for="(item, i) in invoice.line_items"
-            :key="i"
-            class="grid grid-cols-12 text-sm px-1 py-2 rounded-md hover:bg-muted/50"
+            v-for="group in groupedLineItems"
+            :key="group.key"
+            class="rounded-lg border overflow-hidden"
           >
-            <span class="col-span-6">{{ item.description }}</span>
-            <span class="col-span-2 text-right text-muted-foreground">{{ item.quantity }}</span>
-            <span class="col-span-2 text-right text-muted-foreground">{{ item.unit_price.toLocaleString() }}</span>
-            <span class="col-span-2 text-right font-medium">{{ item.total.toLocaleString() }}</span>
+            <!-- Person header -->
+            <div class="flex items-center justify-between gap-3 px-4 py-2.5 bg-muted/40 border-b">
+              <div class="flex items-center gap-2 min-w-0">
+                <User class="size-3.5 text-muted-foreground shrink-0" />
+                <span class="font-semibold text-sm">{{ group.name }}</span>
+                <span v-if="group.reference" class="text-xs text-muted-foreground">({{ group.reference }})</span>
+              </div>
+              <span class="text-sm font-semibold shrink-0">ZMW {{ group.total.toLocaleString() }}</span>
+            </div>
+
+            <!-- Booking type subheaders -->
+            <div
+              v-for="bt in group.bookingTypes"
+              :key="bt.typeKey"
+              class="border-b last:border-b-0"
+            >
+              <!-- Toggle row -->
+              <button
+                class="w-full flex items-center justify-between gap-3 px-4 py-2 bg-muted/20 hover:bg-muted/30 transition-colors text-left"
+                @click="toggleBookingType(`${group.key}::${bt.typeKey}`)"
+              >
+                <div class="flex items-center gap-2">
+                  <ChevronDown
+                    v-if="expandedBookingTypes.has(`${group.key}::${bt.typeKey}`)"
+                    class="size-3 text-muted-foreground shrink-0"
+                  />
+                  <ChevronRight v-else class="size-3 text-muted-foreground shrink-0" />
+                  <span class="text-xs font-semibold uppercase tracking-wide">{{ bt.label }}</span>
+                  <span class="text-xs text-muted-foreground">{{ bt.items.length }} item{{ bt.items.length !== 1 ? 's' : '' }}</span>
+                </div>
+                <span class="text-xs font-semibold shrink-0">ZMW {{ bt.subtotal.toLocaleString() }}</span>
+              </button>
+
+              <!-- Items (expanded) -->
+              <template v-if="expandedBookingTypes.has(`${group.key}::${bt.typeKey}`)">
+                <!-- Column headers -->
+                <div class="flex items-center text-xs text-muted-foreground font-medium px-4 py-1.5 bg-muted/10 gap-2 border-t">
+                  <span class="w-6 shrink-0">#</span>
+                  <span class="flex-1">Item</span>
+                  <span class="w-24 shrink-0">Date</span>
+                  <span class="w-8 text-right shrink-0">Qty</span>
+                  <span class="w-20 text-right shrink-0">Unit</span>
+                  <span class="w-20 text-right shrink-0">Total</span>
+                </div>
+                <div
+                  v-for="item in bt.items"
+                  :key="item.id || item.itemNo"
+                  class="flex items-center text-xs px-4 py-2 border-t hover:bg-muted/20 gap-2"
+                >
+                  <span class="w-6 shrink-0 text-muted-foreground font-mono">{{ item.itemNo }}</span>
+                  <span class="flex-1 min-w-0 truncate">{{ item.description }}</span>
+                  <span class="w-24 shrink-0 text-muted-foreground">{{ formatDate(item.created_at) }}</span>
+                  <span class="w-8 text-right shrink-0 text-muted-foreground">{{ item.quantity }}</span>
+                  <span class="w-20 text-right shrink-0 text-muted-foreground">{{ item.unit_price.toLocaleString() }}</span>
+                  <span class="w-20 text-right shrink-0 font-medium">{{ item.total.toLocaleString() }}</span>
+                </div>
+              </template>
+            </div>
           </div>
         </div>
 

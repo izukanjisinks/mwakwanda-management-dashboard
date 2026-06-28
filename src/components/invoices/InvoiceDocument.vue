@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watchEffect } from 'vue'
 import { Document, Page, View, Text, Image } from '@ceereals/vue-pdf'
 import type { Style } from '@ceereals/vue-pdf'
 import type { Invoice } from '@/types/invoice'
@@ -8,6 +8,25 @@ import { useAuthStore } from '@/stores/auth'
 const props = defineProps<{ invoice: Invoice }>()
 
 const authStore = useAuthStore()
+
+// Prefetch the logo as base64 so the PDF renderer can embed it without CORS issues
+const logoBase64 = ref<string | undefined>(undefined)
+watchEffect(async () => {
+  const url = authStore.user?.org_logo_url
+  if (!url) { logoBase64.value = undefined; return }
+  try {
+    const res = await fetch(url)
+    const blob = await res.blob()
+    logoBase64.value = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(reader.result as string)
+      reader.onerror = reject
+      reader.readAsDataURL(blob)
+    })
+  } catch {
+    logoBase64.value = undefined
+  }
+})
 const isCorporate = computed(() => props.invoice.client_type === 'corporate')
 
 // ── Bill From (org) ───────────────────────────────────────────────────────────
@@ -27,6 +46,94 @@ const clientDept    = computed(() => props.invoice.client_department || 'Finance
 const glCode        = computed(() => props.invoice.gl_code           || '—')
 const costCenter    = computed(() => props.invoice.cost_center       || '—')
 const internalOrder = computed(() => props.invoice.internal_order    || '—')
+
+// ── Attendee grouping ─────────────────────────────────────────────────────────
+interface DisplayItem {
+  id: string
+  itemNo: number
+  description: string
+  bookingTypeLabel: string
+  quantity: number
+  unit_price: number
+  total: number
+}
+
+interface AttendeeGroup {
+  key: string
+  name: string
+  reference: string
+  total: number
+  items: DisplayItem[]
+}
+
+const TYPE_LABELS: Record<string, string> = {
+  accommodation: 'Accommodation',
+  meals: 'Meals',
+  event: 'Events',
+  general: 'General',
+}
+
+function parseDescription(raw: string): { name: string; description: string; bookingType: string } {
+  const roomMatch = raw.match(/^(.+?)\s*\(([^)]+)\)\s*—\s*(.+)$/)
+  if (roomMatch) {
+    return { name: roomMatch[2].trim(), description: `${roomMatch[1].trim()} — ${roomMatch[3].trim()}`, bookingType: 'accommodation' }
+  }
+  const mealMatch = raw.match(/^(.+?)\s*—\s*(.+)$/)
+  if (mealMatch) {
+    return { name: mealMatch[1].trim(), description: mealMatch[2].trim(), bookingType: 'meals' }
+  }
+  return { name: '', description: raw, bookingType: 'general' }
+}
+
+const groupedLineItems = computed((): AttendeeGroup[] => {
+  const attendeeMap = new Map<string, AttendeeGroup>()
+  let itemNo = 0
+
+  for (const item of props.invoice.line_items) {
+    itemNo++
+    let attendeeKey: string, attendeeName: string, reference: string, description: string, bookingType: string
+
+    if (item.attendee_name) {
+      attendeeKey  = item.attendee_id ?? item.attendee_passport ?? item.attendee_name
+      attendeeName = item.attendee_name
+      reference    = item.attendee_passport ?? item.attendee_id ?? ''
+      description  = item.description
+      bookingType  = item.booking_type ?? 'general'
+    } else {
+      const parsed = parseDescription(item.description)
+      if (parsed.name) {
+        attendeeKey  = parsed.name
+        attendeeName = parsed.name
+        reference    = item.attendee_passport ?? item.attendee_id ?? ''
+        description  = parsed.description
+        bookingType  = item.booking_type ?? parsed.bookingType
+      } else {
+        attendeeKey  = '__general__'
+        attendeeName = 'General Charges'
+        reference    = ''
+        description  = item.description
+        bookingType  = item.booking_type ?? 'general'
+      }
+    }
+
+    if (!attendeeMap.has(attendeeKey)) {
+      attendeeMap.set(attendeeKey, { key: attendeeKey, name: attendeeName, reference, total: 0, items: [] })
+    }
+    const group = attendeeMap.get(attendeeKey)!
+    group.total += item.total
+    group.items.push({
+      id: item.id,
+      itemNo,
+      description,
+      bookingTypeLabel: TYPE_LABELS[bookingType] ?? bookingType,
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      total: item.total,
+    })
+  }
+
+  return [...attendeeMap.values()]
+})
 
 function fmt(amount: number) {
   return `ZMW ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -56,7 +163,9 @@ const s = {
 
   // Header
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, paddingBottom: 20, borderBottomWidth: 2, borderBottomColor: '#d97706' } as Style,
-  orgLogo: { width: 48, height: 48, borderRadius: 4, marginBottom: 6, objectFit: 'contain' } as Style,
+  orgLogoWrap: { width: 72, height: 72, borderRadius: 10, backgroundColor: '#92400e', marginBottom: 8, alignItems: 'center', justifyContent: 'center', flexDirection: 'row' } as Style,
+  orgLogoImg: { width: 72, height: 72, borderRadius: 10 } as Style,
+  orgLogoFallback: { fontSize: 26, fontFamily: 'Helvetica-Bold', color: '#ffffff' } as Style,
   lodgeName: { fontSize: 18, fontFamily: 'Helvetica-Bold', color: '#92400e' } as Style,
   lodgeSub: { fontSize: 9, color: '#78716c', marginTop: 3 } as Style,
   invoiceTitle: { fontSize: 22, fontFamily: 'Helvetica-Bold', textAlign: 'right', color: '#1a1a1a' } as Style,
@@ -87,15 +196,32 @@ const s = {
   dateValue: { fontSize: 9, fontFamily: 'Helvetica-Bold', color: '#1a1a1a' } as Style,
 
   // Line items table
-  tableHeader: { flexDirection: 'row', backgroundColor: '#292524', padding: 9, borderRadius: 4, marginBottom: 1 } as Style,
-  thText: { fontSize: 9, fontFamily: 'Helvetica-Bold', color: '#ffffff', textTransform: 'uppercase' } as Style,
-  tableRow: { flexDirection: 'row', padding: 9, borderBottomWidth: 1, borderBottomColor: '#f5f5f4' } as Style,
-  tableRowAlt: { flexDirection: 'row', padding: 9, backgroundColor: '#fafaf9', borderBottomWidth: 1, borderBottomColor: '#f5f5f4' } as Style,
-  colDesc: { flex: 1 } as Style,
-  colDate: { width: 70, textAlign: 'center' } as Style,
-  colQty: { width: 40, textAlign: 'center' } as Style,
-  colPrice: { width: 80, textAlign: 'right' } as Style,
-  colTotal: { width: 80, textAlign: 'right' } as Style,
+  // Person subheader row
+  attendeeRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#44403c', paddingHorizontal: 9, paddingVertical: 6, marginTop: 8, marginBottom: 1, borderRadius: 2 } as Style,
+  attendeeNameText: { flex: 1, fontSize: 9, fontFamily: 'Helvetica-Bold', color: '#fafaf9' } as Style,
+  attendeeRefText: { fontSize: 8, color: '#a8a29e', marginLeft: 6 } as Style,
+  attendeeTotalText: { width: 80, textAlign: 'right', fontSize: 9, fontFamily: 'Helvetica-Bold', color: '#fde68a' } as Style,
+  // Line items table header
+  tableHeader: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#292524', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 3, marginBottom: 1, marginTop: 8 } as Style,
+  thNo: { width: 28, fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#fafaf9', textTransform: 'uppercase' } as Style,
+  thDesc: { flex: 1, fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#fafaf9', textTransform: 'uppercase' } as Style,
+  thQty: { width: 40, fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#fafaf9', textTransform: 'uppercase', textAlign: 'right' } as Style,
+  thUnit: { width: 72, fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#fafaf9', textTransform: 'uppercase', textAlign: 'right' } as Style,
+  thTotal: { width: 80, fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#fafaf9', textTransform: 'uppercase', textAlign: 'right' } as Style,
+  // Individual item rows
+  itemRow:     { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 12, paddingVertical: 7, borderBottomWidth: 1, borderBottomColor: '#f0efed' } as Style,
+  itemAltRow:  { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 12, paddingVertical: 7, borderBottomWidth: 1, borderBottomColor: '#f0efed', backgroundColor: '#fafaf9' } as Style,
+  itemNoCol:   { width: 28, paddingTop: 1 } as Style,
+  itemNoText:  { fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#a8a29e' } as Style,
+  itemDescCol: { flex: 1 } as Style,
+  itemDescText:{ fontSize: 9, color: '#1a1a1a' } as Style,
+  itemTypeText:{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: '#92400e', textTransform: 'uppercase', letterSpacing: 0.4, marginTop: 2 } as Style,
+  itemQtyCol:  { width: 40, textAlign: 'right', paddingTop: 1 } as Style,
+  itemQtyText: { fontSize: 9, color: '#57534e' } as Style,
+  itemUnitCol: { width: 72, textAlign: 'right', paddingTop: 1 } as Style,
+  itemUnitText:{ fontSize: 9, color: '#57534e' } as Style,
+  itemTotalCol:{ width: 80, textAlign: 'right', paddingTop: 1 } as Style,
+  itemTotalText:{ fontSize: 9, fontFamily: 'Helvetica-Bold', color: '#1a1a1a' } as Style,
 
   // Totals
   totalsSection: { marginTop: 20, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'stretch', gap: 12 } as Style,
@@ -126,7 +252,10 @@ const s = {
       <!-- Header -->
       <View :style="s.header">
         <View>
-          <Image v-if="authStore.user?.org_logo_url" :src="authStore.user.org_logo_url" :style="s.orgLogo" />
+          <View :style="s.orgLogoWrap">
+            <Image v-if="logoBase64" :src="logoBase64" :style="s.orgLogoImg" />
+            <Text v-else :style="s.orgLogoFallback">{{ orgName.charAt(0).toUpperCase() }}</Text>
+          </View>
           <Text :style="s.lodgeName">{{ orgName }}</Text>
           <Text :style="s.lodgeSub">Hospitality &amp; Accommodation</Text>
         </View>
@@ -316,24 +445,46 @@ const s = {
         </View>
       </template>
 
-      <!-- Line items table -->
+      <!-- Line items table header -->
       <View :style="s.tableHeader">
-        <Text :style="[s.thText, s.colDesc]">Description</Text>
-        <Text :style="[s.thText, s.colDate]">Date</Text>
-        <Text :style="[s.thText, s.colQty]">Qty</Text>
-        <Text :style="[s.thText, s.colPrice]">Unit Price</Text>
-        <Text :style="[s.thText, s.colTotal]">Total</Text>
+        <Text :style="s.thNo">Item No.</Text>
+        <Text :style="s.thDesc">Description</Text>
+        <Text :style="s.thQty">Qty</Text>
+        <Text :style="s.thUnit">Unit Price</Text>
+        <Text :style="s.thTotal">Total</Text>
       </View>
-      <View
-        v-for="(item, i) in invoice.line_items"
-        :key="i"
-        :style="i % 2 === 0 ? s.tableRow : s.tableRowAlt"
-      >
-        <Text :style="s.colDesc">{{ item.description }}</Text>
-        <Text :style="[s.colDate, { fontSize: 9, textAlign: 'center', color: '#6b7280' }]">{{ fmtDate(item.created_at) }}</Text>
-        <Text :style="s.colQty">{{ item.quantity }}</Text>
-        <Text :style="s.colPrice">{{ fmt(item.unit_price) }}</Text>
-        <Text :style="s.colTotal">{{ fmt(item.total) }}</Text>
+
+      <!-- Person groups with individual item rows (always expanded in PDF) -->
+      <View v-for="group in groupedLineItems" :key="group.key">
+        <!-- Person subheader -->
+        <View :style="s.attendeeRow">
+          <Text :style="s.attendeeNameText">{{ group.name }}</Text>
+          <Text v-if="group.reference" :style="s.attendeeRefText">({{ group.reference }})</Text>
+          <Text :style="s.attendeeTotalText">{{ fmt(group.total) }}</Text>
+        </View>
+        <!-- Item rows: description + booking type label below, qty, unit price, total -->
+        <View
+          v-for="(item, i) in group.items"
+          :key="item.id || item.itemNo"
+          :style="i % 2 === 0 ? s.itemRow : s.itemAltRow"
+        >
+          <View :style="s.itemNoCol">
+            <Text :style="s.itemNoText">{{ item.itemNo }}</Text>
+          </View>
+          <View :style="s.itemDescCol">
+            <Text :style="s.itemDescText">{{ item.description }}</Text>
+            <Text :style="s.itemTypeText">{{ item.bookingTypeLabel }}</Text>
+          </View>
+          <View :style="s.itemQtyCol">
+            <Text :style="s.itemQtyText">{{ item.quantity }}</Text>
+          </View>
+          <View :style="s.itemUnitCol">
+            <Text :style="s.itemUnitText">{{ fmt(item.unit_price) }}</Text>
+          </View>
+          <View :style="s.itemTotalCol">
+            <Text :style="s.itemTotalText">{{ fmt(item.total) }}</Text>
+          </View>
+        </View>
       </View>
 
       <!-- Totals -->

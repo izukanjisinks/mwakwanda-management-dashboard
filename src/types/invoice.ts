@@ -10,6 +10,11 @@ export interface InvoiceLineItem {
   unit_price: number
   total: number
   created_at: string
+  // Attendee grouping — attendee_id is the primary dedup key (NRC / passport / system ID)
+  attendee_name?: string
+  attendee_id?: string
+  attendee_passport?: string
+  booking_type?: 'accommodation' | 'meals' | 'event'
 }
 
 export interface Invoice {
