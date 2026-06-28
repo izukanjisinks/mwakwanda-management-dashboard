@@ -208,6 +208,8 @@ export interface CorBookingCompany {
   industry?: string
   branch_name?: string
   cost_center?: string
+  department_name?: string
+  cost_center_type?: string
 }
 
 export interface CorBookingPerson {
@@ -215,6 +217,8 @@ export interface CorBookingPerson {
   email?: string
   phone?: string
   title?: string
+  job_title?: string
+  man_number?: string
 }
 
 export interface CorBookingAttendant {

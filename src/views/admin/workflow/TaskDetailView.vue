@@ -185,6 +185,12 @@ const isEvent = computed(() => {
 })
 
 // ─── Meal sessions (standalone meal booking, Flow B) ─────────────────────────
+interface MealIndividualOrder {
+  quantity: number
+  menu_item_id: string
+  attendant_idx: number
+}
+
 interface MealSession {
   session_name?: string
   meal_date?: string
@@ -193,11 +199,13 @@ interface MealSession {
   pax_count?: number
   dietary_notes?: string
   arrangements_notes?: string
+  individual_orders?: MealIndividualOrder[]
 }
 interface MealBlock {
   reason_for_booking?: string
   start_date?: string
   end_date?: string
+  meal_mode?: string
   schedule_mode?: string
   notes?: string
   sessions?: MealSession[]
@@ -221,6 +229,28 @@ const isMeal = computed(() => {
 
 // Price-resolved meals view (menu item names + prices + totals), built server-side.
 const mealsSummary = computed(() => corporateRequest.value?.meals_summary ?? null)
+
+// Attendants listed on a meal request — indexed to match individual_orders[].attendant_idx
+const mealAttendants = computed(() => {
+  if (!isMeal.value || !isCorporate.value) return []
+  const p = corporateRequest.value?.payload as Record<string, unknown> | undefined
+  const list = p?.attendants as Array<{ full_name?: string; id_number?: string; email?: string; phone?: string; is_lead_contact?: boolean }> | undefined
+  return list ?? []
+})
+
+// Dates with fallback from raw mealBlock when meals_summary hasn't been resolved yet
+const mealFromDate  = computed(() => mealsSummary.value?.from ?? mealBlock.value?.start_date)
+const mealToDate    = computed(() => mealsSummary.value?.to   ?? mealBlock.value?.end_date)
+const mealHeadcount = computed(() =>
+  mealsSummary.value?.headcount
+  ?? (mealSessions.value[0]?.pax_count)
+  ?? (mealAttendants.value.length > 0 ? mealAttendants.value.length : undefined),
+)
+
+// Returns the summed quantity of orders for one attendant in a session
+function ordersForAttendant(session: MealSession, attendantIdx: number) {
+  return (session.individual_orders ?? []).filter(o => o.attendant_idx === attendantIdx)
+}
 
 const corpCompany  = computed(() => corporateRequest.value?.payload?.company)
 const corpBookedBy = computed(() => corporateRequest.value?.payload?.booked_by)
@@ -642,9 +672,17 @@ onMounted(async () => {
                   <p class="text-xs text-muted-foreground mb-0.5">Company Phone</p>
                   <p>{{ corpCompany.phone }}</p>
                 </div>
+                <div v-if="corpCompany?.department_name">
+                  <p class="text-xs text-muted-foreground mb-0.5">Department</p>
+                  <p>{{ corpCompany.department_name }}</p>
+                </div>
                 <div v-if="corpCompany?.cost_center">
                   <p class="text-xs text-muted-foreground mb-0.5">Cost Center</p>
                   <p class="font-mono text-xs">{{ corpCompany.cost_center }}</p>
+                </div>
+                <div v-if="corpCompany?.cost_center_type">
+                  <p class="text-xs text-muted-foreground mb-0.5">Cost Center Type</p>
+                  <p class="capitalize">{{ corpCompany.cost_center_type.replace('_', ' ') }}</p>
                 </div>
                 <div v-if="corpCompany?.gl_code">
                   <p class="text-xs text-muted-foreground mb-0.5">GL Code</p>
@@ -700,6 +738,14 @@ onMounted(async () => {
                 <div v-if="corpBookedBy.phone">
                   <p class="text-xs text-muted-foreground mb-0.5">Phone</p>
                   <p>{{ corpBookedBy.phone }}</p>
+                </div>
+                <div v-if="corpBookedBy.job_title">
+                  <p class="text-xs text-muted-foreground mb-0.5">Job Title</p>
+                  <p>{{ corpBookedBy.job_title }}</p>
+                </div>
+                <div v-if="corpBookedBy.man_number">
+                  <p class="text-xs text-muted-foreground mb-0.5">Man Number</p>
+                  <p class="font-mono text-xs">{{ corpBookedBy.man_number }}</p>
                 </div>
               </div>
             </div>
@@ -874,17 +920,21 @@ onMounted(async () => {
                    priced from menu_items via meals_summary -->
               <template v-else-if="corporateRequest.booking_type === 'meals'">
                 <div class="px-5 py-4 text-sm grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  <div v-if="mealsSummary?.from">
+                  <div v-if="mealFromDate">
                     <p class="text-xs text-muted-foreground mb-0.5">From</p>
-                    <p>{{ mealsSummary.from }}</p>
+                    <p>{{ fmt(mealFromDate) }}</p>
                   </div>
-                  <div v-if="mealsSummary?.to">
+                  <div v-if="mealToDate">
                     <p class="text-xs text-muted-foreground mb-0.5">To</p>
-                    <p>{{ mealsSummary.to }}</p>
+                    <p>{{ fmt(mealToDate) }}</p>
                   </div>
-                  <div v-if="mealsSummary?.headcount">
+                  <div v-if="mealHeadcount">
                     <p class="text-xs text-muted-foreground mb-0.5">Headcount</p>
-                    <p>{{ mealsSummary.headcount }}</p>
+                    <p>{{ mealHeadcount }}</p>
+                  </div>
+                  <div v-if="mealBlock?.meal_mode">
+                    <p class="text-xs text-muted-foreground mb-0.5">Meal Mode</p>
+                    <p class="capitalize">{{ mealBlock.meal_mode.replace('_', ' ') }}</p>
                   </div>
                   <div v-if="corporateRequest?.reason_for_booking" class="col-span-2 sm:col-span-4">
                     <p class="text-xs text-muted-foreground mb-0.5">Purpose of Meal</p>
@@ -896,7 +946,63 @@ onMounted(async () => {
                   </div>
                 </div>
 
-                <!-- Buffet / shared items -->
+                <!-- Attendants -->
+                <div v-if="mealAttendants.length" class="border-t">
+                  <div class="px-5 py-2 text-xs text-muted-foreground font-medium uppercase tracking-wide bg-muted/40 flex items-center gap-1.5">
+                    <Users class="size-3.5" /> Attendants ({{ mealAttendants.length }})
+                  </div>
+                  <div class="divide-y">
+                    <div
+                      v-for="(a, ai) in mealAttendants"
+                      :key="ai"
+                      class="flex items-center justify-between px-5 py-2.5 text-sm"
+                    >
+                      <div class="flex items-center gap-2">
+                        <span class="font-medium">{{ a.full_name || '—' }}</span>
+                        <span v-if="a.is_lead_contact" class="text-[10px] font-semibold uppercase tracking-wide text-amber-600 border border-amber-300 rounded px-1 py-0.5">Lead</span>
+                      </div>
+                      <span class="text-xs text-muted-foreground font-mono">{{ a.id_number || a.email || '' }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Sessions from raw payload -->
+                <div v-if="mealSessions.length" class="border-t">
+                  <div class="px-5 py-2 text-xs text-muted-foreground font-medium uppercase tracking-wide bg-muted/40">
+                    Sessions ({{ mealSessions.length }})
+                  </div>
+                  <div class="divide-y">
+                    <div v-for="(s, si) in mealSessions" :key="si" class="px-5 py-3 text-sm">
+                      <div class="flex items-center justify-between gap-2 mb-1">
+                        <span class="font-medium">{{ s.session_name || fmt(s.meal_date || '') }}</span>
+                        <span class="text-xs text-muted-foreground capitalize">{{ (s.meal_period || '').replace('_', ' ') }}</span>
+                      </div>
+                      <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground mb-2">
+                        <span v-if="s.meal_date">{{ fmt(s.meal_date) }}</span>
+                        <span v-if="s.service_type" class="capitalize">{{ s.service_type.replace('_', ' ') }}</span>
+                        <span v-if="s.pax_count">{{ s.pax_count }} pax</span>
+                      </div>
+                      <!-- Per-attendant order counts when service_type is individual_order -->
+                      <div v-if="s.service_type === 'individual_order' && s.individual_orders?.length && mealAttendants.length" class="flex flex-col gap-1 mt-1">
+                        <div
+                          v-for="(a, ai) in mealAttendants"
+                          :key="ai"
+                          class="flex items-center justify-between text-xs bg-muted/30 rounded px-3 py-1.5"
+                        >
+                          <span class="font-medium">{{ a.full_name }}</span>
+                          <span class="text-muted-foreground tabular-nums">
+                            {{ ordersForAttendant(s, ai).reduce((sum, o) => sum + o.quantity, 0) }} item(s)
+                            ({{ ordersForAttendant(s, ai).length }} line{{ ordersForAttendant(s, ai).length !== 1 ? 's' : '' }})
+                          </span>
+                        </div>
+                      </div>
+                      <p v-if="s.dietary_notes" class="text-xs text-muted-foreground mt-1">{{ s.dietary_notes }}</p>
+                      <p v-if="s.arrangements_notes" class="text-xs mt-1">{{ s.arrangements_notes }}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Buffet / shared items (resolved by server) -->
                 <div v-if="mealsSummary?.buffet_items?.length" class="border-t">
                   <div class="px-5 py-2 text-xs text-muted-foreground font-medium uppercase tracking-wide bg-muted/40 flex items-center gap-1.5">
                     <UtensilsCrossed class="size-3.5" /> Buffet / Shared
@@ -917,7 +1023,7 @@ onMounted(async () => {
                   </div>
                 </div>
 
-                <!-- Per-guest itemised selections -->
+                <!-- Per-guest itemised selections (resolved by server) -->
                 <div v-for="(g, gi) in mealsSummary?.guests ?? []" :key="gi" class="border-t">
                   <div class="px-5 py-2 text-xs font-medium uppercase tracking-wide bg-muted/40 flex items-center justify-between">
                     <span class="text-muted-foreground">
@@ -940,14 +1046,6 @@ onMounted(async () => {
                       <span class="text-muted-foreground tabular-nums">ZMW {{ it.subtotal.toLocaleString() }}</span>
                     </div>
                   </div>
-                </div>
-
-                <!-- Empty state -->
-                <div
-                  v-if="!mealsSummary?.buffet_items?.length && !mealsSummary?.guests?.length"
-                  class="px-5 py-3 text-xs text-muted-foreground border-t"
-                >
-                  No menu items on this request.
                 </div>
 
                 <!-- Estimated total -->
