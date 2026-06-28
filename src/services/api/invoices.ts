@@ -27,4 +27,7 @@ export const invoiceApi = {
 
   sendEmail: (id: string, pdfBase64: string) =>
     apiClient.post<{ message: string }>(`/invoices/${id}/send`, { pdf_base64: pdfBase64 }),
+
+  sendPaymentConfirmation: (id: string) =>
+    apiClient.post<{ message: string }>(`/invoices/${id}/send-payment-confirmation`),
 }

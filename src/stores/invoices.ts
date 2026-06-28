@@ -49,5 +49,9 @@ export const useInvoicesStore = defineStore('invoices', () => {
     await invoiceApi.sendEmail(id, pdfBase64)
   }
 
-  return { invoices, total, loading, error, fetchInvoices, updateStatus, fetchByBookingId, notifyApprover, sendInvoiceEmail }
+  async function sendPaymentConfirmation(id: string): Promise<void> {
+    await invoiceApi.sendPaymentConfirmation(id)
+  }
+
+  return { invoices, total, loading, error, fetchInvoices, updateStatus, fetchByBookingId, notifyApprover, sendInvoiceEmail, sendPaymentConfirmation }
 })

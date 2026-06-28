@@ -138,6 +138,10 @@ function clearProof() {
 
 async function confirmPayment() {
   if (!props.invoice) return
+  if (!paymentDate.value) {
+    toast.error('Please select a payment date.')
+    return
+  }
   saving.value = true
   try {
     let proofUrl: string | undefined
@@ -153,6 +157,16 @@ async function confirmPayment() {
     emit('updated', updated)
     showPaymentForm.value = false
     toast.success('Invoice marked as paid.')
+
+    // Best-effort: send payment confirmation email to the client.
+    if (updated.client_email) {
+      try {
+        await store.sendPaymentConfirmation(updated.id)
+        toast.success(`Payment confirmation sent to ${updated.client_email}.`)
+      } catch {
+        toast.warning('Invoice paid, but the confirmation email could not be sent.')
+      }
+    }
   } catch (err) {
     toast.error(getApiError(err, 'Failed to update invoice.'))
   } finally {
