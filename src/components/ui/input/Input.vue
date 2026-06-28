@@ -31,3 +31,10 @@ const modelValue = useVModel(props, "modelValue", emits, {
     )"
   >
 </template>
+
+<style>
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none;
+}
+</style>

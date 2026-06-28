@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label'
 import { Loader2, Upload, X, FileText, ExternalLink, CheckCircle2, Mail, RefreshCw } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { useInvoicesStore } from '@/stores/invoices'
+import { useAuthStore } from '@/stores/auth'
 import { uploadProofOfPayment } from '@/services/storage'
 import { getApiError } from '@/utils/errors'
 import type { Invoice, InvoiceStatus } from '@/types/invoice'
@@ -32,6 +33,26 @@ const emit = defineEmits<{
 }>()
 
 const store = useInvoicesStore()
+const authStore = useAuthStore()
+
+// ── Billing computed (with dummy fallbacks) ───────────────────────────────────
+const isCorporate = computed(() => props.invoice?.client_type === 'corporate')
+
+const orgName    = computed(() => authStore.user?.org_name    || 'Lodge Management')
+const orgBranch  = computed(() => props.invoice?.org_branch   || authStore.user?.branch_name || 'Head Office')
+const orgEmail   = computed(() => props.invoice?.org_email    || authStore.user?.email || 'info@mwakwanda.com')
+const orgPhone   = computed(() => props.invoice?.org_phone    || '+260 211 000 000')
+const orgTpin    = computed(() => props.invoice?.org_tpin     || '1000123456')
+const orgAddress = computed(() => props.invoice?.org_address  || 'Plot 1234, Great East Road, Lusaka, Zambia')
+
+const clientPhone   = computed(() => props.invoice?.client_phone      || '+260 977 000 001')
+const clientTpin    = computed(() => props.invoice?.client_tpin       || '2000456789')
+const clientAddress = computed(() => props.invoice?.client_address    || '15th Floor, Cairo Road, Lusaka, Zambia')
+const clientBranch  = computed(() => props.invoice?.client_branch     || 'Lusaka Central Branch')
+const clientDept    = computed(() => props.invoice?.client_department || 'Finance & Administration')
+const glCode        = computed(() => props.invoice?.gl_code           || '—')
+const costCenter    = computed(() => props.invoice?.cost_center       || '—')
+const internalOrder = computed(() => props.invoice?.internal_order    || '—')
 
 const statusConfig: Record<InvoiceStatus, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
   draft:     { label: 'Draft',     variant: 'outline' },
@@ -185,7 +206,7 @@ const isProofImage = computed(() => {
 
 <template>
   <Dialog :open="open" @update:open="(v) => emit('update:open', v)">
-    <DialogContent class="sm:max-w-xl max-h-[90vh] overflow-y-auto">
+    <DialogContent class="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
       <DialogHeader>
         <div class="flex items-center justify-between gap-3 pr-6">
           <DialogTitle class="font-mono text-lg">{{ invoice?.invoice_number }}</DialogTitle>
@@ -200,27 +221,194 @@ const isProofImage = computed(() => {
 
       <div v-if="invoice" class="flex flex-col gap-5 py-2">
 
-        <!-- Client info -->
-        <div class="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <p class="text-xs text-muted-foreground mb-1">Billed To</p>
-            <p class="font-medium">{{ invoice.client_name }}</p>
-            <p class="text-muted-foreground">{{ invoice.client_email }}</p>
-            <p v-if="invoice.cost_center" class="text-muted-foreground text-xs mt-0.5">
-              Cost Center: {{ invoice.cost_center }}
-            </p>
+        <!-- ── Corporate: full Bill From / Bill To ─────────────────────────── -->
+        <template v-if="isCorporate">
+          <div class="grid grid-cols-2 gap-3">
+
+            <!-- Bill From -->
+            <div class="rounded-lg bg-stone-900 dark:bg-stone-950 p-4 flex flex-col gap-1.5">
+              <p class="text-[10px] font-semibold uppercase tracking-widest text-amber-500 border-b border-stone-700 pb-2 mb-1">Bill From</p>
+              <div class="flex gap-2 text-xs">
+                <span class="w-20 shrink-0 text-stone-400">Organisation</span>
+                <span class="font-medium text-white">{{ orgName }}</span>
+              </div>
+              <div class="flex gap-2 text-xs">
+                <span class="w-20 shrink-0 text-stone-400">Branch</span>
+                <span class="font-medium text-white">{{ orgBranch }}</span>
+              </div>
+              <div class="flex gap-2 text-xs">
+                <span class="w-20 shrink-0 text-stone-400">Email</span>
+                <span class="font-medium text-white break-all">{{ orgEmail }}</span>
+              </div>
+              <div class="flex gap-2 text-xs">
+                <span class="w-20 shrink-0 text-stone-400">Phone</span>
+                <span class="font-medium text-white">{{ orgPhone }}</span>
+              </div>
+              <div class="flex gap-2 text-xs">
+                <span class="w-20 shrink-0 text-stone-400">TPIN</span>
+                <span class="font-medium text-white">{{ orgTpin }}</span>
+              </div>
+              <div class="border-t border-stone-700 my-1" />
+              <div class="flex gap-2 text-xs">
+                <span class="w-20 shrink-0 text-stone-400">Address</span>
+                <span class="font-medium text-white">{{ orgAddress }}</span>
+              </div>
+            </div>
+
+            <!-- Bill To -->
+            <div class="rounded-lg border bg-muted/30 p-4 flex flex-col gap-1.5">
+              <p class="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground border-b pb-2 mb-1">Bill To</p>
+              <div class="flex gap-2 text-xs">
+                <span class="w-24 shrink-0 text-muted-foreground">Company</span>
+                <span class="font-medium">{{ invoice.client_name }}</span>
+              </div>
+              <div class="flex gap-2 text-xs">
+                <span class="w-24 shrink-0 text-muted-foreground">Email</span>
+                <span class="font-medium break-all">{{ invoice.client_email || '—' }}</span>
+              </div>
+              <div class="flex gap-2 text-xs">
+                <span class="w-24 shrink-0 text-muted-foreground">Phone</span>
+                <span class="font-medium">{{ clientPhone }}</span>
+              </div>
+              <div class="flex gap-2 text-xs">
+                <span class="w-24 shrink-0 text-muted-foreground">TPIN</span>
+                <span class="font-medium">{{ clientTpin }}</span>
+              </div>
+              <div class="border-t my-1" />
+              <div class="flex gap-2 text-xs">
+                <span class="w-24 shrink-0 text-muted-foreground">Address</span>
+                <span class="font-medium">{{ clientAddress }}</span>
+              </div>
+              <div class="flex gap-2 text-xs">
+                <span class="w-24 shrink-0 text-muted-foreground">Branch</span>
+                <span class="font-medium">{{ clientBranch }}</span>
+              </div>
+              <div class="flex gap-2 text-xs">
+                <span class="w-24 shrink-0 text-muted-foreground">Department</span>
+                <span class="font-medium">{{ clientDept }}</span>
+              </div>
+              <div class="border-t my-1" />
+              <div class="flex gap-2 text-xs">
+                <span class="w-24 shrink-0 text-muted-foreground">GL Code</span>
+                <span class="font-medium">{{ glCode }}</span>
+              </div>
+              <div class="flex gap-2 text-xs">
+                <span class="w-24 shrink-0 text-muted-foreground">Cost Center</span>
+                <span class="font-medium">{{ costCenter }}</span>
+              </div>
+              <div class="flex gap-2 text-xs">
+                <span class="w-24 shrink-0 text-muted-foreground">Internal Order</span>
+                <span class="font-medium">{{ internalOrder }}</span>
+              </div>
+            </div>
           </div>
-          <div class="text-right">
-            <p class="text-xs text-muted-foreground mb-1">Dates</p>
-            <p v-if="invoice.issued_date">Issued: {{ formatDate(invoice.issued_date) }}</p>
-            <p v-if="invoice.due_date" :class="invoice.status === 'overdue' ? 'text-destructive font-medium' : ''">
-              Due: {{ formatDate(invoice.due_date) }}
-            </p>
-            <p v-if="invoice.paid_date" class="text-green-600 dark:text-green-400 font-medium">
-              Paid: {{ formatDate(invoice.paid_date) }}
-            </p>
+
+          <!-- Dates row -->
+          <div class="grid grid-cols-3 gap-3">
+            <div class="rounded-lg border bg-muted/20 px-4 py-3">
+              <p class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Issue Date</p>
+              <p class="text-sm font-semibold">{{ formatDate(invoice.issued_date) }}</p>
+            </div>
+            <div class="rounded-lg border bg-muted/20 px-4 py-3">
+              <p class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Due Date</p>
+              <p class="text-sm font-semibold" :class="invoice.status === 'overdue' ? 'text-destructive' : ''">
+                {{ formatDate(invoice.due_date) }}
+              </p>
+            </div>
+            <div v-if="invoice.paid_date" class="rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 px-4 py-3">
+              <p class="text-[10px] font-semibold uppercase tracking-wider text-green-600 dark:text-green-400 mb-1">Paid On</p>
+              <p class="text-sm font-semibold text-green-700 dark:text-green-300">{{ formatDate(invoice.paid_date) }}</p>
+            </div>
+            <div v-else class="rounded-lg border bg-muted/20 px-4 py-3">
+              <p class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Paid On</p>
+              <p class="text-sm font-semibold text-muted-foreground">—</p>
+            </div>
           </div>
-        </div>
+        </template>
+
+        <!-- ── Individual: Bill From / Bill To (no accounting fields) ────── -->
+        <template v-else>
+          <div class="grid grid-cols-2 gap-3">
+
+            <!-- Bill From -->
+            <div class="rounded-lg bg-stone-900 dark:bg-stone-950 p-4 flex flex-col gap-1.5">
+              <p class="text-[10px] font-semibold uppercase tracking-widest text-amber-500 border-b border-stone-700 pb-2 mb-1">Bill From</p>
+              <div class="flex gap-2 text-xs">
+                <span class="w-20 shrink-0 text-stone-400">Organisation</span>
+                <span class="font-medium text-white">{{ orgName }}</span>
+              </div>
+              <div class="flex gap-2 text-xs">
+                <span class="w-20 shrink-0 text-stone-400">Branch</span>
+                <span class="font-medium text-white">{{ orgBranch }}</span>
+              </div>
+              <div class="flex gap-2 text-xs">
+                <span class="w-20 shrink-0 text-stone-400">Email</span>
+                <span class="font-medium text-white break-all">{{ orgEmail }}</span>
+              </div>
+              <div class="flex gap-2 text-xs">
+                <span class="w-20 shrink-0 text-stone-400">Phone</span>
+                <span class="font-medium text-white">{{ orgPhone }}</span>
+              </div>
+              <div class="flex gap-2 text-xs">
+                <span class="w-20 shrink-0 text-stone-400">TPIN</span>
+                <span class="font-medium text-white">{{ orgTpin }}</span>
+              </div>
+              <div class="border-t border-stone-700 my-1" />
+              <div class="flex gap-2 text-xs">
+                <span class="w-20 shrink-0 text-stone-400">Address</span>
+                <span class="font-medium text-white">{{ orgAddress }}</span>
+              </div>
+            </div>
+
+            <!-- Bill To -->
+            <div class="rounded-lg border bg-muted/30 p-4 flex flex-col gap-1.5">
+              <p class="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground border-b pb-2 mb-1">Bill To</p>
+              <div class="flex gap-2 text-xs">
+                <span class="w-20 shrink-0 text-muted-foreground">Name</span>
+                <span class="font-medium">{{ invoice.client_name }}</span>
+              </div>
+              <div class="flex gap-2 text-xs">
+                <span class="w-20 shrink-0 text-muted-foreground">Email</span>
+                <span class="font-medium break-all">{{ invoice.client_email || '—' }}</span>
+              </div>
+              <div class="flex gap-2 text-xs">
+                <span class="w-20 shrink-0 text-muted-foreground">Phone</span>
+                <span class="font-medium">{{ clientPhone }}</span>
+              </div>
+              <div class="flex gap-2 text-xs">
+                <span class="w-20 shrink-0 text-muted-foreground">TPIN</span>
+                <span class="font-medium">{{ clientTpin }}</span>
+              </div>
+              <div class="border-t my-1" />
+              <div class="flex gap-2 text-xs">
+                <span class="w-20 shrink-0 text-muted-foreground">Address</span>
+                <span class="font-medium">{{ clientAddress }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dates row -->
+          <div class="grid grid-cols-3 gap-3">
+            <div class="rounded-lg border bg-muted/20 px-4 py-3">
+              <p class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Issue Date</p>
+              <p class="text-sm font-semibold">{{ formatDate(invoice.issued_date) }}</p>
+            </div>
+            <div class="rounded-lg border bg-muted/20 px-4 py-3">
+              <p class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Due Date</p>
+              <p class="text-sm font-semibold" :class="invoice.status === 'overdue' ? 'text-destructive' : ''">
+                {{ formatDate(invoice.due_date) }}
+              </p>
+            </div>
+            <div v-if="invoice.paid_date" class="rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 px-4 py-3">
+              <p class="text-[10px] font-semibold uppercase tracking-wider text-green-600 dark:text-green-400 mb-1">Paid On</p>
+              <p class="text-sm font-semibold text-green-700 dark:text-green-300">{{ formatDate(invoice.paid_date) }}</p>
+            </div>
+            <div v-else class="rounded-lg border bg-muted/20 px-4 py-3">
+              <p class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Paid On</p>
+              <p class="text-sm font-semibold text-muted-foreground">—</p>
+            </div>
+          </div>
+        </template>
 
         <!-- Approver notification -->
         <div v-if="invoice.approver_email" class="rounded-lg border bg-muted/30 p-4 flex flex-col gap-2">

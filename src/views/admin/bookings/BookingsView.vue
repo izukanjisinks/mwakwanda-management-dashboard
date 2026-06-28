@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import {
-  Eye, Search, ChevronLeft, ChevronRight, Building2, User, Theater,
+  Eye, Search, ChevronLeft, ChevronRight, Building2, User,
   BedDouble, CalendarDays, LogIn, LogOut, Loader2, Plus, MapPin, Users,
   Clock, UtensilsCrossed, Download,
 } from 'lucide-vue-next'
@@ -29,11 +29,13 @@ import WalkInBookingDialog from '@/components/bookings/WalkInBookingDialog.vue'
 const store = useBookingsStore()
 const branchFilterStore = useBranchFilterStore()
 
-type BookerTab = 'individual' | 'corporate' | 'events'
+type BookerTab = 'individual' | 'corporate'
 const activeTab = ref<BookerTab>('individual')
 
 const search = ref('')
 const statusFilter = ref<BookingStatus | 'all'>('all')
+type BookingTypeFilter = 'all' | 'accommodation' | 'event' | 'meals'
+const bookingTypeFilter = ref<BookingTypeFilter>('all')
 const page = ref(1)
 const pageSize = 10
 
@@ -45,23 +47,26 @@ function onWalkInSaved() {
 
 function loadBookings() {
   const statusVal = statusFilter.value === 'all' ? undefined : statusFilter.value
-  if (activeTab.value === 'events') {
-    // Events are corporate bookings of type 'event'; event_type holds the kind.
-    store.fetchEventBookings(page.value, pageSize, statusVal)
-  } else {
-    // Filter to room bookings only — events (booking_type='event') belong in the Events tab.
-    store.fetchBookings(page.value, pageSize, activeTab.value, statusVal, 'accommodation')
-  }
+  const typeVal = bookingTypeFilter.value === 'all' ? undefined : bookingTypeFilter.value
+  store.fetchBookings(page.value, pageSize, activeTab.value, statusVal, typeVal)
 }
 
 onMounted(loadBookings)
 watch(page, loadBookings)
-watch(activeTab, () => { page.value = 1; search.value = ''; loadBookings() })
+watch(activeTab, () => { page.value = 1; search.value = ''; bookingTypeFilter.value = 'all'; loadBookings() })
+watch(bookingTypeFilter, () => { page.value = 1; loadBookings() })
 watch(() => branchFilterStore.selectedBranchId, () => { page.value = 1; loadBookings() })
 
 function setStatus(val: unknown) {
   if (typeof val !== 'string') return
   statusFilter.value = val as BookingStatus | 'all'
+  page.value = 1
+  loadBookings()
+}
+
+function setBookingType(val: unknown) {
+  if (typeof val !== 'string') return
+  bookingTypeFilter.value = val as BookingTypeFilter
   page.value = 1
   loadBookings()
 }
@@ -81,13 +86,8 @@ async function onExport() {
       branch_id: branchFilterStore.apiBranchId,
       from: exportFrom.value || undefined,
       to: exportTo.value || undefined,
-    }
-    if (activeTab.value === 'events') {
-      params.booking_type = 'event'
-    } else {
-      params.booker_type = activeTab.value // 'individual' | 'corporate'
-      // Filter to accommodation bookings — events (booking_type='event') belong in the Events tab only.
-      params.booking_type = 'accommodation'
+      booker_type: activeTab.value,
+      booking_type: bookingTypeFilter.value === 'all' ? undefined : bookingTypeFilter.value,
     }
     await bookingApi.exportCsv(params)
     toast.success('Export started.')
@@ -129,43 +129,6 @@ function statusMeta(status?: string): StatusMeta {
 function fmt(d?: string) {
   if (!d) return '—'
   return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-}
-
-// ── Individual: single-assignment helpers ─────────────────────────────────────
-function leadAssignment(b: Booking): BookingRoomAssignment | undefined {
-  return b.assignments?.[0]
-}
-
-function nights(b: Booking): number | string {
-  const a = leadAssignment(b)
-  if (!a) return '—'
-  const diff = new Date(a.check_out).getTime() - new Date(a.check_in).getTime()
-  return Math.round(diff / (1000 * 60 * 60 * 24))
-}
-
-function allowedTransitions(status: BookingStatus): BookingStatus[] {
-  switch (status) {
-    case 'pending':    return ['confirmed', 'cancelled']
-    case 'confirmed':  return ['checked_in', 'cancelled']
-    case 'checked_in': return ['checked_out']
-    default:           return []
-  }
-}
-
-function isStatusItemDisabled(b: Booking, key: string): boolean {
-  return key !== b.status && !allowedTransitions(b.status).includes(key as BookingStatus)
-}
-
-async function handleStatusChange(b: Booking, status: unknown) {
-  if (typeof status !== 'string') return
-  const next = status as BookingStatus
-  if (!allowedTransitions(b.status).includes(next)) return
-  try {
-    await store.updateStatus(b.id, next)
-    toast.success(`Booking updated to ${statusConfig[next].label}.`)
-  } catch (err) {
-    toast.error(getApiError(err, 'Failed to update booking status.'))
-  }
 }
 
 // ── Corporate detail sheet ────────────────────────────────────────────────────
@@ -315,6 +278,7 @@ function syncRowStatus(id: string, status: BookingStatus) {
 </script>
 
 <template>
+  <div>
   <DashboardHeader title="Bookings" />
 
   <div class="flex flex-col gap-6 p-6">
@@ -336,14 +300,6 @@ function syncRowStatus(id: string, status: BookingStatus) {
         <Building2 class="size-4" />
         Corporate
       </button>
-      <button
-        class="flex items-center justify-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
-        :class="activeTab === 'events' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'"
-        @click="activeTab = 'events'"
-      >
-        <Theater class="size-4" />
-        Events
-      </button>
     </div>
 
     <!-- Toolbar -->
@@ -354,7 +310,7 @@ function syncRowStatus(id: string, status: BookingStatus) {
       </div>
       <Select :model-value="statusFilter" @update:model-value="setStatus">
         <SelectTrigger class="w-44">
-          <SelectValue placeholder="All statuses" />
+          <SelectValue placeholder="All Statuses" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All Statuses</SelectItem>
@@ -363,6 +319,17 @@ function syncRowStatus(id: string, status: BookingStatus) {
           <SelectItem value="checked_in">Checked In</SelectItem>
           <SelectItem value="checked_out">Checked Out</SelectItem>
           <SelectItem value="cancelled">Cancelled</SelectItem>
+        </SelectContent>
+      </Select>
+      <Select :model-value="bookingTypeFilter" @update:model-value="setBookingType">
+        <SelectTrigger class="w-44">
+          <SelectValue placeholder="All Types" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Types</SelectItem>
+          <SelectItem value="accommodation">Accommodation</SelectItem>
+          <SelectItem value="event">Events</SelectItem>
+          <SelectItem value="meals">Meals</SelectItem>
         </SelectContent>
       </Select>
 
@@ -403,85 +370,6 @@ function syncRowStatus(id: string, status: BookingStatus) {
           <TableRow class="bg-muted/30">
             <TableHead>Booking #</TableHead>
             <TableHead>Guest</TableHead>
-            <TableHead>Room</TableHead>
-            <TableHead>Check-In</TableHead>
-            <TableHead>Check-Out</TableHead>
-            <TableHead>Nights</TableHead>
-            <TableHead>Total (ZMW)</TableHead>
-            <TableHead>Status</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          <template v-if="store.loading">
-            <TableRow v-for="i in 5" :key="i">
-              <TableCell colspan="8"><div class="h-4 rounded bg-muted animate-pulse" /></TableCell>
-            </TableRow>
-          </template>
-          <template v-else-if="visibleBookings.length === 0">
-            <TableRow>
-              <TableCell colspan="8" class="py-16 text-center text-muted-foreground">
-                No individual bookings found.
-              </TableCell>
-            </TableRow>
-          </template>
-          <template v-else>
-            <TableRow v-for="b in visibleBookings" :key="b.id">
-              <TableCell class="font-mono text-sm">{{ b.booking_number }}</TableCell>
-              <TableCell>
-                <div class="font-medium">{{ b.booker_name }}</div>
-                <div v-if="b.booker_email" class="text-xs text-muted-foreground">{{ b.booker_email }}</div>
-              </TableCell>
-              <TableCell>{{ leadAssignment(b)?.room_name || '—' }}</TableCell>
-              <TableCell>{{ fmt(leadAssignment(b)?.check_in) }}</TableCell>
-              <TableCell>{{ fmt(leadAssignment(b)?.check_out) }}</TableCell>
-              <TableCell>{{ nights(b) }}</TableCell>
-              <TableCell class="font-medium">{{ b.total_amount?.toLocaleString() }}</TableCell>
-              <TableCell>
-                <Select
-                  :model-value="b.status"
-                  :disabled="allowedTransitions(b.status).length === 0"
-                  @update:model-value="(v) => handleStatusChange(b, v)"
-                >
-                  <SelectTrigger class="h-7 text-xs w-32 px-2" :class="allowedTransitions(b.status).length === 0 ? 'opacity-50 cursor-not-allowed' : ''">
-                    <Badge :variant="statusMeta(b.status).variant" class="text-xs">
-                      {{ statusMeta(b.status).label }}
-                    </Badge>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem
-                      v-for="(cfg, key) in statusConfig"
-                      :key="key"
-                      :value="key"
-                      class="text-xs"
-                      :disabled="isStatusItemDisabled(b, key)"
-                    >
-                      {{ cfg.label }}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </TableCell>
-            </TableRow>
-          </template>
-        </TableBody>
-      </Table>
-      <div class="flex items-center justify-between px-6 py-3 border-t text-sm text-muted-foreground">
-        <span>{{ store.total }} booking{{ store.total !== 1 ? 's' : '' }}</span>
-        <div class="flex items-center gap-2">
-          <Button variant="outline" size="icon" class="size-8" :disabled="page <= 1" @click="page--"><ChevronLeft class="size-4" /></Button>
-          <span>{{ page }} / {{ totalPages }}</span>
-          <Button variant="outline" size="icon" class="size-8" :disabled="page >= totalPages" @click="page++"><ChevronRight class="size-4" /></Button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ─── Events table ─────────────────────────────────────────────────── -->
-    <div v-else-if="activeTab === 'events'" class="rounded-xl border bg-card overflow-hidden">
-      <Table>
-        <TableHeader>
-          <TableRow class="bg-muted/30">
-            <TableHead>Booking #</TableHead>
-            <TableHead>Company</TableHead>
-            <TableHead>Venue</TableHead>
             <TableHead>Type</TableHead>
             <TableHead>Total (ZMW)</TableHead>
             <TableHead>Status</TableHead>
@@ -491,13 +379,13 @@ function syncRowStatus(id: string, status: BookingStatus) {
         <TableBody>
           <template v-if="store.loading">
             <TableRow v-for="i in 5" :key="i">
-              <TableCell colspan="7"><div class="h-4 rounded bg-muted animate-pulse" /></TableCell>
+              <TableCell colspan="6"><div class="h-4 rounded bg-muted animate-pulse" /></TableCell>
             </TableRow>
           </template>
           <template v-else-if="visibleBookings.length === 0">
             <TableRow>
-              <TableCell colspan="7" class="py-16 text-center text-muted-foreground">
-                No event bookings found.
+              <TableCell colspan="6" class="py-16 text-center text-muted-foreground">
+                No individual bookings found.
               </TableCell>
             </TableRow>
           </template>
@@ -506,12 +394,14 @@ function syncRowStatus(id: string, status: BookingStatus) {
               v-for="b in visibleBookings"
               :key="b.id"
               class="cursor-pointer hover:bg-muted/40"
-              @click="openEventSheet(b)"
+              @click="b.booking_type === 'accommodation' || !b.booking_type ? openCorporateSheet(b) : openEventSheet(b)"
             >
               <TableCell class="font-mono text-sm">{{ b.booking_number }}</TableCell>
-              <TableCell class="font-medium">{{ b.company_name || b.booker_name || '—' }}</TableCell>
-              <TableCell>{{ b.venue_name || '—' }}</TableCell>
-              <TableCell class="capitalize">{{ b.booking_type }}</TableCell>
+              <TableCell>
+                <div class="font-medium">{{ b.booker_name }}</div>
+                <div v-if="b.booker_email" class="text-xs text-muted-foreground">{{ b.booker_email }}</div>
+              </TableCell>
+              <TableCell class="capitalize">{{ b.booking_type || 'accommodation' }}</TableCell>
               <TableCell class="font-medium">{{ b.total_amount?.toLocaleString() }}</TableCell>
               <TableCell>
                 <Badge :variant="statusMeta(b.status).variant" class="text-xs">
@@ -519,7 +409,10 @@ function syncRowStatus(id: string, status: BookingStatus) {
                 </Badge>
               </TableCell>
               <TableCell class="text-right">
-                <Button variant="ghost" size="icon" class="size-8" @click.stop="openEventSheet(b)">
+                <Button
+                  variant="ghost" size="icon" class="size-8"
+                  @click.stop="b.booking_type === 'accommodation' || !b.booking_type ? openCorporateSheet(b) : openEventSheet(b)"
+                >
                   <Eye class="size-4" />
                 </Button>
               </TableCell>
@@ -569,7 +462,7 @@ function syncRowStatus(id: string, status: BookingStatus) {
               v-for="b in visibleBookings"
               :key="b.id"
               class="cursor-pointer hover:bg-muted/40"
-              @click="openCorporateSheet(b)"
+              @click="b.booking_type === 'accommodation' || !b.booking_type ? openCorporateSheet(b) : openEventSheet(b)"
             >
               <TableCell class="font-mono text-sm">{{ b.booking_number }}</TableCell>
               <TableCell class="font-medium">{{ b.company_name || '—' }}</TableCell>
@@ -582,7 +475,10 @@ function syncRowStatus(id: string, status: BookingStatus) {
                 </Badge>
               </TableCell>
               <TableCell class="text-right">
-                <Button variant="ghost" size="icon" class="size-8" @click.stop="openCorporateSheet(b)">
+                <Button
+                  variant="ghost" size="icon" class="size-8"
+                  @click.stop="b.booking_type === 'accommodation' || !b.booking_type ? openCorporateSheet(b) : openEventSheet(b)"
+                >
                   <Eye class="size-4" />
                 </Button>
               </TableCell>
@@ -602,10 +498,10 @@ function syncRowStatus(id: string, status: BookingStatus) {
   </div>
 
   <!-- ─── Corporate detail sheet ─────────────────────────────────────────── -->
-  <Sheet v-model:open="sheetOpen">
+  <Sheet :open="sheetOpen" @update:open="sheetOpen = $event">
     <SheetContent side="right" class="w-full sm:max-w-xl flex flex-col gap-0 p-0 overflow-hidden">
       <SheetHeader class="px-6 pt-5 pb-4 border-b pr-14">
-        <SheetTitle>{{ sheetBooking?.company_name || 'Corporate Booking' }}</SheetTitle>
+        <SheetTitle>{{ sheetBooking?.company_name || sheetBooking?.booker_name || 'Booking Details' }}</SheetTitle>
         <div v-if="sheetBooking" class="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
           <span class="font-mono">{{ sheetBooking.booking_number }}</span>
           <Badge :variant="statusMeta(sheetBooking.status).variant" class="text-xs">
@@ -700,7 +596,7 @@ function syncRowStatus(id: string, status: BookingStatus) {
   </Sheet>
 
   <!-- ─── Event detail sheet ─────────────────────────────────────────────── -->
-  <Sheet v-model:open="eventSheetOpen">
+  <Sheet :open="eventSheetOpen" @update:open="eventSheetOpen = $event">
     <SheetContent side="right" class="w-full sm:max-w-xl flex flex-col gap-0 p-0 overflow-hidden">
       <SheetHeader class="px-6 pt-5 pb-4 border-b pr-14">
         <SheetTitle>{{ eventBooking?.company_name || eventBooking?.booker_name || 'Event Booking' }}</SheetTitle>
@@ -849,5 +745,6 @@ function syncRowStatus(id: string, status: BookingStatus) {
   </Sheet>
 
   <!-- Walk-in booking dialog (individual) -->
-  <WalkInBookingDialog v-model:open="walkInOpen" @saved="onWalkInSaved" />
+  <WalkInBookingDialog :open="walkInOpen" @update:open="walkInOpen = $event" @saved="onWalkInSaved" />
+  </div>
 </template>

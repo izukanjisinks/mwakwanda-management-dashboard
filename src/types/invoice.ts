@@ -20,8 +20,22 @@ export interface Invoice {
   client_name: string
   client_type: ClientType
   client_email?: string
+  // Corporate billing — Bill To
+  client_phone?: string
+  client_tpin?: string
+  client_address?: string
+  client_branch?: string
+  client_department?: string
+  internal_order?: string
   cost_center?: string
   gl_code?: string
+  // Org billing — Bill From (overrides auth store defaults when set)
+  org_branch?: string
+  org_email?: string
+  org_phone?: string
+  org_tpin?: string
+  org_address?: string
+  // Approver / notification
   approver_name?: string
   approver_email?: string
   notification_sent_at?: string
