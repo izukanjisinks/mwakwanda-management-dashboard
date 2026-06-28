@@ -17,7 +17,7 @@ const confirmDialog = useConfirmDialog()
 <template>
   <SidebarProvider>
     <AppSidebar />
-    <SidebarInset>
+    <SidebarInset :class="showForbiddenDialog ? 'blur-sm pointer-events-none select-none' : ''">
       <RouterView />
     </SidebarInset>
 

@@ -29,8 +29,14 @@ function handleGoHome() {
 </script>
 
 <template>
-  <Dialog :open="open" @update:open="(v) => emit('update:open', v)">
-    <DialogContent class="sm:max-w-[500px]">
+  <Dialog :open="open" @update:open="() => {}">
+    <DialogContent
+      class="sm:max-w-125"
+      overlay-class="backdrop-blur-sm"
+      :show-close-button="false"
+      @pointer-down-outside.prevent
+      @interact-outside.prevent
+    >
       <DialogHeader>
         <DialogTitle class="flex items-center gap-3">
           <ShieldX class="w-12 h-12 text-red-500" />
@@ -45,7 +51,7 @@ function handleGoHome() {
         <!-- Error Details -->
         <div class="rounded-lg border border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950 p-4">
           <div class="flex gap-3">
-            <ShieldX class="w-5 h-5 text-red-600 dark:text-red-500 flex-shrink-0 mt-0.5" />
+            <ShieldX class="w-5 h-5 text-red-600 dark:text-red-500 shrink-0 mt-0.5" />
             <div class="text-sm">
               <p class="font-medium text-red-900 dark:text-red-100">
                 403 Forbidden
@@ -70,7 +76,6 @@ function handleGoHome() {
       </div>
 
       <DialogFooter class="gap-2">
-        <Button variant="outline" @click="emit('update:open', false)">Close</Button>
         <Button @click="handleGoHome">
           <Home class="w-4 h-4 mr-2" />
           Go to Dashboard
