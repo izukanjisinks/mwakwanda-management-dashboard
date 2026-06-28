@@ -24,4 +24,7 @@ export const invoiceApi = {
 
   notifyApprover: (id: string) =>
     apiClient.post<Invoice>(`/invoices/${id}/notify-approver`),
+
+  sendEmail: (id: string, pdfBase64: string) =>
+    apiClient.post<{ message: string }>(`/invoices/${id}/send`, { pdf_base64: pdfBase64 }),
 }

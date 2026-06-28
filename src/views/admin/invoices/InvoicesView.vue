@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, h } from 'vue'
+import { usePdf } from '@ceereals/vue-pdf'
 import { Search, Eye, ChevronLeft, ChevronRight, FileText, User, Building2, Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { getApiError } from '@/utils/errors'
@@ -8,6 +9,7 @@ import { useBranchFilterStore } from '@/stores/branchFilter'
 import type { Invoice, InvoiceStatus } from '@/types/invoice'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import InvoiceDetailDialog from '@/components/invoices/InvoiceDetailDialog.vue'
+import InvoiceDocument from '@/components/invoices/InvoiceDocument.vue'
 import InvoicePdfSheet from '@/components/invoices/InvoicePdfSheet.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -125,11 +127,41 @@ async function applyStatusChange(status: InvoiceStatus) {
   }
 }
 
+// Render the invoice document to a base64-encoded PDF string (no data-URL prefix).
+async function invoiceToBase64(invoice: Invoice): Promise<string> {
+  const { blob, execute } = usePdf(() => h(InvoiceDocument, { invoice }), { reactive: false })
+  await execute(true)
+  if (!blob.value) throw new Error('Failed to render invoice PDF')
+  const buffer = await blob.value.arrayBuffer()
+  let binary = ''
+  const bytes = new Uint8Array(buffer)
+  for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]!)
+  return btoa(binary)
+}
+
 async function confirmIssue() {
+  if (!selectedInvoice.value) return
   issueConfirmLoading.value = true
   try {
-    await applyStatusChange('issued')
+    const updated = await store.updateStatus(selectedInvoice.value.id, 'issued')
+    selectedInvoice.value = updated
     issueConfirmOpen.value = false
+    toast.success('Invoice issued.')
+
+    // Best-effort: email the PDF to the client's billing address.
+    if (updated.client_email) {
+      try {
+        const pdfBase64 = await invoiceToBase64(updated)
+        await store.sendInvoiceEmail(updated.id, pdfBase64)
+        toast.success(`Invoice emailed to ${updated.client_email}.`)
+      } catch (err) {
+        toast.error(getApiError(err, 'Invoice issued, but the email could not be sent.'))
+      }
+    } else {
+      toast.warning('Invoice issued, but no billing email is on file to send it to.')
+    }
+  } catch (err) {
+    toast.error(getApiError(err, 'Failed to issue invoice.'))
   } finally {
     issueConfirmLoading.value = false
   }

@@ -45,5 +45,9 @@ export const useInvoicesStore = defineStore('invoices', () => {
     return updated
   }
 
-  return { invoices, total, loading, error, fetchInvoices, updateStatus, fetchByBookingId, notifyApprover }
+  async function sendInvoiceEmail(id: string, pdfBase64: string): Promise<void> {
+    await invoiceApi.sendEmail(id, pdfBase64)
+  }
+
+  return { invoices, total, loading, error, fetchInvoices, updateStatus, fetchByBookingId, notifyApprover, sendInvoiceEmail }
 })
