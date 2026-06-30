@@ -32,6 +32,9 @@ const error = ref('')
 
 const isEdit = computed(() => !!props.transition)
 
+const EXCLUDED_ROLES = ['cleaner', 'guest', 'admin']
+const selectableRoles = computed(() => rolesStore.roles.filter(r => !EXCLUDED_ROLES.includes(r.name)))
+
 const form = ref({
   from_step_id: '',
   to_step_id: '',
@@ -144,18 +147,18 @@ function handleSave() {
           <div class="flex flex-wrap gap-2">
             <Loader2 v-if="rolesStore.loading" class="size-4 animate-spin text-muted-foreground" />
             <button
-              v-for="role in rolesStore.roles"
+              v-for="role in selectableRoles"
               :key="role.id"
               type="button"
               :class="[
-                'rounded-md border px-3 py-1.5 text-sm font-medium transition-colors capitalize',
+                'rounded-md border px-3 py-1.5 text-sm font-medium transition-colors',
                 form.allowed_roles.includes(role.name)
                   ? 'bg-primary text-primary-foreground border-primary'
                   : 'bg-background text-foreground border-input hover:bg-muted',
               ]"
               @click="toggleRole(role.name)"
             >
-              {{ role.display_name ?? role.name }}
+              {{ rolesStore.getRoleLabel(role.name) }}
             </button>
           </div>
           <p class="text-xs text-muted-foreground">Roles that can trigger this transition.</p>
