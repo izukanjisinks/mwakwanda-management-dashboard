@@ -34,7 +34,7 @@ const activeTab = ref<BookerTab>('individual')
 
 const search = ref('')
 const statusFilter = ref<BookingStatus | 'all'>('all')
-type BookingTypeFilter = 'all' | 'accommodation' | 'event' | 'meals'
+type BookingTypeFilter = 'all' | 'accommodation' | 'event'
 const bookingTypeFilter = ref<BookingTypeFilter>('all')
 const page = ref(1)
 const pageSize = 10
@@ -329,7 +329,6 @@ function syncRowStatus(id: string, status: BookingStatus) {
           <SelectItem value="all">All Types</SelectItem>
           <SelectItem value="accommodation">Accommodation</SelectItem>
           <SelectItem value="event">Events</SelectItem>
-          <SelectItem value="meals">Meals</SelectItem>
         </SelectContent>
       </Select>
 
