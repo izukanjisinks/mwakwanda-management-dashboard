@@ -80,6 +80,14 @@ function fmt(d?: string) {
   if (!d) return '—'
   return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 }
+
+function fmtDateTime(d?: string) {
+  if (!d) return '—'
+  return new Date(d).toLocaleString('en-GB', {
+    day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  })
+}
 </script>
 
 <template>
@@ -160,6 +168,10 @@ function fmt(d?: string) {
             <div>
               <p class="text-xs text-muted-foreground mb-0.5">Step</p>
               <p class="font-semibold">{{ task.step_name }}</p>
+              <div class="flex items-center gap-1 mt-1 text-[11px] text-muted-foreground">
+                <Clock class="size-3 shrink-0" />
+                <span>{{ fmtDateTime(task.created_at) }}</span>
+              </div>
             </div>
             <div class="flex items-center gap-1 shrink-0">
               <Badge :variant="statusConfig(task.status).variant" class="capitalize">

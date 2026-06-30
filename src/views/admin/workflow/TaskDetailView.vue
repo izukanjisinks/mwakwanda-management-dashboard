@@ -401,10 +401,19 @@ function bookingTypeLabel(type: string) {
 }
 
 onMounted(async () => {
-  try {
-    task.value = (await store.fetchTaskById(taskId.value)) ?? undefined
-  } catch {
-    task.value = undefined
+  // Prefer the already-loaded store cache (populated by the task list page)
+  // so navigation from the inbox never needs an extra round-trip, and a broken
+  // or missing /workflow/tasks/:id endpoint doesn't prevent viewing tasks.
+  const cached = [...store.tasks, ...store.allTasks].find(t => t.id === taskId.value)
+
+  if (cached) {
+    task.value = cached
+  } else {
+    try {
+      task.value = (await store.fetchTaskById(taskId.value)) ?? undefined
+    } catch {
+      task.value = undefined
+    }
   }
 
   const t = task.value
