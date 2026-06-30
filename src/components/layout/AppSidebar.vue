@@ -20,6 +20,7 @@ import {
   Inbox,
   Network,
   CreditCard,
+  ChefHat,
 } from 'lucide-vue-next'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -93,6 +94,7 @@ const adminNav = [
       { title: 'Bookings', icon: CalendarDays, routeName: 'admin-bookings' },
       { title: 'Menus', icon: UtensilsCrossed, routeName: 'menus' },
       { title: 'Orders', icon: BookOpen, routeName: 'orders' },
+      { title: 'Kitchen', icon: ChefHat, routeName: 'kitchen' },
       { title: 'Meal Tracking', icon: CreditCard, routeName: 'meal-tracking' },
       { title: 'Invoices', icon: ReceiptText, routeName: 'admin-invoices' },
     ],

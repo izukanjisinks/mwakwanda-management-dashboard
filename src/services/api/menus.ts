@@ -9,8 +9,11 @@ import type {
   PlaceInHouseOrderPayload,
   PlaceWalkInOrderPayload,
   AddOrderItemsPayload,
+  UpdateOrderItemPayload,
+  CloseWalkInOrderPayload,
   InHouseGuest,
 } from '@/types/menu'
+import type { Invoice } from '@/types/invoice'
 
 export interface MenuItemsParams extends Record<string, string | number | boolean | undefined> {
   page?: number
@@ -65,9 +68,17 @@ export const menusApi = {
   addOrderItems: (orderId: string, payload: AddOrderItemsPayload) =>
     apiClient.post<Order>(`/orders/${orderId}/items`, payload),
 
+  updateOrderItem: (orderId: string, itemId: string, payload: UpdateOrderItemPayload) =>
+    apiClient.patch<Order>(`/orders/${orderId}/items/${itemId}`, payload),
+
   removeOrderItem: (orderId: string, itemId: string) =>
     apiClient.delete<Order>(`/orders/${orderId}/items/${itemId}`),
 
   closeAllOrders: () =>
     apiClient.patch<void>('/orders/close-all'),
+
+  // Close a walk-in order and generate a standalone invoice from its items.
+  // Backend: POST /orders/{id}/invoice → closes the order, creates Invoice, returns Invoice.
+  convertToInvoice: (orderId: string, payload: CloseWalkInOrderPayload) =>
+    apiClient.post<Invoice>(`/orders/${orderId}/invoice`, payload),
 }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import {
-  Eye, Search, ChevronLeft, ChevronRight, Building2, User,
+  Eye, Search, ChevronLeft, ChevronRight, Building2, User, UserCheck,
   BedDouble, CalendarDays, LogIn, LogOut, Loader2, Plus, MapPin, Users,
   Clock, UtensilsCrossed, Download,
 } from 'lucide-vue-next'
@@ -510,16 +510,112 @@ function syncRowStatus(id: string, status: BookingStatus) {
         </div>
       </SheetHeader>
 
-      <div class="flex-1 min-h-0 overflow-auto p-6 flex flex-col gap-5">
-        <!-- Booking meta -->
-        <div v-if="sheetBooking" class="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <p class="text-xs text-muted-foreground mb-0.5">Booked By</p>
-            <p class="font-medium">{{ sheetBooking.booker_name || sheetBooking.profile_name || '—' }}</p>
+      <div class="flex-1 min-h-0 overflow-auto p-6 flex flex-col gap-4">
+        <!-- Quick stats -->
+        <div v-if="sheetBooking" class="grid grid-cols-2 gap-3 text-sm">
+          <div class="rounded-lg border px-3 py-2.5">
+            <p class="text-xs text-muted-foreground">Total</p>
+            <p class="font-semibold mt-0.5">ZMW {{ sheetBooking.total_amount?.toLocaleString() }}</p>
           </div>
-          <div>
-            <p class="text-xs text-muted-foreground mb-0.5">Total</p>
-            <p class="font-medium">ZMW {{ sheetBooking.total_amount?.toLocaleString() }}</p>
+          <div class="rounded-lg border px-3 py-2.5 capitalize">
+            <p class="text-xs text-muted-foreground">Type</p>
+            <p class="font-semibold mt-0.5">{{ sheetBooking.booking_type || 'accommodation' }}</p>
+          </div>
+        </div>
+
+        <!-- Booked By -->
+        <div v-if="sheetBooking?.metadata?.booked_by" class="rounded-lg border p-4 flex flex-col gap-3">
+          <div class="flex items-center gap-2">
+            <User class="size-4 text-primary shrink-0" />
+            <h3 class="font-semibold text-sm">Booked By</h3>
+          </div>
+          <div class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+            <div v-if="sheetBooking.metadata.booked_by.name">
+              <p class="text-xs text-muted-foreground">Name</p>
+              <p class="font-medium mt-0.5">{{ sheetBooking.metadata.booked_by.name }}</p>
+            </div>
+            <div v-if="sheetBooking.metadata.booked_by.job_title">
+              <p class="text-xs text-muted-foreground">Job Title</p>
+              <p class="font-medium mt-0.5">{{ sheetBooking.metadata.booked_by.job_title }}</p>
+            </div>
+            <div v-if="sheetBooking.metadata.booked_by.email">
+              <p class="text-xs text-muted-foreground">Email</p>
+              <p class="font-medium mt-0.5 break-all">{{ sheetBooking.metadata.booked_by.email }}</p>
+            </div>
+            <div v-if="sheetBooking.metadata.booked_by.phone">
+              <p class="text-xs text-muted-foreground">Phone</p>
+              <p class="font-medium mt-0.5">{{ sheetBooking.metadata.booked_by.phone }}</p>
+            </div>
+            <div v-if="sheetBooking.metadata.booked_by.man_number">
+              <p class="text-xs text-muted-foreground">Man Number</p>
+              <p class="font-medium font-mono mt-0.5">{{ sheetBooking.metadata.booked_by.man_number }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Approver -->
+        <div v-if="sheetBooking?.booker_type === 'corporate' && sheetBooking?.metadata?.approver" class="rounded-lg border p-4 flex flex-col gap-3">
+          <div class="flex items-center gap-2">
+            <UserCheck class="size-4 text-primary shrink-0" />
+            <h3 class="font-semibold text-sm">Approver</h3>
+          </div>
+          <div class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+            <div v-if="sheetBooking.metadata.approver.name">
+              <p class="text-xs text-muted-foreground">Name</p>
+              <p class="font-medium mt-0.5">{{ sheetBooking.metadata.approver.name }}</p>
+            </div>
+            <div v-if="sheetBooking.metadata.approver.title">
+              <p class="text-xs text-muted-foreground">Title</p>
+              <p class="font-medium mt-0.5">{{ sheetBooking.metadata.approver.title }}</p>
+            </div>
+            <div v-if="sheetBooking.metadata.approver.email">
+              <p class="text-xs text-muted-foreground">Email</p>
+              <p class="font-medium mt-0.5 break-all">{{ sheetBooking.metadata.approver.email }}</p>
+            </div>
+            <div v-if="sheetBooking.metadata.approver.phone">
+              <p class="text-xs text-muted-foreground">Phone</p>
+              <p class="font-medium mt-0.5">{{ sheetBooking.metadata.approver.phone }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Company -->
+        <div v-if="sheetBooking?.booker_type === 'corporate' && sheetBooking?.metadata?.company" class="rounded-lg border p-4 flex flex-col gap-3">
+          <div class="flex items-center gap-2">
+            <Building2 class="size-4 text-primary shrink-0" />
+            <h3 class="font-semibold text-sm">Company</h3>
+          </div>
+          <div class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+            <div v-if="sheetBooking.metadata.company.name">
+              <p class="text-xs text-muted-foreground">Name</p>
+              <p class="font-medium mt-0.5">{{ sheetBooking.metadata.company.name }}</p>
+            </div>
+            <div v-if="sheetBooking.metadata.company.tpin">
+              <p class="text-xs text-muted-foreground">TPIN</p>
+              <p class="font-medium font-mono mt-0.5">{{ sheetBooking.metadata.company.tpin }}</p>
+            </div>
+            <div v-if="sheetBooking.metadata.company.industry">
+              <p class="text-xs text-muted-foreground">Industry</p>
+              <p class="font-medium mt-0.5">{{ sheetBooking.metadata.company.industry }}</p>
+            </div>
+            <div v-if="sheetBooking.metadata.company.branch_name">
+              <p class="text-xs text-muted-foreground">Branch</p>
+              <p class="font-medium mt-0.5">{{ sheetBooking.metadata.company.branch_name }}</p>
+            </div>
+            <div v-if="sheetBooking.metadata.company.department_name">
+              <p class="text-xs text-muted-foreground">Department</p>
+              <p class="font-medium mt-0.5">{{ sheetBooking.metadata.company.department_name }}</p>
+            </div>
+            <div v-if="sheetBooking.metadata.company.cost_center">
+              <p class="text-xs text-muted-foreground">
+                {{ sheetBooking.metadata.company.cost_center_type === 'internal_order' ? 'Internal Order' : 'Cost Center' }}
+              </p>
+              <p class="font-medium font-mono mt-0.5">{{ sheetBooking.metadata.company.cost_center }}</p>
+            </div>
+            <div v-if="sheetBooking.metadata.company.gl_code">
+              <p class="text-xs text-muted-foreground">GL Code</p>
+              <p class="font-medium font-mono mt-0.5">{{ sheetBooking.metadata.company.gl_code }}</p>
+            </div>
           </div>
         </div>
 

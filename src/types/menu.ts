@@ -76,6 +76,7 @@ export interface Order {
   order_number: string
   booking_id?: string
   attendee_id?: string
+  invoice_id?: string
   booking_number?: string
   room_name?: string
   client_name?: string
@@ -88,6 +89,16 @@ export interface Order {
   items: OrderItem[]
   created_at: string
   updated_at: string
+}
+
+export interface CloseWalkInOrderPayload {
+  client_name: string
+  client_type: 'individual' | 'corporate'
+  client_email?: string
+  client_phone?: string
+  client_tpin?: string
+  due_date?: string
+  notes?: string
 }
 
 export interface InHouseGuest {
@@ -141,4 +152,8 @@ export interface PlaceWalkInOrderPayload {
 
 export interface AddOrderItemsPayload {
   items: OrderItemInput[]
+}
+
+export interface UpdateOrderItemPayload {
+  quantity: number
 }

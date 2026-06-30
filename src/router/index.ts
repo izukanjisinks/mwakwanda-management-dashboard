@@ -94,6 +94,12 @@ const router = createRouter({
           meta: { roles: ['admin', 'branch_admin', 'manager', 'receptionist'] },
         },
         {
+          path: 'kitchen',
+          name: 'kitchen',
+          component: () => import('@/views/admin/orders/KitchenView.vue'),
+          meta: { roles: ['admin', 'branch_admin', 'manager', 'receptionist'] },
+        },
+        {
           path: 'meal-tracking',
           name: 'meal-tracking',
           component: () => import('@/views/admin/meals/MealTrackingView.vue'),

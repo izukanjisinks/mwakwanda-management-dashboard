@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { Plus, ChevronLeft, ChevronRight, ShoppingBag, Trash2, X } from 'lucide-vue-next'
+import { Plus, Minus, ChevronLeft, ChevronRight, ShoppingBag, Trash2, X, FileText } from 'lucide-vue-next'
 import { useMenusStore } from '@/stores/menus'
 import { useBranchFilterStore } from '@/stores/branchFilter'
 import type { Order } from '@/types/menu'
+import type { Invoice } from '@/types/invoice'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import PlaceOrderDialog from '@/components/menus/PlaceOrderDialog.vue'
 import AddOrderItemsDialog from '@/components/menus/AddOrderItemsDialog.vue'
+import CloseWalkInTabDialog from '@/components/menus/CloseWalkInTabDialog.vue'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -45,6 +47,13 @@ const sheetOrder = ref<Order | null>(null)
 const sheetLoading = ref(false)
 
 const addItemsOpen = ref(false)
+const closeTabOpen = ref(false)
+
+function onTabInvoiced(_invoice: Invoice) {
+  sheetOpen.value = false
+  closeTabOpen.value = false
+  loadOrders()
+}
 
 const statusTabs = [
   { value: 'open', label: 'Active' },
@@ -124,6 +133,7 @@ async function refreshSheet() {
 }
 
 const removingItemId = ref<string | null>(null)
+const updatingItemId = ref<string | null>(null)
 
 async function removeItem(itemId: string) {
   if (!sheetOrder.value) return
@@ -135,6 +145,19 @@ async function removeItem(itemId: string) {
     // silently keep current state
   } finally {
     removingItemId.value = null
+  }
+}
+
+async function updateQuantity(itemId: string, newQty: number) {
+  if (!sheetOrder.value || newQty < 1) return
+  updatingItemId.value = itemId
+  try {
+    const updated = await store.updateOrderItem(sheetOrder.value.id, itemId, newQty)
+    sheetOrder.value = updated
+  } catch {
+    // silently keep current state
+  } finally {
+    updatingItemId.value = null
   }
 }
 </script>
@@ -305,6 +328,15 @@ async function removeItem(itemId: string) {
     @added="refreshSheet"
   />
 
+  <!-- Close Walk-In Tab & Invoice Dialog -->
+  <CloseWalkInTabDialog
+    v-if="sheetOrder"
+    :open="closeTabOpen"
+    :order="sheetOrder"
+    @update:open="closeTabOpen = $event"
+    @invoiced="onTabInvoiced"
+  />
+
   <!-- Order Detail Sheet -->
   <Sheet v-model:open="sheetOpen">
     <SheetContent class="w-full sm:max-w-lg flex flex-col gap-0 p-0">
@@ -368,18 +400,53 @@ async function removeItem(itemId: string) {
                 :key="oi.id"
                 class="rounded-lg border bg-card px-4 py-3 flex items-center gap-3"
               >
+                <!-- Name + notes -->
                 <div class="flex-1 min-w-0">
                   <p class="text-sm font-medium">{{ oi.item_name ?? oi.menu_item?.name ?? `Item ${oi.menu_item_id.slice(0, 8)}` }}</p>
                   <p v-if="oi.notes" class="text-xs text-muted-foreground">{{ oi.notes }}</p>
                 </div>
+
+                <!-- Price -->
                 <div class="text-right shrink-0">
                   <p class="text-sm font-semibold">ZMW {{ (oi.subtotal ?? oi.total ?? 0).toLocaleString() }}</p>
-                  <p class="text-xs text-muted-foreground">× {{ oi.quantity }} @ ZMW {{ (oi.unit_price ?? 0).toLocaleString() }}</p>
+                  <p class="text-xs text-muted-foreground">@ ZMW {{ (oi.unit_price ?? 0).toLocaleString() }}</p>
                 </div>
+
+                <!-- Quantity stepper (walk-in open orders only) -->
+                <div
+                  v-if="sheetOrder.type === 'walk_in' && sheetOrder.status === 'open'"
+                  class="flex items-center shrink-0"
+                >
+                  <button
+                    type="button"
+                    class="size-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30"
+                    :disabled="oi.quantity <= 1 || updatingItemId === oi.id || removingItemId === oi.id"
+                    @click.stop="updateQuantity(oi.id, oi.quantity - 1)"
+                  >
+                    <Minus class="size-3" />
+                  </button>
+                  <span class="w-7 text-center text-sm font-medium tabular-nums select-none">
+                    <svg v-if="updatingItemId === oi.id" class="size-3.5 animate-spin mx-auto text-muted-foreground" viewBox="0 0 24 24" fill="none">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                    </svg>
+                    <template v-else>{{ oi.quantity }}</template>
+                  </span>
+                  <button
+                    type="button"
+                    class="size-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30"
+                    :disabled="updatingItemId === oi.id || removingItemId === oi.id"
+                    @click.stop="updateQuantity(oi.id, oi.quantity + 1)"
+                  >
+                    <Plus class="size-3" />
+                  </button>
+                </div>
+
+                <!-- Delete -->
                 <button
                   type="button"
                   class="shrink-0 size-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                  :disabled="removingItemId === oi.id"
+                  :disabled="removingItemId === oi.id || updatingItemId === oi.id"
                   @click.stop="removeItem(oi.id)"
                 >
                   <Trash2 v-if="removingItemId !== oi.id" class="size-3.5" />
@@ -400,9 +467,21 @@ async function removeItem(itemId: string) {
         </template>
       </div>
 
-      <!-- Add More Items — pinned to bottom -->
-      <div v-if="sheetOrder" class="px-6 pb-6 pt-3 border-t">
-        <Button class="w-full" @click="addItemsOpen = true">
+      <!-- Actions — pinned to bottom -->
+      <div v-if="sheetOrder" class="px-6 pb-6 pt-3 border-t flex flex-col gap-2">
+        <Button
+          v-if="sheetOrder.type === 'walk_in' && sheetOrder.status === 'open'"
+          class="w-full"
+          @click="closeTabOpen = true"
+        >
+          <FileText class="size-4 mr-2" />
+          Close Tab &amp; Generate Invoice
+        </Button>
+        <Button
+          :variant="sheetOrder.type === 'walk_in' && sheetOrder.status === 'open' ? 'outline' : 'default'"
+          class="w-full"
+          @click="addItemsOpen = true"
+        >
           <Plus class="size-4 mr-2" />
           Add More Items
         </Button>

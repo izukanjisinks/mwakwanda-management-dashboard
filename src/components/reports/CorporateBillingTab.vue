@@ -48,23 +48,42 @@ onMounted(load)
 watch(() => branchFilterStore.selectedBranchId, load)
 
 // ── Company selection ─────────────────────────────────────────────────────────
-const selectedCompany = ref<string>('')
+const selectedTpin = ref<string>('')
 const companySearch = ref('')
 
-const companies = computed(() => {
-  const names = [...new Set(allInvoices.value.map(i => i.client_name).filter(Boolean))]
-  return names.sort()
+interface CompanyOption {
+  name: string
+  tpin: string
+}
+
+const companies = computed<CompanyOption[]>(() => {
+  const seen = new Map<string, string>()
+  for (const inv of allInvoices.value) {
+    if (inv.client_tpin && !seen.has(inv.client_tpin))
+      seen.set(inv.client_tpin, inv.client_name || inv.client_tpin)
+  }
+  return [...seen.entries()]
+    .map(([tpin, name]) => ({ tpin, name }))
+    .sort((a, b) => a.name.localeCompare(b.name))
 })
 
-const filteredCompanies = computed(() => {
+const filteredCompanies = computed<CompanyOption[]>(() => {
   const q = companySearch.value.toLowerCase()
-  return q ? companies.value.filter(c => c.toLowerCase().includes(q)) : companies.value
+  return q
+    ? companies.value.filter(c =>
+        c.name.toLowerCase().includes(q) || c.tpin.toLowerCase().includes(q),
+      )
+    : companies.value
 })
+
+const selectedCompanyName = computed(
+  () => companies.value.find(c => c.tpin === selectedTpin.value)?.name ?? selectedTpin.value,
+)
 
 // ── Data for selected company ─────────────────────────────────────────────────
 const companyInvoices = computed(() =>
-  selectedCompany.value
-    ? allInvoices.value.filter(i => i.client_name === selectedCompany.value)
+  selectedTpin.value
+    ? allInvoices.value.filter(i => i.client_tpin === selectedTpin.value)
     : [],
 )
 
@@ -83,6 +102,7 @@ interface GlCodeNode {
 
 interface CostCenterNode {
   costCenter: string
+  type: 'cost_center' | 'internal_order' | undefined
   glCodes: GlCodeNode[]
   totalAmount: number
   paidAmount: number
@@ -94,7 +114,9 @@ const hierarchy = computed<CostCenterNode[]>(() => {
   const ccMap = new Map<string, Map<string, Invoice[]>>()
 
   for (const inv of companyInvoices.value) {
-    const cc = inv.cost_center || '(No Cost Center)'
+    const cc = inv.cost_center_type === 'internal_order'
+      ? (inv.internal_order || '(No Internal Order)')
+      : (inv.cost_center || '(No Cost Center)')
     const gl = inv.gl_code || '(No GL Code)'
     if (!ccMap.has(cc)) ccMap.set(cc, new Map())
     const glMap = ccMap.get(cc)!
@@ -121,8 +143,10 @@ const hierarchy = computed<CostCenterNode[]>(() => {
     }
     glCodes.sort((a, b) => b.totalAmount - a.totalAmount)
 
+    const firstInv = glCodes[0]?.invoices[0]
     ccNodes.push({
       costCenter,
+      type: firstInv?.cost_center_type,
       glCodes,
       totalAmount:   glCodes.reduce((s, g) => s + g.totalAmount, 0),
       paidAmount:    glCodes.reduce((s, g) => s + g.paidAmount, 0),
@@ -156,7 +180,7 @@ function toggleGl(key: string) {
 }
 function glKey(costCenter: string, glCode: string) { return `${costCenter}::${glCode}` }
 
-watch(selectedCompany, () => {
+watch(selectedTpin, () => {
   expandedCc.value = new Set()
   expandedGl.value = new Set()
 })
@@ -214,9 +238,13 @@ function fmtDate(d?: string) {
     <div class="flex flex-wrap items-end gap-3">
       <div class="flex flex-col gap-1.5 flex-1 min-w-0 max-w-xs">
         <label class="text-sm font-medium">Company</label>
-        <Select :model-value="selectedCompany" @update:model-value="(v) => selectedCompany = v as string">
+        <Select :model-value="selectedTpin" @update:model-value="(v) => { selectedTpin = String(v) }">
           <SelectTrigger>
-            <SelectValue placeholder="Select a company…" />
+            <span v-if="selectedTpin" class="flex items-center gap-1.5 truncate">
+              <span class="truncate">{{ selectedCompanyName }}</span>
+              <span class="text-xs text-muted-foreground shrink-0">{{ selectedTpin }}</span>
+            </span>
+            <span v-else class="text-muted-foreground">Select a company…</span>
           </SelectTrigger>
           <SelectContent>
             <div class="px-2 pt-2 pb-1">
@@ -232,8 +260,9 @@ function fmtDate(d?: string) {
             </div>
             <div v-if="loading" class="px-3 py-4 text-center text-sm text-muted-foreground">Loading…</div>
             <template v-else>
-              <SelectItem v-for="company in filteredCompanies" :key="company" :value="company">
-                {{ company }}
+              <SelectItem v-for="company in filteredCompanies" :key="company.tpin" :value="company.tpin">
+                <span>{{ company.name }}</span>
+                <span class="ml-2 text-xs text-muted-foreground">{{ company.tpin }}</span>
               </SelectItem>
               <div v-if="filteredCompanies.length === 0" class="px-3 py-4 text-center text-sm text-muted-foreground">
                 No companies found.
@@ -243,7 +272,7 @@ function fmtDate(d?: string) {
         </Select>
       </div>
 
-      <Button v-if="selectedCompany" variant="outline" size="sm" @click="selectedCompany = ''">
+      <Button v-if="selectedTpin" variant="outline" size="sm" @click="selectedTpin = ''">
         <X class="size-4 mr-1.5" />
         Clear
       </Button>
@@ -253,7 +282,7 @@ function fmtDate(d?: string) {
     </div>
 
     <!-- No company selected -->
-    <div v-if="!selectedCompany" class="flex flex-col items-center gap-4 py-20 text-muted-foreground rounded-xl border bg-card">
+    <div v-if="!selectedTpin" class="flex flex-col items-center gap-4 py-20 text-muted-foreground rounded-xl border bg-card">
       <Building2 class="size-12 opacity-20" />
       <div class="text-center">
         <p class="text-base font-medium text-foreground">Select a Company</p>
@@ -294,7 +323,7 @@ function fmtDate(d?: string) {
       <!-- Empty state for company -->
       <div v-if="hierarchy.length === 0" class="flex flex-col items-center gap-2 py-16 rounded-xl border bg-card text-muted-foreground">
         <Layers class="size-8 opacity-30" />
-        <p class="text-sm">No invoices found for {{ selectedCompany }}.</p>
+        <p class="text-sm">No invoices found for {{ selectedCompanyName }}.</p>
       </div>
 
       <!-- Cost Center → GL Code → Invoices -->
@@ -311,6 +340,9 @@ function fmtDate(d?: string) {
           >
             <div class="flex items-center gap-2 flex-1 min-w-0">
               <Layers class="size-4 text-primary shrink-0" />
+              <span class="text-xs text-muted-foreground font-medium shrink-0">
+                {{ ccNode.type === 'internal_order' ? 'Internal Order' : 'Cost Center' }}
+              </span>
               <span class="font-semibold text-sm">{{ ccNode.costCenter }}</span>
               <span class="text-xs text-muted-foreground">
                 ({{ ccNode.glCodes.length }} GL code{{ ccNode.glCodes.length !== 1 ? 's' : '' }})
@@ -390,7 +422,12 @@ function fmtDate(d?: string) {
                     :key="inv.id"
                     class="grid grid-cols-12 gap-2 items-center px-8 py-2.5 text-sm hover:bg-muted/20 transition-colors"
                   >
-                    <span class="col-span-3 font-mono text-xs">{{ inv.invoice_number }}</span>
+                    <div class="col-span-3 flex flex-col gap-0.5">
+                      <span class="font-mono text-xs">{{ inv.invoice_number }}</span>
+                      <span v-if="inv.internal_order" class="text-[10px] text-muted-foreground">
+                        IO: {{ inv.internal_order }}
+                      </span>
+                    </div>
                     <span class="col-span-3 text-muted-foreground text-xs">{{ fmtDate(inv.issued_date) }}</span>
                     <span
                       class="col-span-2 text-xs"
@@ -433,7 +470,7 @@ function fmtDate(d?: string) {
         <!-- Grand total -->
         <div class="rounded-xl border-2 border-primary/20 bg-primary/5 px-5 py-4 flex items-center justify-between">
           <div>
-            <p class="text-sm font-medium">{{ selectedCompany }} — Grand Total</p>
+            <p class="text-sm font-medium">{{ selectedCompanyName }} — Grand Total</p>
             <p class="text-xs text-muted-foreground mt-0.5">
               Paid: ZMW {{ fmt(companySummary.paidAmount) }} ·
               Pending: ZMW {{ fmt(companySummary.pendingAmount) }}

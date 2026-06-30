@@ -105,6 +105,13 @@ export const useMenusStore = defineStore('menus', () => {
     return updated
   }
 
+  async function updateOrderItem(orderId: string, itemId: string, quantity: number): Promise<Order> {
+    const updated = await menusApi.updateOrderItem(orderId, itemId, { quantity })
+    const idx = orders.value.findIndex(o => o.id === orderId)
+    if (idx !== -1) orders.value.splice(idx, 1, updated)
+    return updated
+  }
+
   async function removeOrderItem(orderId: string, itemId: string): Promise<Order> {
     await menusApi.removeOrderItem(orderId, itemId)
     const updated = await menusApi.getOrder(orderId)
@@ -122,6 +129,6 @@ export const useMenusStore = defineStore('menus', () => {
     orders, ordersTotal, ordersLoading, ordersError,
     fetchMenu, upsertMenu,
     createMenuItem, updateMenuItem, deleteMenuItem,
-    fetchOrders, placeInHouseOrder, placeWalkInOrder, addOrderItems, removeOrderItem, closeAllOrders,
+    fetchOrders, placeInHouseOrder, placeWalkInOrder, addOrderItems, updateOrderItem, removeOrderItem, closeAllOrders,
   }
 })

@@ -33,6 +33,13 @@ export interface BookingAttendee {
   created_at: string
 }
 
+export interface BookingMetadata {
+  booked_by?: CorBookingPerson
+  approver?: CorBookingPerson
+  company?: CorBookingCompany
+  accommodation?: CorBookingAccommodation
+}
+
 export interface Booking {
   id: string
   booking_number: string
@@ -55,6 +62,8 @@ export interface Booking {
   venue_name?: string
   company_name?: string
   profile_name?: string
+  branch_name?: string
+  metadata?: BookingMetadata
   attendees?: BookingAttendee[]
   assignments?: BookingRoomAssignment[]
   events?: BookingEvent[]

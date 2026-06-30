@@ -256,6 +256,7 @@ const summary = computed(() => ({
           <TableRow class="bg-muted/30">
             <TableHead>Invoice No.</TableHead>
             <TableHead>{{ activeTab === 'corporate' ? 'Company' : 'Client' }}</TableHead>
+            <TableHead v-if="activeTab === 'corporate'">TPIN</TableHead>
             <TableHead>Issued</TableHead>
             <TableHead>Due</TableHead>
             <TableHead>Amount (ZMW)</TableHead>
@@ -266,7 +267,7 @@ const summary = computed(() => ({
         <TableBody>
           <template v-if="store.loading">
             <TableRow v-for="i in 5" :key="i">
-              <TableCell colspan="7">
+              <TableCell :colspan="activeTab === 'corporate' ? 8 : 7">
                 <div class="h-4 rounded bg-muted animate-pulse" />
               </TableCell>
             </TableRow>
@@ -274,7 +275,7 @@ const summary = computed(() => ({
 
           <template v-else-if="filtered.length === 0">
             <TableRow>
-              <TableCell colspan="7" class="py-16 text-center text-muted-foreground">
+              <TableCell :colspan="activeTab === 'corporate' ? 8 : 7" class="py-16 text-center text-muted-foreground">
                 {{ store.invoices.length === 0 ? `No ${activeTab} invoices yet.` : 'No invoices match your filters.' }}
               </TableCell>
             </TableRow>
@@ -289,6 +290,7 @@ const summary = computed(() => ({
             >
               <TableCell class="font-mono text-sm">{{ invoice.invoice_number }}</TableCell>
               <TableCell class="font-medium">{{ invoice.client_name || '—' }}</TableCell>
+              <TableCell v-if="activeTab === 'corporate'" class="font-mono text-sm text-muted-foreground">{{ invoice.client_tpin || '—' }}</TableCell>
               <TableCell>{{ formatDate(invoice.issued_date) }}</TableCell>
               <TableCell :class="invoice.status === 'overdue' ? 'text-destructive font-medium' : ''">
                 {{ formatDate(invoice.due_date) }}
