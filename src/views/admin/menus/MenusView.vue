@@ -639,7 +639,7 @@ function categoryLabel(cat?: MenuCategory) {
   </div>
 
   <!-- Create Menu Dialog -->
-  <Dialog v-model:open="createMenuOpen">
+  <Dialog :open="createMenuOpen" @update:open="() => {}">
     <DialogContent class="max-w-sm">
       <DialogHeader>
         <div class="flex items-center gap-3 mb-1">
@@ -661,10 +661,8 @@ function categoryLabel(cat?: MenuCategory) {
         />
       </div>
       <DialogFooter class="gap-2">
-        <Button variant="outline" :disabled="creatingMenu" @click="createMenuOpen = false">Cancel</Button>
         <Button :disabled="creatingMenu || !createMenuName.trim()" @click="handleCreateMenu">
           <Loader2 v-if="creatingMenu" class="size-4 mr-2 animate-spin" />
-          <Plus v-else class="size-4 mr-2" />
           Create Menu
         </Button>
       </DialogFooter>
