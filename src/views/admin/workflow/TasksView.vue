@@ -1,20 +1,49 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { Clock, CheckCheck, XCircle, InboxIcon, ChevronRight } from 'lucide-vue-next'
+import { Clock, CheckCheck, XCircle, InboxIcon, ChevronRight, User } from 'lucide-vue-next'
 import { useWorkflowStore } from '@/stores/workflow'
+import { useAuthStore } from '@/stores/auth'
+import { useBranchFilterStore } from '@/stores/branchFilter'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 
 const router = useRouter()
 const store = useWorkflowStore()
+const auth = useAuthStore()
+const branchFilter = useBranchFilterStore()
 
+// Top-level scope: my own inbox vs every task in the (branch-scoped) org.
+const scope = ref<'mine' | 'all'>('mine')
+// Secondary filter within a scope.
 const activeTab = ref<'active' | 'completed'>('active')
 
-const displayedTasks = computed(() =>
-  activeTab.value === 'active' ? store.pendingTasks : store.completedTasks,
+const currentUserId = computed(() => auth.user?.user_id ?? '')
+// Admin and branch admin can act on any task regardless of assignment.
+const canActOnAny = computed(() =>
+  auth.userRole === 'admin' || auth.userRole === 'branch_admin',
 )
+
+const loading = computed(() => (scope.value === 'mine' ? store.tasksLoading : store.allTasksLoading))
+
+const pendingCount = computed(() =>
+  scope.value === 'mine' ? store.pendingTasks.length : store.allPendingTasks.length,
+)
+
+const displayedTasks = computed(() => {
+  if (scope.value === 'mine') {
+    return activeTab.value === 'active' ? store.pendingTasks : store.completedTasks
+  }
+  return activeTab.value === 'active' ? store.allPendingTasks : store.allCompletedTasks
+})
+
+// In the "All Tasks" view a user may only open/action tasks assigned to them
+// (unless they're an admin / branch admin). Their own inbox is always actionable.
+function canAct(task: { assigned_to: string }) {
+  if (scope.value === 'mine') return true
+  return canActOnAny.value || task.assigned_to === currentUserId.value
+}
 
 const VIEWED_KEY = 'workflow_viewed_tasks'
 const viewedIds = ref<Set<string>>(new Set(JSON.parse(localStorage.getItem(VIEWED_KEY) ?? '[]')))
@@ -29,7 +58,17 @@ function openTask(taskId: string) {
   router.push({ name: 'workflow-task-detail', params: { id: taskId } })
 }
 
-onMounted(() => store.fetchTasks())
+function loadForScope() {
+  if (scope.value === 'mine') store.fetchTasks()
+  else store.fetchAllTasks()
+}
+
+onMounted(loadForScope)
+watch(scope, loadForScope)
+// Re-fetch the all-tasks list when the global branch filter changes.
+watch(() => branchFilter.selectedBranchId, () => {
+  if (scope.value === 'all') store.fetchAllTasks()
+})
 
 function statusConfig(status: string) {
   switch (status) {
@@ -52,7 +91,25 @@ function fmt(d?: string) {
   <DashboardHeader title="Task Inbox" />
 
   <div class="flex flex-col gap-6 p-6">
-    <!-- Tabs -->
+    <!-- Scope toggle: My Tasks / All Tasks -->
+    <div class="flex items-center gap-1 bg-muted rounded-lg p-1 w-fit">
+      <button
+        class="flex items-center justify-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
+        :class="scope === 'mine' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'"
+        @click="scope = 'mine'"
+      >
+        My Tasks
+      </button>
+      <button
+        class="flex items-center justify-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
+        :class="scope === 'all' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'"
+        @click="scope = 'all'"
+      >
+        All Tasks
+      </button>
+    </div>
+
+    <!-- Secondary filter: Active / Completed -->
     <div class="flex items-center gap-1 bg-muted rounded-lg p-1 w-fit">
       <button
         class="flex items-center justify-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
@@ -60,8 +117,8 @@ function fmt(d?: string) {
         @click="activeTab = 'active'"
       >
         Active
-        <span v-if="store.pendingTasks.length" class="ml-0.5 text-xs bg-primary text-primary-foreground rounded-full px-1.5 py-0.5">
-          {{ store.pendingTasks.length }}
+        <span v-if="pendingCount" class="ml-0.5 text-xs bg-primary text-primary-foreground rounded-full px-1.5 py-0.5">
+          {{ pendingCount }}
         </span>
       </button>
       <button
@@ -74,7 +131,7 @@ function fmt(d?: string) {
     </div>
 
     <!-- Loading -->
-    <div v-if="store.tasksLoading" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div v-if="loading" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       <div v-for="i in 3" :key="i" class="h-48 rounded-xl bg-muted animate-pulse" />
     </div>
 
@@ -92,12 +149,13 @@ function fmt(d?: string) {
       <div
         v-for="task in displayedTasks"
         :key="task.id"
-        class="relative rounded-xl border bg-card p-5 flex flex-col gap-4 cursor-pointer hover:border-primary/40 transition-colors"
-        @click="openTask(task.id)"
+        class="relative rounded-xl border bg-card p-5 flex flex-col gap-4 transition-colors"
+        :class="canAct(task) ? 'cursor-pointer hover:border-primary/40' : 'opacity-90'"
+        @click="canAct(task) && openTask(task.id)"
       >
         <!-- New chip -->
         <span
-          v-if="activeTab === 'active' && isNew(task.id)"
+          v-if="activeTab === 'active' && canAct(task) && isNew(task.id)"
           class="absolute -top-2 -right-2 z-10 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-green-500 text-white shadow-sm"
         >
           New
@@ -115,6 +173,16 @@ function fmt(d?: string) {
             </Badge>
             <ChevronRight class="size-4 text-muted-foreground" />
           </div>
+        </div>
+
+        <!-- Assignee label (All Tasks scope) -->
+        <div v-if="scope === 'all'" class="flex items-center gap-1.5 -mt-1">
+          <User class="size-3.5 text-muted-foreground" />
+          <span class="text-xs text-muted-foreground">Assigned to</span>
+          <Badge variant="outline" class="text-xs">
+            {{ task.assignee_name || '—' }}
+            <span v-if="task.assigned_to === currentUserId" class="ml-1 text-primary">(You)</span>
+          </Badge>
         </div>
 
         <!-- Task details -->
@@ -150,9 +218,10 @@ function fmt(d?: string) {
           </div>
         </div>
 
-        <!-- View Details -->
+        <!-- View Details / read-only notice -->
         <div class="pt-1 border-t mt-auto">
           <Button
+            v-if="canAct(task)"
             size="sm"
             variant="outline"
             class="w-full"
@@ -160,6 +229,9 @@ function fmt(d?: string) {
           >
             View Details
           </Button>
+          <p v-else class="text-xs text-muted-foreground text-center py-1.5">
+            Assigned to another staff member
+          </p>
         </div>
       </div>
     </div>

@@ -45,6 +45,10 @@ export const workflowApi = {
   // Tasks (staff inbox)
   getMyTasks: () => apiClient.get<WorkflowTasksResponse>('/workflow/my-tasks'),
   getMyPendingTasks: () => apiClient.get<WorkflowTasksResponse>('/workflow/my-tasks/pending'),
+  getAllTasks: (branchId?: string) =>
+    apiClient.get<WorkflowTasksResponse>('/workflow/all-tasks', {
+      params: { branch_id: branchId },
+    }),
   getTaskDetails: (taskId: string) => apiClient.get<WorkflowTask>(`/workflow/tasks/${taskId}`),
 
   // Process action — uses instance_id not task_id

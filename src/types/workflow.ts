@@ -97,7 +97,9 @@ export interface WorkflowTask {
   step_id: string
   step_name: string
   assigned_to: string
+  assignee_name?: string
   assigned_by: string
+  branch_id?: string
   status: TaskStatus
   due_date?: string
   completed_at?: string

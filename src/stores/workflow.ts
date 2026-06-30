@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { MarkerType } from '@vue-flow/core'
 import type { Node, Edge } from '@vue-flow/core'
 import { workflowApi } from '@/services/api/workflow'
+import { useBranchFilterStore } from '@/stores/branchFilter'
 import type {
   Workflow,
   WorkflowType,
@@ -50,14 +51,19 @@ export const useWorkflowStore = defineStore('workflow', () => {
   const workflowTypes = ref<WorkflowType[]>([])
   const workflow = ref<Workflow | null>(null)
   const tasks = ref<WorkflowTask[]>([])
+  const allTasks = ref<WorkflowTask[]>([])
   const loading = ref(false)
   const tasksLoading = ref(false)
+  const allTasksLoading = ref(false)
 
   const nodes = ref<Node[]>([])
   const edges = ref<Edge[]>([])
 
   const pendingTasks = computed(() => (tasks.value ?? []).filter(t => t.status === 'pending' || t.status === 'in_progress'))
   const completedTasks = computed(() => (tasks.value ?? []).filter(t => t.status === 'completed' || t.status === 'rejected'))
+
+  const allPendingTasks = computed(() => (allTasks.value ?? []).filter(t => t.status === 'pending' || t.status === 'in_progress'))
+  const allCompletedTasks = computed(() => (allTasks.value ?? []).filter(t => t.status === 'completed' || t.status === 'rejected'))
 
   function syncFlow() {
     if (!workflow.value) return
@@ -185,10 +191,23 @@ export const useWorkflowStore = defineStore('workflow', () => {
     }
   }
 
+  // fetchAllTasks loads every task in the org, scoped to the currently selected
+  // branch (All Branches when none is selected). Used by the "All Tasks" tab.
+  async function fetchAllTasks() {
+    const branchFilter = useBranchFilterStore()
+    allTasksLoading.value = true
+    try {
+      const res = await workflowApi.getAllTasks(branchFilter.apiBranchId)
+      allTasks.value = res?.tasks ?? []
+    } finally {
+      allTasksLoading.value = false
+    }
+  }
+
   async function processTask(instanceId: string, payload: ProcessTaskPayload) {
     await workflowApi.processAction(instanceId, payload)
-    // Refresh tasks so the status reflects the change
-    await fetchTasks()
+    // Refresh both lists so whichever tab is active reflects the change.
+    await Promise.all([fetchTasks(), fetchAllTasks()])
   }
 
   return {
@@ -196,12 +215,16 @@ export const useWorkflowStore = defineStore('workflow', () => {
     workflowTypes,
     workflow,
     tasks,
+    allTasks,
     loading,
     tasksLoading,
+    allTasksLoading,
     nodes,
     edges,
     pendingTasks,
     completedTasks,
+    allPendingTasks,
+    allCompletedTasks,
     fetchWorkflows,
     deleteWorkflow,
     fetchTypes,
@@ -215,6 +238,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
     updateTransition,
     deleteTransition,
     fetchTasks,
+    fetchAllTasks,
     processTask,
     syncFlow,
   }
