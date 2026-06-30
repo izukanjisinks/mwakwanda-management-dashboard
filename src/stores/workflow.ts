@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { MarkerType } from '@vue-flow/core'
 import type { Node, Edge } from '@vue-flow/core'
 import { workflowApi } from '@/services/api/workflow'
@@ -50,20 +50,18 @@ export const useWorkflowStore = defineStore('workflow', () => {
   const workflows = ref<Workflow[]>([])
   const workflowTypes = ref<WorkflowType[]>([])
   const workflow = ref<Workflow | null>(null)
+  // tasks/allTasks each hold exactly the current page for the active status tab
+  // (filtering + pagination happen server-side).
   const tasks = ref<WorkflowTask[]>([])
   const allTasks = ref<WorkflowTask[]>([])
+  const tasksTotal = ref(0)
+  const allTasksTotal = ref(0)
   const loading = ref(false)
   const tasksLoading = ref(false)
   const allTasksLoading = ref(false)
 
   const nodes = ref<Node[]>([])
   const edges = ref<Edge[]>([])
-
-  const pendingTasks = computed(() => (tasks.value ?? []).filter(t => t.status === 'pending' || t.status === 'in_progress'))
-  const completedTasks = computed(() => (tasks.value ?? []).filter(t => t.status === 'completed' || t.status === 'rejected'))
-
-  const allPendingTasks = computed(() => (allTasks.value ?? []).filter(t => t.status === 'pending' || t.status === 'in_progress'))
-  const allCompletedTasks = computed(() => (allTasks.value ?? []).filter(t => t.status === 'completed' || t.status === 'rejected'))
 
   function syncFlow() {
     if (!workflow.value) return
@@ -181,33 +179,47 @@ export const useWorkflowStore = defineStore('workflow', () => {
     syncFlow()
   }
 
-  async function fetchTasks() {
+  // status is the group keyword "active" | "completed" (server-side filtered).
+  async function fetchTasks(status = 'active', page = 1, pageSize = 12) {
     tasksLoading.value = true
     try {
-      const res = await workflowApi.getMyTasks()
+      const res = await workflowApi.getMyTasks(status, page, pageSize)
       tasks.value = res?.tasks ?? []
+      tasksTotal.value = res?.total ?? tasks.value.length
     } finally {
       tasksLoading.value = false
     }
   }
 
-  // fetchAllTasks loads every task in the org, scoped to the currently selected
-  // branch (All Branches when none is selected). Used by the "All Tasks" tab.
-  async function fetchAllTasks() {
+  // fetchAllTasks loads org tasks for the current status tab, scoped to the
+  // selected branch (All Branches when none is selected). Used by "All Tasks".
+  async function fetchAllTasks(status = 'active', page = 1, pageSize = 12) {
     const branchFilter = useBranchFilterStore()
     allTasksLoading.value = true
     try {
-      const res = await workflowApi.getAllTasks(branchFilter.apiBranchId)
+      const res = await workflowApi.getAllTasks(status, branchFilter.apiBranchId, page, pageSize)
       allTasks.value = res?.tasks ?? []
+      allTasksTotal.value = res?.total ?? allTasks.value.length
     } finally {
       allTasksLoading.value = false
     }
   }
 
-  async function processTask(instanceId: string, payload: ProcessTaskPayload) {
+  // fetchTaskById resolves a single task by ID from the backend (any assignee in
+  // the org), so the detail view works for tasks opened from the All Tasks list.
+  async function fetchTaskById(taskId: string): Promise<WorkflowTask | null> {
+    const res = await workflowApi.getTaskDetails(taskId)
+    return res?.task ?? null
+  }
+
+  async function processTask(
+    instanceId: string,
+    payload: ProcessTaskPayload,
+    refresh?: () => void | Promise<void>,
+  ) {
     await workflowApi.processAction(instanceId, payload)
-    // Refresh both lists so whichever tab is active reflects the change.
-    await Promise.all([fetchTasks(), fetchAllTasks()])
+    // Let the caller refresh the exact list/page/tab it's showing.
+    if (refresh) await refresh()
   }
 
   return {
@@ -216,15 +228,13 @@ export const useWorkflowStore = defineStore('workflow', () => {
     workflow,
     tasks,
     allTasks,
+    tasksTotal,
+    allTasksTotal,
     loading,
     tasksLoading,
     allTasksLoading,
     nodes,
     edges,
-    pendingTasks,
-    completedTasks,
-    allPendingTasks,
-    allCompletedTasks,
     fetchWorkflows,
     deleteWorkflow,
     fetchTypes,
@@ -239,6 +249,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
     deleteTransition,
     fetchTasks,
     fetchAllTasks,
+    fetchTaskById,
     processTask,
     syncFlow,
   }

@@ -111,9 +111,21 @@ export interface WorkflowTask {
 export interface WorkflowTasksResponse {
   count: number
   tasks: WorkflowTask[]
+  page?: number
+  page_size?: number
+  total?: number
 }
 
 export interface ProcessTaskPayload {
   action: string
   comments?: string
+}
+
+// Response of GET /workflow/tasks/:id — the task plus its instance/history context.
+// When the instance can't be resolved the backend returns the bare task instead,
+// so instance/history are optional.
+export interface TaskDetailsResponse {
+  task: WorkflowTask
+  instance?: unknown
+  history?: unknown[]
 }
