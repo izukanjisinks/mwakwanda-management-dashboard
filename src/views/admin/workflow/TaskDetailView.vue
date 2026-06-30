@@ -28,9 +28,9 @@ const router = useRouter()
 const store = useWorkflowStore()
 
 const taskId = computed(() => route.params.id as string)
-const task = computed<WorkflowTask | undefined>(() =>
-  [...store.pendingTasks, ...store.completedTasks].find(t => t.id === taskId.value),
-)
+// Resolved directly from the backend so tasks opened from the All Tasks list
+// (assigned to other staff) load correctly, not just the user's own inbox.
+const task = ref<WorkflowTask | undefined>(undefined)
 
 const loading = ref(false)
 const individualRequest = ref<IndividualBookingRequest | null>(null)
@@ -401,7 +401,11 @@ function bookingTypeLabel(type: string) {
 }
 
 onMounted(async () => {
-  if (store.tasks.length === 0) await store.fetchTasks()
+  try {
+    task.value = (await store.fetchTaskById(taskId.value)) ?? undefined
+  } catch {
+    task.value = undefined
+  }
 
   const t = task.value
   if (!t) {

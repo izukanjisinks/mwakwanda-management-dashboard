@@ -11,7 +11,7 @@ import type {
   UpdateTransitionPayload,
   CreateWorkflowPayload,
   ProcessTaskPayload,
-  WorkflowTask,
+  TaskDetailsResponse,
 } from '@/types/workflow'
 
 export const workflowApi = {
@@ -42,10 +42,18 @@ export const workflowApi = {
   deleteTransition: (id: string) =>
     apiClient.delete<void>(`/admin/workflow-transitions/${id}`),
 
-  // Tasks (staff inbox)
-  getMyTasks: () => apiClient.get<WorkflowTasksResponse>('/workflow/my-tasks'),
+  // Tasks (staff inbox). `status` accepts the group keywords "active" | "completed".
+  getMyTasks: (status?: string, page = 1, pageSize = 12) =>
+    apiClient.get<WorkflowTasksResponse>('/workflow/my-tasks', {
+      params: { status, page, page_size: pageSize },
+    }),
   getMyPendingTasks: () => apiClient.get<WorkflowTasksResponse>('/workflow/my-tasks/pending'),
-  getTaskDetails: (taskId: string) => apiClient.get<WorkflowTask>(`/workflow/tasks/${taskId}`),
+  getAllTasks: (status?: string, branchId?: string, page = 1, pageSize = 12) =>
+    apiClient.get<WorkflowTasksResponse>('/workflow/all-tasks', {
+      params: { status, branch_id: branchId, page, page_size: pageSize },
+    }),
+  getTaskDetails: (taskId: string) =>
+    apiClient.get<TaskDetailsResponse>(`/workflow/tasks/${taskId}`),
 
   // Process action — uses instance_id not task_id
   processAction: (instanceId: string, payload: ProcessTaskPayload) =>
