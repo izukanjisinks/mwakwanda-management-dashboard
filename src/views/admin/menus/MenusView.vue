@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
-import { Plus, Pencil, Trash2, PackageOpen, Loader2, Check, X, ChevronLeft, ChevronRight, ImagePlus } from 'lucide-vue-next'
+import { ref, computed, watch, onMounted } from 'vue'
+import { Plus, Pencil, Trash2, PackageOpen, Loader2, Check, X, ChevronLeft, ChevronRight, ImagePlus, UtensilsCrossed } from 'lucide-vue-next'
 import { Switch } from '@/components/ui/switch'
 import { toast } from 'vue-sonner'
 import { getApiError } from '@/utils/errors'
@@ -253,6 +253,37 @@ async function handleSaveEdit() {
     toast.error(getApiError(err, 'Failed to update item.'))
   } finally {
     savingEdit.value = false
+  }
+}
+
+// ── Create menu dialog ─────────────────────────────────────────────────────
+const createMenuOpen = ref(false)
+const createMenuName = ref('')
+const creatingMenu = ref(false)
+
+const isDefaultMenu = computed(() =>
+  !store.menu?.org_id || store.menu.org_id === '00000000-0000-0000-0000-000000000000'
+)
+
+watch(() => store.menuLoading, (loading) => {
+  if (!loading && isDefaultMenu.value && canWrite) {
+    createMenuOpen.value = true
+  }
+})
+
+async function handleCreateMenu() {
+  if (!createMenuName.value.trim()) return
+  creatingMenu.value = true
+  try {
+    await store.upsertMenu({ name: createMenuName.value.trim(), is_active: true })
+    createMenuOpen.value = false
+    createMenuName.value = ''
+    loadMenu(1)
+    toast.success('Menu created.')
+  } catch (err) {
+    toast.error(getApiError(err, 'Failed to create menu.'))
+  } finally {
+    creatingMenu.value = false
   }
 }
 
@@ -606,6 +637,37 @@ function categoryLabel(cat?: MenuCategory) {
       </div>
 
   </div>
+
+  <!-- Create Menu Dialog -->
+  <Dialog :open="createMenuOpen" @update:open="() => {}">
+    <DialogContent class="max-w-sm">
+      <DialogHeader>
+        <div class="flex items-center gap-3 mb-1">
+          <div class="size-10 rounded-full bg-primary/10 flex items-center justify-center">
+            <UtensilsCrossed class="size-5 text-primary" />
+          </div>
+          <div>
+            <DialogTitle>Create a Menu</DialogTitle>
+            <DialogDescription class="mt-0.5">No menu exists yet. Give it a name to get started.</DialogDescription>
+          </div>
+        </div>
+      </DialogHeader>
+      <div class="grid gap-2 py-2">
+        <Label>Menu Name <span class="text-destructive">*</span></Label>
+        <Input
+          v-model="createMenuName"
+          placeholder="e.g. Main Menu"
+          @keyup.enter="handleCreateMenu"
+        />
+      </div>
+      <DialogFooter class="gap-2">
+        <Button :disabled="creatingMenu || !createMenuName.trim()" @click="handleCreateMenu">
+          <Loader2 v-if="creatingMenu" class="size-4 mr-2 animate-spin" />
+          Create Menu
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 
   <!-- Delete Item Confirm -->
   <Dialog v-model:open="deleteItemOpen">
