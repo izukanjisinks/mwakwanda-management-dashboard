@@ -163,6 +163,10 @@ function attendeeName(a: BookingRoomAssignment): string {
   return match?.full_name ?? '—'
 }
 
+function roomForAttendant(idx: number) {
+  return sheetBooking.value?.metadata?.accommodation?.rooms?.find(r => r.attendant_idx === idx)
+}
+
 async function refreshSheetAssignments() {
   if (!sheetBooking.value) return
   sheetAssignments.value = await bookingApi.listAssignments(sheetBooking.value.id) ?? []
@@ -205,6 +209,45 @@ function assignmentStatusVariant(status: string) {
     default:            return 'outline' as const
   }
 }
+
+// For individual bookings: pair each metadata attendant with their requested room
+// and the actual assignment so we can show check-in/out actions.
+// Matching strategy:
+//   1. Try room_id match (attendant's requested room_id vs assignment.room_id)
+//   2. Fall back to the next unmatched assignment in list order
+// The fallback handles cases where the staff reassigned a different room during
+// approval, so the room_id in metadata no longer matches the assignment.
+const indGuestRows = computed(() => {
+  if (sheetBooking.value?.booker_type !== 'individual') return []
+  const attendants = sheetBooking.value?.metadata?.attendants ?? []
+  const metaRooms  = sheetBooking.value?.metadata?.accommodation?.rooms ?? []
+  const acc        = sheetBooking.value?.metadata?.accommodation
+  const usedIds    = new Set<string>()
+
+  return attendants.map((a, i) => {
+    const metaRoom = metaRooms.find(r => r.attendant_idx === i)
+
+    // 1. Prefer room_id match
+    let assignment = metaRoom
+      ? sheetAssignments.value.find(s => !usedIds.has(s.id) && s.room_id === metaRoom.room_id)
+      : undefined
+
+    // 2. Fall back to the next unclaimed assignment
+    if (!assignment) {
+      assignment = sheetAssignments.value.find(s => !usedIds.has(s.id))
+    }
+
+    if (assignment) usedIds.add(assignment.id)
+
+    return {
+      attendant:  a,
+      metaRoom,
+      assignment,
+      checkIn:  assignment?.check_in  ?? acc?.check_in,
+      checkOut: assignment?.check_out ?? acc?.check_out,
+    }
+  })
+})
 
 // ── Event detail sheet ────────────────────────────────────────────────────────
 // Events check in/out at the BOOKING level (the whole venue reservation), not per
@@ -552,6 +595,37 @@ function syncRowStatus(id: string, status: BookingStatus) {
           </div>
         </div>
 
+        <!-- Attendants (individual bookings) -->
+        <div v-if="sheetBooking?.booker_type === 'individual' && sheetBooking?.metadata?.attendants?.length" class="rounded-lg border p-4 flex flex-col gap-3">
+          <div class="flex items-center gap-2">
+            <Users class="size-4 text-primary shrink-0" />
+            <h3 class="font-semibold text-sm">Attendants</h3>
+            <span class="text-xs text-muted-foreground ml-auto">{{ sheetBooking.metadata.attendants!.length }}</span>
+          </div>
+          <div class="divide-y">
+            <div v-for="(a, i) in sheetBooking.metadata.attendants" :key="i" class="py-2.5 first:pt-0 last:pb-0 flex flex-col gap-1">
+              <div class="flex items-center gap-2">
+                <span class="font-medium text-sm">{{ a.full_name || '—' }}</span>
+                <span
+                  v-if="a.is_lead_contact"
+                  class="text-[10px] font-semibold uppercase tracking-wide text-amber-600 border border-amber-300 rounded px-1 py-0.5"
+                >Lead</span>
+                <span v-if="roomForAttendant(i)" class="ml-auto text-xs text-muted-foreground flex items-center gap-1">
+                  <BedDouble class="size-3" />
+                  {{ roomForAttendant(i)?.room_name }}
+                  <span class="capitalize">({{ roomForAttendant(i)?.room_type }})</span>
+                  <span v-if="roomForAttendant(i)?.rate_per_night">· ZMW {{ roomForAttendant(i)!.rate_per_night!.toLocaleString() }}/night</span>
+                </span>
+              </div>
+              <div class="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
+                <span v-if="a.id_number" class="font-mono">{{ a.id_number }}</span>
+                <span v-if="a.email">{{ a.email }}</span>
+                <span v-if="a.phone">{{ a.phone }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Approver -->
         <div v-if="sheetBooking?.booker_type === 'corporate' && sheetBooking?.metadata?.approver" class="rounded-lg border p-4 flex flex-col gap-3">
           <div class="flex items-center gap-2">
@@ -629,62 +703,134 @@ function syncRowStatus(id: string, status: BookingStatus) {
           <div class="flex items-center gap-2 mb-3">
             <BedDouble class="size-4 text-primary" />
             <h3 class="font-semibold text-sm">Guests &amp; Rooms</h3>
-            <span class="text-xs text-muted-foreground ml-auto">{{ sheetAssignments.length }} room{{ sheetAssignments.length !== 1 ? 's' : '' }}</span>
+            <span class="text-xs text-muted-foreground ml-auto">
+              {{ sheetBooking?.booker_type === 'individual' ? indGuestRows.length : sheetAssignments.length }}
+              room{{ (sheetBooking?.booker_type === 'individual' ? indGuestRows.length : sheetAssignments.length) !== 1 ? 's' : '' }}
+            </span>
           </div>
 
-          <div v-if="sheetAssignments.length === 0" class="py-10 text-center text-sm text-muted-foreground">
-            No rooms assigned to this booking.
-          </div>
-
-          <div v-else class="flex flex-col gap-3">
-            <div
-              v-for="a in sheetAssignments"
-              :key="a.id"
-              class="rounded-lg border p-4 flex flex-col gap-3"
-            >
-              <div class="flex items-start justify-between gap-3">
-                <div>
-                  <p class="font-medium text-sm">{{ attendeeName(a) }}</p>
-                  <p class="text-xs text-muted-foreground mt-0.5">{{ a.room_name || 'Room' }}</p>
+          <!-- Individual booking: built from metadata attendants paired with assignments -->
+          <template v-if="sheetBooking?.booker_type === 'individual'">
+            <div v-if="indGuestRows.length === 0" class="py-10 text-center text-sm text-muted-foreground">
+              No guest details available.
+            </div>
+            <div v-else class="flex flex-col gap-3">
+              <div
+                v-for="(row, i) in indGuestRows"
+                :key="i"
+                class="rounded-lg border p-4 flex flex-col gap-3"
+              >
+                <div class="flex items-start justify-between gap-3">
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <p class="font-medium text-sm">{{ row.attendant.full_name || '—' }}</p>
+                      <span
+                        v-if="row.attendant.is_lead_contact"
+                        class="text-[10px] font-semibold uppercase tracking-wide text-amber-600 border border-amber-300 rounded px-1 py-0.5"
+                      >Lead</span>
+                    </div>
+                    <p class="text-xs text-muted-foreground mt-0.5">{{ row.metaRoom?.room_name || 'Room TBC' }}</p>
+                  </div>
+                  <Badge
+                    :variant="row.assignment ? assignmentStatusVariant(row.assignment.status) : 'outline'"
+                    class="text-xs capitalize shrink-0"
+                  >
+                    {{ row.assignment ? row.assignment.status.replace('_', ' ') : 'Pending' }}
+                  </Badge>
                 </div>
-                <Badge :variant="assignmentStatusVariant(a.status)" class="text-xs capitalize shrink-0">
-                  {{ a.status.replace('_', ' ') }}
-                </Badge>
-              </div>
 
-              <div class="flex items-center gap-4 text-xs text-muted-foreground">
-                <div class="flex items-center gap-1">
-                  <CalendarDays class="size-3.5" />
-                  {{ fmt(a.check_in) }} → {{ fmt(a.check_out) }}
+                <div class="flex items-center gap-4 text-xs text-muted-foreground">
+                  <div class="flex items-center gap-1">
+                    <CalendarDays class="size-3.5" />
+                    {{ fmt(row.checkIn) }} → {{ fmt(row.checkOut) }}
+                  </div>
+                  <div v-if="row.metaRoom?.rate_per_night">
+                    ZMW {{ row.metaRoom.rate_per_night.toLocaleString() }}/night
+                  </div>
                 </div>
-                <div v-if="a.room_cost">ZMW {{ a.room_cost.toLocaleString() }}</div>
-              </div>
 
-              <!-- Per-room actions -->
-              <div class="flex gap-2">
-                <Button
-                  v-if="a.status === 'confirmed'"
-                  size="sm" variant="outline" class="h-7 text-xs"
-                  :disabled="assignmentActioning === a.id"
-                  @click="checkInAssignment(a)"
-                >
-                  <Loader2 v-if="assignmentActioning === a.id" class="size-3.5 mr-1 animate-spin" />
-                  <LogIn v-else class="size-3.5 mr-1" />
-                  Check In
-                </Button>
-                <Button
-                  v-else-if="a.status === 'checked_in'"
-                  size="sm" variant="outline" class="h-7 text-xs"
-                  :disabled="assignmentActioning === a.id"
-                  @click="checkOutAssignment(a)"
-                >
-                  <Loader2 v-if="assignmentActioning === a.id" class="size-3.5 mr-1 animate-spin" />
-                  <LogOut v-else class="size-3.5 mr-1" />
-                  Check Out
-                </Button>
+                <!-- Per-room actions (require a confirmed assignment in the system) -->
+                <div v-if="row.assignment" class="flex gap-2">
+                  <Button
+                    v-if="row.assignment.status === 'confirmed'"
+                    size="sm" variant="outline" class="h-7 text-xs"
+                    :disabled="assignmentActioning === row.assignment.id"
+                    @click="checkInAssignment(row.assignment)"
+                  >
+                    <Loader2 v-if="assignmentActioning === row.assignment.id" class="size-3.5 mr-1 animate-spin" />
+                    <LogIn v-else class="size-3.5 mr-1" />
+                    Check In
+                  </Button>
+                  <Button
+                    v-else-if="row.assignment.status === 'checked_in'"
+                    size="sm" variant="outline" class="h-7 text-xs"
+                    :disabled="assignmentActioning === row.assignment.id"
+                    @click="checkOutAssignment(row.assignment)"
+                  >
+                    <Loader2 v-if="assignmentActioning === row.assignment.id" class="size-3.5 mr-1 animate-spin" />
+                    <LogOut v-else class="size-3.5 mr-1" />
+                    Check Out
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
+          </template>
+
+          <!-- Corporate booking: iterate over sheetAssignments as before -->
+          <template v-else>
+            <div v-if="sheetAssignments.length === 0" class="py-10 text-center text-sm text-muted-foreground">
+              No rooms assigned to this booking.
+            </div>
+            <div v-else class="flex flex-col gap-3">
+              <div
+                v-for="a in sheetAssignments"
+                :key="a.id"
+                class="rounded-lg border p-4 flex flex-col gap-3"
+              >
+                <div class="flex items-start justify-between gap-3">
+                  <div>
+                    <p class="font-medium text-sm">{{ attendeeName(a) }}</p>
+                    <p class="text-xs text-muted-foreground mt-0.5">{{ a.room_name || 'Room' }}</p>
+                  </div>
+                  <Badge :variant="assignmentStatusVariant(a.status)" class="text-xs capitalize shrink-0">
+                    {{ a.status.replace('_', ' ') }}
+                  </Badge>
+                </div>
+
+                <div class="flex items-center gap-4 text-xs text-muted-foreground">
+                  <div class="flex items-center gap-1">
+                    <CalendarDays class="size-3.5" />
+                    {{ fmt(a.check_in) }} → {{ fmt(a.check_out) }}
+                  </div>
+                  <div v-if="a.room_cost">ZMW {{ a.room_cost.toLocaleString() }}</div>
+                </div>
+
+                <!-- Per-room actions -->
+                <div class="flex gap-2">
+                  <Button
+                    v-if="a.status === 'confirmed'"
+                    size="sm" variant="outline" class="h-7 text-xs"
+                    :disabled="assignmentActioning === a.id"
+                    @click="checkInAssignment(a)"
+                  >
+                    <Loader2 v-if="assignmentActioning === a.id" class="size-3.5 mr-1 animate-spin" />
+                    <LogIn v-else class="size-3.5 mr-1" />
+                    Check In
+                  </Button>
+                  <Button
+                    v-else-if="a.status === 'checked_in'"
+                    size="sm" variant="outline" class="h-7 text-xs"
+                    :disabled="assignmentActioning === a.id"
+                    @click="checkOutAssignment(a)"
+                  >
+                    <Loader2 v-if="assignmentActioning === a.id" class="size-3.5 mr-1 animate-spin" />
+                    <LogOut v-else class="size-3.5 mr-1" />
+                    Check Out
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </template>
         </div>
       </div>
     </SheetContent>
