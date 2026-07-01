@@ -72,6 +72,7 @@ interface GuestRow {
   check_in?: string
   check_out?: string
   room_type?: string
+  is_lead_contact?: boolean
 }
 
 // New envelope shapes. Attendants carry full_name; dates + room type live in the
@@ -81,6 +82,7 @@ interface AttendantRow {
   email?: string
   phone?: string
   id_number?: string
+  is_lead_contact?: boolean
 }
 interface AccommodationBlock {
   check_in?: string
@@ -107,6 +109,7 @@ function normaliseGuests(p: Record<string, unknown> | undefined): GuestRow[] {
       check_in: acc?.check_in,
       check_out: acc?.check_out,
       room_type: acc?.room_type_preference,
+      is_lead_contact: a.is_lead_contact,
     }))
   }
 
@@ -284,18 +287,95 @@ async function loadAvailableRooms() {
   }
 }
 
-// Approve gating — every guest must have a room selected
-const allGuestsAssigned = computed(() => {
-  if (!isAccommodation.value) return true
-  if (corporateGuests.value.length === 0) return false
-  return corporateGuests.value.every((_, i) => !!guestRoomSelection.value[i])
+// ─── Individual booking — attendants & room assignment ────────────────────────
+
+const isIndAccommodation = computed(() =>
+  !isCorporate.value && individualRequest.value?.booking_type === 'accommodation',
+)
+
+const indAttendants = computed(() =>
+  individualRequest.value?.payload?.attendants ?? [],
+)
+
+const indRoomsFromPayload = computed(() =>
+  individualRequest.value?.payload?.accommodation?.rooms ?? [],
+)
+
+const indAttendantCheckIn = ref<Record<number, string>>({})
+const indAttendantCheckOut = ref<Record<number, string>>({})
+const indRoomSelection = ref<Record<number, string>>({})
+const indAvailableRooms = ref<Record<number, Room[]>>({})
+const indRoomsLoading = ref(false)
+
+// Prevent the same room being picked for two attendants whose stays overlap.
+// If their date ranges don't overlap, the room is free for both.
+function indRoomTakenByOther(attendantIdx: number, roomId: string): boolean {
+  return Object.entries(indRoomSelection.value).some(([idx, rid]) => {
+    if (Number(idx) === attendantIdx || rid !== roomId) return false
+    const otherCi = indAttendantCheckIn.value[Number(idx)]
+    const otherCo = indAttendantCheckOut.value[Number(idx)]
+    const selfCi  = indAttendantCheckIn.value[attendantIdx]
+    const selfCo  = indAttendantCheckOut.value[attendantIdx]
+    // If either side is missing dates, assume conflict to be safe
+    if (!otherCi || !otherCo || !selfCi || !selfCo) return true
+    // Overlap: A starts before B ends AND B starts before A ends
+    return otherCi < selfCo && selfCi < otherCo
+  })
+}
+
+async function loadIndAvailableRooms(attendantIdx?: number) {
+  if (!isIndAccommodation.value) return
+  indRoomsLoading.value = true
+  try {
+    await Promise.all(
+      (attendantIdx !== undefined ? [attendantIdx] : indAttendants.value.map((_, i) => i))
+        .map(async (i) => {
+          const ci = indAttendantCheckIn.value[i]
+          const co = indAttendantCheckOut.value[i]
+          if (!ci || !co) {
+            indAvailableRooms.value[i] = []
+            return
+          }
+          const rooms = await roomApi.listAvailable({ check_in: ci, check_out: co })
+          indAvailableRooms.value[i] = rooms ?? []
+        }),
+    )
+  } catch (err) {
+    toast.error(getApiError(err, 'Failed to load available rooms.'))
+  } finally {
+    indRoomsLoading.value = false
+  }
+}
+
+
+const indAllGuestsAssigned = computed(() => {
+  if (!isIndAccommodation.value) return true
+  if (indAttendants.value.length === 0) return true
+  return indAttendants.value.every((_, i) => !!indRoomSelection.value[i])
 })
 
-// Prevent the same room being picked for two overlapping guests in the UI
+// Approve gating — every guest/attendant must have a room selected
+const allGuestsAssigned = computed(() => {
+  if (isCorporate.value) {
+    if (!isAccommodation.value) return true
+    if (corporateGuests.value.length === 0) return false
+    return corporateGuests.value.every((_, i) => !!guestRoomSelection.value[i])
+  }
+  return indAllGuestsAssigned.value
+})
+
+// Prevent the same room being picked for two corporate guests whose stays overlap.
+// If their date ranges don't overlap, the room is free for both.
 function roomTakenByOther(guestIndex: number, roomId: string): boolean {
-  return Object.entries(guestRoomSelection.value).some(
-    ([idx, rid]) => Number(idx) !== guestIndex && rid === roomId,
-  )
+  return Object.entries(guestRoomSelection.value).some(([idx, rid]) => {
+    if (Number(idx) === guestIndex || rid !== roomId) return false
+    const other = corporateGuests.value[Number(idx)]
+    const self  = corporateGuests.value[guestIndex]
+    // If either side is missing dates, assume conflict to be safe
+    if (!other?.check_in || !other?.check_out || !self?.check_in || !self?.check_out) return true
+    // Overlap: A starts before B ends AND B starts before A ends
+    return other.check_in < self.check_out && self.check_in < other.check_out
+  })
 }
 
 const documents = computed<string[]>(() => {
@@ -345,7 +425,23 @@ async function handleConfirm(action: string, comments: string) {
     // before the workflow step advances
     if (action === 'approve' && refId) {
       if (taskType === 'individual_booking') {
-        await bookingRequestApi.approveIndividual(refId)
+        const indAssignments = indAttendants.value
+          .map((_, i) => {
+            const roomId = indRoomSelection.value[i]
+            if (!roomId) return null
+            const room = indAvailableRooms.value[i]?.find((r: Room) => r.id === roomId)
+            return {
+              attendant_idx: i,
+              room_id: roomId,
+              room_name: room?.name,
+              check_in: indAttendantCheckIn.value[i] || undefined,
+              check_out: indAttendantCheckOut.value[i] || undefined,
+            }
+          })
+          .filter((a): a is NonNullable<typeof a> => a !== null)
+        await bookingRequestApi.approveIndividual(refId, {
+          assignments: indAssignments.length ? indAssignments : undefined,
+        })
       } else if (taskType === 'corporate_booking') {
         await bookingRequestApi.approve(refId)
         // Accommodation requests materialise into a booking with the rooms
@@ -436,6 +532,25 @@ onMounted(async () => {
       }
     } else {
       individualRequest.value = await bookingRequestApi.getIndividual(refId)
+      if (isIndAccommodation.value) {
+        const acc = individualRequest.value?.payload?.accommodation
+        const sharedCheckIn = acc?.check_in ?? ''
+        const sharedCheckOut = acc?.check_out ?? ''
+        // Pre-fill per-attendant dates from the shared accommodation dates
+        indAttendants.value.forEach((_, i) => {
+          indAttendantCheckIn.value[i] = sharedCheckIn
+          indAttendantCheckOut.value[i] = sharedCheckOut
+        })
+        // Pre-fill room selections from payload
+        for (const room of acc?.rooms ?? []) {
+          if (room.attendant_idx !== undefined) {
+            indRoomSelection.value[room.attendant_idx] = room.room_id
+          }
+        }
+        if (task.value?.status === 'pending' || task.value?.status === 'in_progress') {
+          await loadIndAvailableRooms()
+        }
+      }
     }
   } catch (err) {
     toast.error(getApiError(err, 'Failed to load details.'))
@@ -517,31 +632,269 @@ onMounted(async () => {
           </div>
 
           <!-- Individual booking request details -->
-          <div v-if="!isCorporate && individualRequest" class="rounded-xl border bg-card p-6 flex flex-col gap-4">
-            <div class="flex items-center gap-2 mb-1">
-              <UtensilsCrossed v-if="isMeal" class="size-4 text-primary" />
-              <Theater v-else-if="isEvent" class="size-4 text-primary" />
-              <BedDouble v-else class="size-4 text-primary" />
-              <h3 class="font-semibold">Booking Request</h3>
-              <Badge :variant="statusVariant(individualRequest.status)" class="ml-auto capitalize text-xs">
-                {{ individualRequest.status }}
-              </Badge>
+          <template v-if="!isCorporate && individualRequest">
+
+            <!-- Booking summary card -->
+            <div class="rounded-xl border bg-card p-6 flex flex-col gap-4">
+              <div class="flex items-center gap-2 mb-1">
+                <UtensilsCrossed v-if="isMeal" class="size-4 text-primary" />
+                <Theater v-else-if="isEvent" class="size-4 text-primary" />
+                <BedDouble v-else class="size-4 text-primary" />
+                <h3 class="font-semibold">Booking Request</h3>
+                <Badge :variant="statusVariant(individualRequest.status)" class="ml-auto capitalize text-xs">
+                  {{ individualRequest.status }}
+                </Badge>
+              </div>
+              <hr class="border-border" />
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+                <template v-if="isIndAccommodation">
+                  <div v-if="individualDetails?.check_in">
+                    <p class="text-xs text-muted-foreground mb-0.5">Check-in</p>
+                    <div class="flex items-center gap-1.5">
+                      <CalendarDays class="size-3.5 text-muted-foreground" />
+                      <p>{{ fmt(individualDetails.check_in) }}</p>
+                    </div>
+                  </div>
+                  <div v-if="individualDetails?.check_out">
+                    <p class="text-xs text-muted-foreground mb-0.5">Check-out</p>
+                    <div class="flex items-center gap-1.5">
+                      <CalendarDays class="size-3.5 text-muted-foreground" />
+                      <p>{{ fmt(individualDetails.check_out) }}</p>
+                    </div>
+                  </div>
+                  <div v-if="indAttendants.length">
+                    <p class="text-xs text-muted-foreground mb-0.5">Guests</p>
+                    <p class="font-medium">{{ indAttendants.length }}</p>
+                  </div>
+                </template>
+                <template v-else-if="isEvent">
+                  <div v-if="eventBlock?.start_date">
+                    <p class="text-xs text-muted-foreground mb-0.5">Start Date</p>
+                    <p>{{ fmt(eventBlock.start_date) }}</p>
+                  </div>
+                  <div v-if="eventBlock?.end_date">
+                    <p class="text-xs text-muted-foreground mb-0.5">End Date</p>
+                    <p>{{ fmt(eventBlock.end_date) }}</p>
+                  </div>
+                </template>
+                <template v-else-if="isMeal">
+                  <div v-if="mealBlock?.start_date">
+                    <p class="text-xs text-muted-foreground mb-0.5">Start Date</p>
+                    <p>{{ fmt(mealBlock.start_date) }}</p>
+                  </div>
+                  <div v-if="mealBlock?.end_date">
+                    <p class="text-xs text-muted-foreground mb-0.5">End Date</p>
+                    <p>{{ fmt(mealBlock.end_date) }}</p>
+                  </div>
+                  <div v-if="mealSessions.length">
+                    <p class="text-xs text-muted-foreground mb-0.5">Sessions</p>
+                    <p class="font-medium">{{ mealSessions.length }} meal session{{ mealSessions.length !== 1 ? 's' : '' }}</p>
+                  </div>
+                  <div v-if="mealBlock?.reason_for_booking" class="col-span-2 sm:col-span-3">
+                    <p class="text-xs text-muted-foreground mb-0.5">Purpose of Meal</p>
+                    <p class="font-medium">{{ mealBlock.reason_for_booking }}</p>
+                  </div>
+                </template>
+              </div>
+
+              <!-- Meal sessions -->
+              <div v-if="isMeal && mealSessions.length" class="rounded-xl border bg-muted/20 overflow-hidden">
+                <div class="px-4 py-2 text-xs text-muted-foreground font-medium uppercase tracking-wide bg-muted/40">
+                  Meal Sessions ({{ mealSessions.length }})
+                </div>
+                <div class="divide-y">
+                  <div v-for="(s, i) in mealSessions" :key="i" class="px-4 py-3 text-sm">
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                      <span class="font-medium">{{ s.session_name || fmt(s.meal_date || '') }}</span>
+                      <span class="text-xs text-muted-foreground capitalize">{{ (s.meal_period || '').replace('_', ' ') }}</span>
+                    </div>
+                    <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      <span v-if="s.meal_date">{{ fmt(s.meal_date) }}</span>
+                      <span v-if="s.service_type" class="capitalize">{{ s.service_type.replace('_', ' ') }}</span>
+                      <span v-if="s.pax_count">{{ s.pax_count }} pax</span>
+                    </div>
+                    <p v-if="s.dietary_notes" class="text-xs mt-1 text-muted-foreground">{{ s.dietary_notes }}</p>
+                    <p v-if="s.arrangements_notes" class="text-xs mt-1">{{ s.arrangements_notes }}</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Event sessions -->
+              <div v-if="isEvent && eventSessions.length" class="rounded-xl border bg-muted/20 overflow-hidden">
+                <div class="px-4 py-2 text-xs text-muted-foreground font-medium uppercase tracking-wide bg-muted/40">
+                  Sessions ({{ eventSessions.length }})
+                </div>
+                <div class="divide-y">
+                  <div v-for="(s, i) in eventSessions" :key="i" class="px-4 py-3 text-sm">
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                      <span class="font-medium">{{ s.event_name || ('Session ' + (i + 1)) }}</span>
+                      <span class="text-xs text-muted-foreground capitalize">{{ (s.event_type || 'event').replace('_', ' ') }}</span>
+                    </div>
+                    <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      <span v-if="s.event_date">{{ fmt(s.event_date) }}</span>
+                      <span v-if="s.start_time">{{ s.start_time }}<template v-if="s.end_time">–{{ s.end_time }}</template></span>
+                      <span v-if="s.venue_name">Venue: {{ s.venue_name }}</span>
+                      <span v-if="s.expected_attendees">{{ s.expected_attendees }} pax</span>
+                      <span v-if="s.setup_type" class="capitalize">{{ s.setup_type.replace('_', ' ') }}</span>
+                    </div>
+                    <p v-if="s.special_requirements" class="text-xs mt-1">{{ s.special_requirements }}</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Requested rooms (accommodation) -->
+              <div v-if="isIndAccommodation && individualDetails?.rooms.length" class="rounded-xl border bg-muted/20 overflow-hidden">
+                <div class="px-4 py-2 text-xs text-muted-foreground font-medium uppercase tracking-wide bg-muted/40 flex items-center gap-1.5">
+                  <BedDouble class="size-3.5" />
+                  Requested Rooms ({{ individualDetails.rooms.length }})
+                </div>
+                <div class="divide-y">
+                  <div
+                    v-for="(r, i) in individualDetails.rooms"
+                    :key="i"
+                    class="px-4 py-3 text-sm flex items-center justify-between gap-2"
+                  >
+                    <div>
+                      <span class="font-medium">{{ r.name || '—' }}</span>
+                      <span v-if="r.type" class="text-xs text-muted-foreground ml-2 capitalize">{{ r.type }}</span>
+                    </div>
+                    <span v-if="r.rate" class="text-xs font-medium text-muted-foreground">ZMW {{ r.rate.toLocaleString() }}/night</span>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="individualDetails?.notes" class="pt-3 border-t text-sm">
+                <p class="text-xs text-muted-foreground mb-0.5">Special Requests</p>
+                <p>{{ individualDetails.notes }}</p>
+              </div>
+              <div v-if="individualRequest.notes" class="pt-3 border-t text-sm">
+                <p class="text-xs text-muted-foreground mb-0.5">Notes</p>
+                <p>{{ individualRequest.notes }}</p>
+              </div>
             </div>
-            <hr class="border-border" />
-            <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
-              <div>
-                <p class="text-xs text-muted-foreground mb-0.5">Guest</p>
-                <p class="font-medium">{{ individualRequest.booker_name }}</p>
+
+            <!-- Booked By card -->
+            <div class="rounded-xl border bg-card p-6 flex flex-col gap-4">
+              <div class="flex items-center gap-2 mb-1">
+                <User class="size-4 text-primary" />
+                <h3 class="font-semibold">Booked By</h3>
               </div>
-              <div v-if="individualRequest.booker_email">
-                <p class="text-xs text-muted-foreground mb-0.5">Email</p>
-                <p>{{ individualRequest.booker_email }}</p>
+              <hr class="border-border" />
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+                <div>
+                  <p class="text-xs text-muted-foreground mb-0.5">Name</p>
+                  <p class="font-medium">{{ individualRequest.booker_name }}</p>
+                </div>
+                <div v-if="individualRequest.booker_email">
+                  <p class="text-xs text-muted-foreground mb-0.5">Email</p>
+                  <p>{{ individualRequest.booker_email }}</p>
+                </div>
+                <div v-if="individualRequest.booker_phone">
+                  <p class="text-xs text-muted-foreground mb-0.5">Phone</p>
+                  <p>{{ individualRequest.booker_phone }}</p>
+                </div>
               </div>
-              <div v-if="individualRequest.booker_phone">
-                <p class="text-xs text-muted-foreground mb-0.5">Phone</p>
-                <p>{{ individualRequest.booker_phone }}</p>
+            </div>
+
+            <!-- Guests & Room Assignment card (accommodation with new-envelope payload) -->
+            <div v-if="isIndAccommodation && indAttendants.length" class="rounded-xl border bg-card overflow-hidden">
+              <div class="flex items-center gap-2 p-5 pb-4 border-b">
+                <Users class="size-4 text-primary" />
+                <h3 class="font-semibold">Guests &amp; Room Assignment</h3>
               </div>
-              <template v-if="!isEvent && !isMeal">
+
+              <!-- Assign-room reminder banner -->
+              <div v-if="task.status === 'pending' || task.status === 'in_progress'" class="px-5 py-2 text-xs text-muted-foreground bg-amber-50 dark:bg-amber-950/20 border-b flex items-center gap-1.5">
+                <BedDouble class="size-3.5" />
+                Set dates and assign a room to every guest before approving.
+              </div>
+
+              <!-- Guest rows -->
+              <div class="divide-y">
+                <!-- Column headers -->
+                <div class="grid grid-cols-12 gap-2 px-5 py-2 text-xs text-muted-foreground font-medium uppercase tracking-wide bg-muted/40">
+                  <div class="col-span-3">Guest</div>
+                  <div class="col-span-2">ID Number</div>
+                  <div class="col-span-2">Check-in</div>
+                  <div class="col-span-2">Check-out</div>
+                  <div class="col-span-3">Room</div>
+                </div>
+
+                <div v-for="(a, i) in indAttendants" :key="i" class="grid grid-cols-12 gap-2 px-5 py-3 text-sm items-center">
+                  <!-- Name + Lead badge -->
+                  <div class="col-span-3">
+                    <span class="font-medium block leading-snug">{{ a.full_name || '—' }}</span>
+                    <span v-if="a.is_lead_contact" class="text-[10px] font-semibold uppercase tracking-wide text-amber-600 border border-amber-300 rounded px-1 py-0.5">Lead</span>
+                  </div>
+                  <!-- ID -->
+                  <div class="col-span-2 text-muted-foreground text-xs font-mono">{{ a.id_number || '—' }}</div>
+                  <!-- Check-in (editable when pending/in_progress, read-only otherwise) -->
+                  <div class="col-span-2">
+                    <input
+                      v-if="task.status === 'pending' || task.status === 'in_progress'"
+                      v-model="indAttendantCheckIn[i]"
+                      type="date"
+                      class="w-full rounded-md border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      @change="loadIndAvailableRooms(i)"
+                    />
+                    <div v-else class="flex items-center gap-1 text-xs">
+                      <CalendarDays class="size-3 text-muted-foreground shrink-0" />
+                      <span>{{ fmt(indAttendantCheckIn[i] || '') }}</span>
+                    </div>
+                  </div>
+                  <!-- Check-out -->
+                  <div class="col-span-2">
+                    <input
+                      v-if="task.status === 'pending' || task.status === 'in_progress'"
+                      v-model="indAttendantCheckOut[i]"
+                      type="date"
+                      class="w-full rounded-md border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      @change="loadIndAvailableRooms(i)"
+                    />
+                    <div v-else class="flex items-center gap-1 text-xs">
+                      <CalendarDays class="size-3 text-muted-foreground shrink-0" />
+                      <span>{{ fmt(indAttendantCheckOut[i] || '') }}</span>
+                    </div>
+                  </div>
+                  <!-- Room picker (pending) / assigned room (completed) -->
+                  <div class="col-span-3">
+                    <select
+                      v-if="task.status === 'pending' || task.status === 'in_progress'"
+                      v-model="indRoomSelection[i]"
+                      class="w-full rounded-md border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      :class="{ 'border-amber-400': !indRoomSelection[i] }"
+                    >
+                      <option value="" disabled>
+                        {{ indRoomsLoading ? 'Loading…' : ((indAvailableRooms[i]?.length ?? 0) > 0 ? 'Select room' : 'No rooms available') }}
+                      </option>
+                      <option
+                        v-for="room in (indAvailableRooms[i] ?? [])"
+                        :key="room.id"
+                        :value="room.id"
+                        :disabled="indRoomTakenByOther(i, room.id)"
+                      >
+                        {{ room.name }} ({{ room.type }}) — ZMW {{ room.price_per_night?.toLocaleString() }}{{ indRoomTakenByOther(i, room.id) ? ' · taken' : '' }}
+                      </option>
+                    </select>
+                    <div v-else class="text-xs">
+                      <span class="font-medium">{{ indRoomsFromPayload.find(r => r.attendant_idx === i)?.room_name || '—' }}</span>
+                      <span v-if="indRoomsFromPayload.find(r => r.attendant_idx === i)?.room_type" class="text-muted-foreground ml-1 capitalize">
+                        ({{ indRoomsFromPayload.find(r => r.attendant_idx === i)?.room_type }})
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Fallback: accommodation without new-envelope attendants (legacy payload) -->
+            <div v-else-if="isIndAccommodation && !indAttendants.length" class="rounded-xl border bg-card p-6 flex flex-col gap-4 text-sm">
+              <div class="flex items-center gap-2">
+                <BedDouble class="size-4 text-primary" />
+                <h3 class="font-semibold">Accommodation</h3>
+              </div>
+              <hr class="border-border" />
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 <div v-if="individualDetails?.rooms.length || individualRequest.room_name">
                   <p class="text-xs text-muted-foreground mb-0.5">Room</p>
                   <p class="font-medium">
@@ -562,90 +915,10 @@ onMounted(async () => {
                     <p>{{ fmt(individualDetails.check_out) }}</p>
                   </div>
                 </div>
-              </template>
-              <template v-else-if="isEvent">
-                <div v-if="eventBlock?.start_date">
-                  <p class="text-xs text-muted-foreground mb-0.5">Start Date</p>
-                  <p>{{ fmt(eventBlock.start_date) }}</p>
-                </div>
-                <div v-if="eventBlock?.end_date">
-                  <p class="text-xs text-muted-foreground mb-0.5">End Date</p>
-                  <p>{{ fmt(eventBlock.end_date) }}</p>
-                </div>
-              </template>
-              <template v-else-if="isMeal">
-                <div v-if="mealBlock?.start_date">
-                  <p class="text-xs text-muted-foreground mb-0.5">Start Date</p>
-                  <p>{{ fmt(mealBlock.start_date) }}</p>
-                </div>
-                <div v-if="mealBlock?.end_date">
-                  <p class="text-xs text-muted-foreground mb-0.5">End Date</p>
-                  <p>{{ fmt(mealBlock.end_date) }}</p>
-                </div>
-                <div v-if="mealSessions.length">
-                  <p class="text-xs text-muted-foreground mb-0.5">Sessions</p>
-                  <p class="font-medium">{{ mealSessions.length }} meal session{{ mealSessions.length !== 1 ? 's' : '' }}</p>
-                </div>
-                <div v-if="mealBlock?.reason_for_booking" class="col-span-2 sm:col-span-3">
-                  <p class="text-xs text-muted-foreground mb-0.5">Purpose of Meal</p>
-                  <p class="font-medium">{{ mealBlock.reason_for_booking }}</p>
-                </div>
-              </template>
-            </div>
-
-            <!-- Meal sessions (individual meal booking) -->
-            <div v-if="isMeal && mealSessions.length" class="rounded-xl border bg-muted/20 overflow-hidden">
-              <div class="px-4 py-2 text-xs text-muted-foreground font-medium uppercase tracking-wide bg-muted/40">
-                Meal Sessions ({{ mealSessions.length }})
-              </div>
-              <div class="divide-y">
-                <div v-for="(s, i) in mealSessions" :key="i" class="px-4 py-3 text-sm">
-                  <div class="flex items-center justify-between gap-2 mb-1">
-                    <span class="font-medium">{{ s.session_name || fmt(s.meal_date || '') }}</span>
-                    <span class="text-xs text-muted-foreground capitalize">{{ (s.meal_period || '').replace('_', ' ') }}</span>
-                  </div>
-                  <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                    <span v-if="s.meal_date">{{ fmt(s.meal_date) }}</span>
-                    <span v-if="s.service_type" class="capitalize">{{ s.service_type.replace('_', ' ') }}</span>
-                    <span v-if="s.pax_count">{{ s.pax_count }} pax</span>
-                  </div>
-                  <p v-if="s.dietary_notes" class="text-xs mt-1 text-muted-foreground">{{ s.dietary_notes }}</p>
-                  <p v-if="s.arrangements_notes" class="text-xs mt-1">{{ s.arrangements_notes }}</p>
-                </div>
               </div>
             </div>
 
-            <!-- Event sessions (individual event booking) -->
-            <div v-if="isEvent && eventSessions.length" class="rounded-xl border bg-muted/20 overflow-hidden">
-              <div class="px-4 py-2 text-xs text-muted-foreground font-medium uppercase tracking-wide bg-muted/40">
-                Sessions ({{ eventSessions.length }})
-              </div>
-              <div class="divide-y">
-                <div v-for="(s, i) in eventSessions" :key="i" class="px-4 py-3 text-sm">
-                  <div class="flex items-center justify-between gap-2 mb-1">
-                    <span class="font-medium">{{ s.event_name || ('Session ' + (i + 1)) }}</span>
-                    <span class="text-xs text-muted-foreground capitalize">{{ (s.event_type || 'event').replace('_', ' ') }}</span>
-                  </div>
-                  <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                    <span v-if="s.event_date">{{ fmt(s.event_date) }}</span>
-                    <span v-if="s.start_time">{{ s.start_time }}<template v-if="s.end_time">–{{ s.end_time }}</template></span>
-                    <span v-if="s.venue_name">Venue: {{ s.venue_name }}</span>
-                    <span v-if="s.expected_attendees">{{ s.expected_attendees }} pax</span>
-                    <span v-if="s.setup_type" class="capitalize">{{ s.setup_type.replace('_', ' ') }}</span>
-                  </div>
-                  <p v-if="s.special_requirements" class="text-xs mt-1">{{ s.special_requirements }}</p>
-                </div>
-              </div>
-            </div>
-            <div v-if="individualDetails?.notes" class="pt-3 border-t text-sm">
-              <p class="text-xs text-muted-foreground mb-0.5">Special Requests</p>
-              <p>{{ individualDetails.notes }}</p>
-            </div>
-            <div v-if="individualRequest.notes" class="pt-3 border-t text-sm">
-              <p class="text-xs text-muted-foreground mb-0.5">Notes</p>
-              <p>{{ individualRequest.notes }}</p>
-            </div>
-          </div>
+          </template>
 
           <!-- Corporate booking request details -->
           <template v-if="isCorporate && corporateRequest">
@@ -823,17 +1096,9 @@ onMounted(async () => {
                     :key="i"
                     class="grid grid-cols-12 gap-2 px-5 py-3 text-sm items-center"
                   >
-                    <div class="col-span-3 font-medium flex items-center gap-1.5">
-                      <span>{{ g.full_name || '—' }}</span>
-                      <button
-                        v-if="g.full_name"
-                        type="button"
-                        class="text-muted-foreground hover:text-primary transition-colors"
-                        title="View booking history"
-                        @click="openPersonHistory(g.full_name, g.email)"
-                      >
-                        <History class="size-3.5" />
-                      </button>
+                    <div class="col-span-3">
+                      <span class="font-medium block leading-snug">{{ g.full_name || '—' }}</span>
+                      <span v-if="g.is_lead_contact" class="text-[10px] font-semibold uppercase tracking-wide text-amber-600 border border-amber-300 rounded px-1 py-0.5">Lead</span>
                     </div>
                     <div class="col-span-2 text-muted-foreground text-xs font-mono">{{ g.identification_card || '—' }}</div>
                     <div class="col-span-2 text-muted-foreground text-xs">{{ g.check_in || '—' }}</div>
@@ -1077,8 +1342,8 @@ onMounted(async () => {
         <!-- Right: documents + actions -->
         <div class="flex flex-col gap-4">
 
-          <!-- Documents card -->
-          <div class="rounded-xl border bg-card p-5 flex flex-col gap-3">
+          <!-- Documents card (corporate only — individual bookings carry no documents) -->
+          <div v-if="isCorporate" class="rounded-xl border bg-card p-5 flex flex-col gap-3">
             <h3 class="font-semibold text-sm">Documents</h3>
             <hr class="border-border" />
             <div v-if="documents.length === 0" class="py-6 flex flex-col items-center gap-2 text-muted-foreground">

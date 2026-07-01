@@ -49,8 +49,19 @@ export const bookingRequestApi = {
   getIndividual: (id: string) =>
     apiClient.get<IndividualBookingRequest>(`/booking-requests/individual/${id}`),
 
-  approveIndividual: (id: string) =>
-    apiClient.put<import('@/types/booking').Booking>(`/booking-requests/individual/${id}/approve`),
+  approveIndividual: (
+    id: string,
+    body?: {
+      assignments?: Array<{
+        attendant_idx: number
+        room_id: string
+        room_name?: string
+        check_in?: string
+        check_out?: string
+      }>
+    },
+  ) =>
+    apiClient.put<import('@/types/booking').Booking>(`/booking-requests/individual/${id}/approve`, body ?? {}),
 
   rejectIndividual: (id: string) =>
     apiClient.put<void>(`/booking-requests/individual/${id}/reject`),
