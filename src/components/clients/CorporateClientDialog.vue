@@ -11,13 +11,6 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { getApiError } from '@/utils/errors'
@@ -42,13 +35,11 @@ const isEdit = computed(() => !!props.client)
 
 const form = ref({
   company_name: '',
-  contact_person: '',
-  email: '',
-  phone: '',
   company_reg_number: '',
+  tpin: '',
   industry: '',
+  country: '',
   status: 'active' as ClientStatus,
-  notes: '',
 })
 
 watch(() => props.open, (open) => {
@@ -57,24 +48,20 @@ watch(() => props.open, (open) => {
   if (props.client) {
     form.value = {
       company_name: props.client.company_name,
-      contact_person: props.client.contact_person,
-      email: props.client.email,
-      phone: props.client.phone,
       company_reg_number: props.client.company_reg_number,
+      tpin: props.client.tpin ?? '',
       industry: props.client.industry ?? '',
+      country: props.client.country ?? '',
       status: props.client.status,
-      notes: props.client.notes ?? '',
     }
   } else {
     form.value = {
       company_name: '',
-      contact_person: '',
-      email: '',
-      phone: '',
       company_reg_number: '',
+      tpin: '',
       industry: '',
+      country: '',
       status: 'active',
-      notes: '',
     }
   }
 })
@@ -82,14 +69,11 @@ watch(() => props.open, (open) => {
 async function handleSave() {
   error.value = ''
   if (!form.value.company_name.trim()) { error.value = 'Company name is required.'; return }
-  if (!form.value.contact_person.trim()) { error.value = 'Contact person is required.'; return }
-  if (!form.value.email.trim()) { error.value = 'Email is required.'; return }
-  if (!form.value.phone.trim()) { error.value = 'Phone number is required.'; return }
   if (!form.value.company_reg_number.trim()) { error.value = 'Company registration number is required.'; return }
 
   saving.value = true
   try {
-    const payload = { ...form.value, notes: form.value.notes || undefined }
+    const payload = { ...form.value }
     let saved: CorporateClient
     if (isEdit.value && props.client) {
       saved = await store.updateClient(props.client.id, payload)
@@ -130,61 +114,33 @@ async function handleSave() {
           <Input id="company_name" v-model="form.company_name" placeholder="e.g. Zambia National Bank" />
         </div>
 
-        <!-- Contact Person & Industry -->
-        <div class="grid grid-cols-2 gap-4">
-          <div class="grid gap-2">
-            <Label for="contact_person">Contact Person *</Label>
-            <Input id="contact_person" v-model="form.contact_person" placeholder="e.g. Charles Mwanza" />
-          </div>
-          <div class="grid gap-2">
-            <Label for="industry">Industry</Label>
-            <Input id="industry" v-model="form.industry" placeholder="e.g. Banking & Finance" />
-          </div>
-        </div>
-
-        <!-- Email & Phone -->
-        <div class="grid grid-cols-2 gap-4">
-          <div class="grid gap-2">
-            <Label for="email">Email *</Label>
-            <Input id="email" v-model="form.email" type="email" placeholder="contact@company.com" />
-          </div>
-          <div class="grid gap-2">
-            <Label for="phone">Phone *</Label>
-            <Input id="phone" v-model="form.phone" placeholder="+260 21 123 4567" />
-          </div>
-        </div>
-
-        <!-- Reg Number & Status -->
+        <!-- Reg Number & TPIN -->
         <div class="grid grid-cols-2 gap-4">
           <div class="grid gap-2">
             <Label for="reg_number">Company Reg. No. *</Label>
             <Input id="reg_number" v-model="form.company_reg_number" placeholder="e.g. ZNB-001-2010" />
           </div>
-          <!-- <div class="grid gap-2">
-            <Label>Status</Label>
-            <Select v-model="form.status">
-              <SelectTrigger>
-                <SelectValue placeholder="Select status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
-              </SelectContent>
-            </Select>
-          </div> -->
+          <div class="grid gap-2">
+            <Label for="tpin">TPIN</Label>
+            <Input id="tpin" v-model="form.tpin" placeholder="e.g. 1001234567" />
+          </div>
         </div>
 
-        <!-- Notes -->
-        <div class="grid gap-2">
-          <Label for="notes">Notes</Label>
-          <textarea
-            id="notes"
-            v-model="form.notes"
-            rows="2"
-            placeholder="Any additional notes..."
-            class="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
-          />
+        <!-- Industry & Country -->
+        <div class="grid grid-cols-2 gap-4">
+          <div class="grid gap-2">
+            <Label for="industry">Industry</Label>
+            <Input id="industry" v-model="form.industry" placeholder="e.g. Banking & Finance" />
+          </div>
+          <div class="grid gap-2">
+            <Label for="country">Country</Label>
+            <Input id="country" v-model="form.country" placeholder="e.g. Zambia" />
+          </div>
         </div>
+
+        <p class="text-xs text-muted-foreground">
+          Contact person, email and phone come from the company's booking contacts and are shown read-only in the list.
+        </p>
       </form>
 
       <DialogFooter class="gap-2">
