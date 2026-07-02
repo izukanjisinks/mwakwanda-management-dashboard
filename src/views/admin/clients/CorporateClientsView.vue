@@ -113,11 +113,9 @@ async function handleDelete() {
         <TableHeader>
           <TableRow class="bg-muted/30">
             <TableHead>Company</TableHead>
-            <TableHead>Contact Person</TableHead>
             <TableHead>Email</TableHead>
             <TableHead>Phone</TableHead>
             <TableHead>Industry</TableHead>
-            <TableHead>Reg. No.</TableHead>
             <!-- <TableHead>Status</TableHead> -->
             <TableHead class="w-24 text-right">Actions</TableHead>
           </TableRow>
@@ -125,7 +123,7 @@ async function handleDelete() {
         <TableBody>
           <template v-if="store.loading">
             <TableRow v-for="i in 5" :key="i">
-              <TableCell colspan="8">
+              <TableCell colspan="5">
                 <div class="h-4 rounded bg-muted animate-pulse" />
               </TableCell>
             </TableRow>
@@ -133,7 +131,7 @@ async function handleDelete() {
 
           <template v-else-if="filtered.length === 0">
             <TableRow>
-              <TableCell colspan="8" class="py-16 text-center text-muted-foreground">
+              <TableCell colspan="5" class="py-16 text-center text-muted-foreground">
                 {{ store.clients.length === 0 ? 'No corporate clients yet. Add one to get started.' : 'No clients match your search.' }}
               </TableCell>
             </TableRow>
@@ -142,11 +140,9 @@ async function handleDelete() {
           <template v-else>
             <TableRow v-for="client in filtered" :key="client.id">
               <TableCell class="font-medium">{{ client.company_name }}</TableCell>
-              <TableCell>{{ client.contact_person }}</TableCell>
               <TableCell class="text-muted-foreground">{{ client.email }}</TableCell>
               <TableCell>{{ client.phone }}</TableCell>
               <TableCell>{{ client.industry }}</TableCell>
-              <TableCell class="text-muted-foreground text-xs">{{ client.company_reg_number }}</TableCell>
               <!-- <TableCell>
                 <Badge :variant="client.status === 'active' ? 'default' : 'secondary'">
                   {{ client.status === 'active' ? 'Active' : 'Inactive' }}

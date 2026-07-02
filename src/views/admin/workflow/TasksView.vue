@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { Clock, CheckCheck, XCircle, InboxIcon, ChevronRight, ChevronLeft, User } from 'lucide-vue-next'
+import {
+  Clock, CheckCheck, XCircle, InboxIcon, ChevronRight, ChevronLeft,
+  User, Building2, BedDouble, Theater, UtensilsCrossed,
+} from 'lucide-vue-next'
+import type { WorkflowTask } from '@/types/workflow'
 import { useWorkflowStore } from '@/stores/workflow'
 import { useAuthStore } from '@/stores/auth'
 import { useBranchFilterStore } from '@/stores/branchFilter'
@@ -87,6 +91,24 @@ function fmtDateTime(d?: string) {
     day: '2-digit', month: 'short', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   })
+}
+
+function clientType(task: WorkflowTask): 'corporate' | 'individual' | null {
+  const t = task.task_details?.task_type
+  if (t === 'corporate_booking') return 'corporate'
+  if (t === 'booking') return 'individual'
+  return null
+}
+
+function bookingCategory(task: WorkflowTask): 'accommodation' | 'event' | 'meals' | null {
+  const text = [
+    task.task_details?.task_description ?? '',
+    task.step_name ?? '',
+  ].join(' ').toLowerCase()
+  if (text.includes('accommodation') || text.includes('room')) return 'accommodation'
+  if (text.includes('event') || text.includes('conference') || text.includes('venue')) return 'event'
+  if (text.includes('meal') || text.includes('meals') || text.includes('catering')) return 'meals'
+  return null
 }
 </script>
 
@@ -179,6 +201,48 @@ function fmtDateTime(d?: string) {
               </Badge>
               <ChevronRight class="size-4 text-muted-foreground" />
             </div>
+          </div>
+
+          <!-- Booking type badges -->
+          <div class="flex items-center gap-1.5 flex-wrap -mt-1">
+            <!-- Corporate / Individual -->
+            <span
+              v-if="clientType(task) === 'corporate'"
+              class="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
+            >
+              <Building2 class="size-3 shrink-0" />
+              Corporate
+            </span>
+            <span
+              v-else-if="clientType(task) === 'individual'"
+              class="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300 border border-purple-200 dark:border-purple-800"
+            >
+              <User class="size-3 shrink-0" />
+              Individual
+            </span>
+
+            <!-- Accommodation / Event / Meals -->
+            <span
+              v-if="bookingCategory(task) === 'accommodation'"
+              class="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-cyan-50 text-cyan-700 dark:bg-cyan-950/50 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800"
+            >
+              <BedDouble class="size-3 shrink-0" />
+              Accommodation
+            </span>
+            <span
+              v-else-if="bookingCategory(task) === 'event'"
+              class="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300 border border-violet-200 dark:border-violet-800"
+            >
+              <Theater class="size-3 shrink-0" />
+              Event
+            </span>
+            <span
+              v-else-if="bookingCategory(task) === 'meals'"
+              class="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 dark:bg-orange-950/50 dark:text-orange-300 border border-orange-200 dark:border-orange-800"
+            >
+              <UtensilsCrossed class="size-3 shrink-0" />
+              Meals
+            </span>
           </div>
 
           <!-- Assignee label (All Tasks scope) -->

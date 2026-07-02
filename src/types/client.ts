@@ -29,9 +29,8 @@ export interface CorporateClient {
   contact_person: string
   email: string
   phone: string
-  company_reg_number: string
+  company_reg_number?: string
   tpin?: string
-  country?: string
   industry?: string
   status: ClientStatus
   notes?: string
@@ -41,11 +40,12 @@ export interface CorporateClient {
 
 export interface CorporateClientPayload {
   company_name: string
-  company_reg_number: string
+  contact_person?: string
+  email?: string
+  phone?: string
   tpin?: string
   industry?: string
-  country?: string
-  status: ClientStatus
+  status?: ClientStatus
 }
 
 export interface PaginatedIndividualClients {

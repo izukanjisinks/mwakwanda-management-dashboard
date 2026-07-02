@@ -22,6 +22,15 @@ export interface MaterialiseAssignment {
   room_type?: string
 }
 
+export interface MaterialiseEventSession {
+  session_index: number
+  venue_id: string
+  venue_name?: string
+  event_date?: string
+  start_time?: string
+  end_time?: string
+}
+
 export const bookingRequestApi = {
   // Corporate
   list: (params?: BookingRequestListParams) =>
@@ -43,6 +52,18 @@ export const bookingRequestApi = {
     apiClient.post<import('@/types/booking').Booking>(
       `/booking-requests/${requestId}/materialise`,
       { assignments },
+    ),
+
+  materialiseEvent: (requestId: string, sessions: MaterialiseEventSession[]) =>
+    apiClient.post<import('@/types/booking').Booking>(
+      `/booking-requests/${requestId}/materialise-event`,
+      { sessions },
+    ),
+
+  materialiseIndividualEvent: (requestId: string, sessions: MaterialiseEventSession[]) =>
+    apiClient.post<import('@/types/booking').Booking>(
+      `/booking-requests/individual/${requestId}/materialise-event`,
+      { sessions },
     ),
 
   // Individual
