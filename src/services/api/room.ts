@@ -13,6 +13,8 @@ export interface AvailableRoomsParams extends Record<string, string | number | b
   check_in: string   // YYYY-MM-DD
   check_out: string  // YYYY-MM-DD
   type?: string
+  page_size?: number
+  branch_id?: string
 }
 
 export const roomApi = {
