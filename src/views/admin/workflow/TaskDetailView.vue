@@ -276,7 +276,12 @@ async function loadAvailableRooms() {
           guestAvailableRooms.value[i] = []
           return
         }
-        const rooms = await roomApi.listAvailable({ check_in: g.check_in, check_out: g.check_out })
+        const rooms = await roomApi.listAvailable({
+          check_in: g.check_in,
+          check_out: g.check_out,
+          page_size: 200,
+          branch_id: task.value?.branch_id,
+        })
         guestAvailableRooms.value[i] = rooms ?? []
       }),
     )
@@ -336,7 +341,12 @@ async function loadIndAvailableRooms(attendantIdx?: number) {
             indAvailableRooms.value[i] = []
             return
           }
-          const rooms = await roomApi.listAvailable({ check_in: ci, check_out: co })
+          const rooms = await roomApi.listAvailable({
+            check_in: ci,
+            check_out: co,
+            page_size: 200,
+            branch_id: task.value?.branch_id,
+          })
           indAvailableRooms.value[i] = rooms ?? []
         }),
     )
