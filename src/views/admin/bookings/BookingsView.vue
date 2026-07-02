@@ -144,12 +144,10 @@ async function openCorporateSheet(b: Booking) {
   sheetOpen.value = true
   sheetLoading.value = true
   try {
-    const [assignments, attendees] = await Promise.all([
-      bookingApi.listAssignments(b.id),
-      bookingApi.listAttendees(b.id),
-    ])
-    sheetAssignments.value = assignments ?? []
-    sheetAttendees.value = attendees ?? []
+    const full = await bookingApi.get(b.id)
+    sheetBooking.value = full
+    sheetAssignments.value = full.assignments ?? []
+    sheetAttendees.value = full.attendees ?? []
   } catch (err) {
     toast.error(getApiError(err, 'Failed to load booking details.'))
   } finally {
@@ -165,7 +163,10 @@ function attendeeName(a: BookingRoomAssignment): string {
 
 async function refreshSheetAssignments() {
   if (!sheetBooking.value) return
-  sheetAssignments.value = await bookingApi.listAssignments(sheetBooking.value.id) ?? []
+  const full = await bookingApi.get(sheetBooking.value.id)
+  sheetBooking.value = full
+  sheetAssignments.value = full.assignments ?? []
+  sheetAttendees.value = full.attendees ?? []
 }
 
 async function checkInAssignment(a: BookingRoomAssignment) {
