@@ -38,6 +38,7 @@ export interface BookingMetadata {
   approver?: CorBookingPerson
   company?: CorBookingCompany
   accommodation?: CorBookingAccommodation
+  attendants?: CorBookingAttendant[]
 }
 
 export interface Booking {
@@ -243,6 +244,14 @@ export interface CorBookingAccommodation {
   check_out?: string
   room_count?: number
   room_type_preference?: string
+  rooms?: Array<{
+    room_id: string
+    room_name?: string
+    room_type?: string
+    rate_per_night?: number
+    attendant_idx?: number
+    slot_index?: number
+  }>
 }
 
 export interface CorporateBookingPayload {
