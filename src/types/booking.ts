@@ -7,9 +7,11 @@ export interface BookingRoomAssignment {
   booking_id: string
   room_id: string
   attendee_id?: string
-  check_in: string
-  check_out: string
+  check_in: string  // booked check-in date
+  check_out: string // booked check-out date
   status: string
+  checked_in_at?: string  // actual check-in timestamp (null until checked in)
+  checked_out_at?: string // actual check-out timestamp (null until checked out)
   room_name?: string
   attendee_name?: string
   nights?: number

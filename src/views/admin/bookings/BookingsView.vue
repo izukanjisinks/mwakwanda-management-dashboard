@@ -131,6 +131,14 @@ function fmt(d?: string) {
   return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
+// fmtDateTime formats an actual check-in/out timestamp (date + time of day).
+function fmtDateTime(d?: string) {
+  if (!d) return '—'
+  return new Date(d).toLocaleString('en-GB', {
+    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  })
+}
+
 // ── Corporate detail sheet ────────────────────────────────────────────────────
 const sheetOpen = ref(false)
 const sheetBooking = ref<Booking | null>(null)
@@ -801,9 +809,25 @@ function syncRowStatus(id: string, status: BookingStatus) {
                 <div class="flex items-center gap-4 text-xs text-muted-foreground">
                   <div class="flex items-center gap-1">
                     <CalendarDays class="size-3.5" />
+                    <span class="text-[10px] uppercase tracking-wide opacity-70 mr-1">Booked</span>
                     {{ fmt(a.check_in) }} → {{ fmt(a.check_out) }}
                   </div>
                   <div v-if="a.room_cost">ZMW {{ a.room_cost.toLocaleString() }}</div>
+                </div>
+
+                <!-- Actual check-in/out times (recorded when staff press the buttons) -->
+                <div
+                  v-if="a.checked_in_at || a.checked_out_at"
+                  class="flex flex-col gap-0.5 text-xs"
+                >
+                  <div v-if="a.checked_in_at" class="flex items-center gap-1.5 text-emerald-600">
+                    <LogIn class="size-3.5" />
+                    Checked in {{ fmtDateTime(a.checked_in_at) }}
+                  </div>
+                  <div v-if="a.checked_out_at" class="flex items-center gap-1.5 text-muted-foreground">
+                    <LogOut class="size-3.5" />
+                    Checked out {{ fmtDateTime(a.checked_out_at) }}
+                  </div>
                 </div>
 
                 <!-- Per-room actions -->
