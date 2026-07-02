@@ -7,6 +7,8 @@ export interface VenueListParams extends Record<string, string | number | boolea
   venue_type?: string
   is_available?: boolean
   branch_id?: string
+  from?: string   // YYYY-MM-DD — availability window start
+  to?: string     // YYYY-MM-DD — availability window end
 }
 
 export const venueApi = {

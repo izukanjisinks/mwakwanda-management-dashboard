@@ -15,7 +15,7 @@ import { Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { getApiError } from '@/utils/errors'
 import { useCorporateClientsStore } from '@/stores/clients'
-import type { CorporateClient, ClientStatus } from '@/types/client'
+import type { CorporateClient } from '@/types/client'
 
 const props = defineProps<{
   open: boolean
@@ -35,11 +35,10 @@ const isEdit = computed(() => !!props.client)
 
 const form = ref({
   company_name: '',
-  company_reg_number: '',
+  email: '',
+  phone: '',
   tpin: '',
   industry: '',
-  country: '',
-  status: 'active' as ClientStatus,
 })
 
 watch(() => props.open, (open) => {
@@ -48,20 +47,18 @@ watch(() => props.open, (open) => {
   if (props.client) {
     form.value = {
       company_name: props.client.company_name,
-      company_reg_number: props.client.company_reg_number,
+      email: props.client.email ?? '',
+      phone: props.client.phone ?? '',
       tpin: props.client.tpin ?? '',
       industry: props.client.industry ?? '',
-      country: props.client.country ?? '',
-      status: props.client.status,
     }
   } else {
     form.value = {
       company_name: '',
-      company_reg_number: '',
+      email: '',
+      phone: '',
       tpin: '',
       industry: '',
-      country: '',
-      status: 'active',
     }
   }
 })
@@ -69,7 +66,6 @@ watch(() => props.open, (open) => {
 async function handleSave() {
   error.value = ''
   if (!form.value.company_name.trim()) { error.value = 'Company name is required.'; return }
-  if (!form.value.company_reg_number.trim()) { error.value = 'Company registration number is required.'; return }
 
   saving.value = true
   try {
@@ -114,33 +110,31 @@ async function handleSave() {
           <Input id="company_name" v-model="form.company_name" placeholder="e.g. Zambia National Bank" />
         </div>
 
-        <!-- Reg Number & TPIN -->
+        <!-- Email & Phone -->
         <div class="grid grid-cols-2 gap-4">
           <div class="grid gap-2">
-            <Label for="reg_number">Company Reg. No. *</Label>
-            <Input id="reg_number" v-model="form.company_reg_number" placeholder="e.g. ZNB-001-2010" />
+            <Label for="email">Email</Label>
+            <Input id="email" v-model="form.email" type="email" placeholder="e.g. contact@company.com" />
           </div>
+          <div class="grid gap-2">
+            <Label for="phone">Phone</Label>
+            <Input id="phone" v-model="form.phone" placeholder="e.g. +260966000000" />
+          </div>
+        </div>
+
+        <!-- TPIN & Industry -->
+        <div class="grid grid-cols-2 gap-4">
           <div class="grid gap-2">
             <Label for="tpin">TPIN</Label>
             <Input id="tpin" v-model="form.tpin" placeholder="e.g. 1001234567" />
           </div>
-        </div>
-
-        <!-- Industry & Country -->
-        <div class="grid grid-cols-2 gap-4">
           <div class="grid gap-2">
             <Label for="industry">Industry</Label>
-            <Input id="industry" v-model="form.industry" placeholder="e.g. Banking & Finance" />
-          </div>
-          <div class="grid gap-2">
-            <Label for="country">Country</Label>
-            <Input id="country" v-model="form.country" placeholder="e.g. Zambia" />
+            <Input id="industry" v-model="form.industry" placeholder="e.g. Agriculture & Agribusiness" />
           </div>
         </div>
 
-        <p class="text-xs text-muted-foreground">
-          Contact person, email and phone come from the company's booking contacts and are shown read-only in the list.
-        </p>
+
       </form>
 
       <DialogFooter class="gap-2">

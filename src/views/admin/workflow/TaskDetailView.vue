@@ -4,10 +4,14 @@ import { useRoute, useRouter } from 'vue-router'
 import { useWorkflowStore } from '@/stores/workflow'
 import { bookingRequestApi, type MaterialiseAssignment } from '@/services/api/booking-requests'
 import { roomApi } from '@/services/api/room'
+import { venueApi } from '@/services/api/venue'
+import { menusApi } from '@/services/api/menus'
 import { getApiError } from '@/utils/errors'
 import { toast } from 'vue-sonner'
 import type { CorporateBookingRequest, IndividualBookingRequest } from '@/types/booking'
 import type { Room } from '@/types/room'
+import type { Venue } from '@/types/venue'
+import type { MenuItem } from '@/types/menu'
 import type { WorkflowTask } from '@/types/workflow'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import TaskActionDialog from '@/components/workflow/TaskActionDialog.vue'
@@ -233,10 +237,15 @@ const isMeal = computed(() => {
 // Price-resolved meals view (menu item names + prices + totals), built server-side.
 const mealsSummary = computed(() => corporateRequest.value?.meals_summary ?? null)
 
+// Menu item lookup map populated when viewing an individual meal task (corporate has meals_summary instead).
+const menuItemMap = ref<Record<string, MenuItem>>({})
+
 // Attendants listed on a meal request — indexed to match individual_orders[].attendant_idx
 const mealAttendants = computed(() => {
-  if (!isMeal.value || !isCorporate.value) return []
-  const p = corporateRequest.value?.payload as Record<string, unknown> | undefined
+  if (!isMeal.value) return []
+  const p = (isCorporate.value
+    ? corporateRequest.value?.payload
+    : individualRequest.value?.payload) as Record<string, unknown> | undefined
   const list = p?.attendants as Array<{ full_name?: string; id_number?: string; email?: string; phone?: string; is_lead_contact?: boolean }> | undefined
   return list ?? []
 })
@@ -364,8 +373,9 @@ const indAllGuestsAssigned = computed(() => {
   return indAttendants.value.every((_, i) => !!indRoomSelection.value[i])
 })
 
-// Approve gating — every guest/attendant must have a room selected
+// Approve gating — every guest/attendant must have a room, every session a venue
 const allGuestsAssigned = computed(() => {
+  if (isEvent.value) return allSessionsAssigned.value
   if (isCorporate.value) {
     if (!isAccommodation.value) return true
     if (corporateGuests.value.length === 0) return false
@@ -387,6 +397,66 @@ function roomTakenByOther(guestIndex: number, roomId: string): boolean {
     return other.check_in < self.check_out && self.check_in < other.check_out
   })
 }
+
+// ─── Event booking — session venue assignment ──────────────────────────────────
+
+const sessionVenueSelection = ref<Record<number, string>>({})
+const sessionEventDate      = ref<Record<number, string>>({})
+const sessionStartTime      = ref<Record<number, string>>({})
+const sessionEndTime        = ref<Record<number, string>>({})
+// Per-session venue list: session index → available venues for that session's date
+const availableVenues       = ref<Record<number, Venue[]>>({})
+const venuesLoading         = ref(false)
+
+async function loadAvailableVenues(sessionIdx?: number) {
+  if (!isEvent.value) return
+  venuesLoading.value = true
+  try {
+    const indices = sessionIdx !== undefined
+      ? [sessionIdx]
+      : eventSessions.value.map((_, i) => i)
+    await Promise.all(
+      indices.map(async (i) => {
+        const date = sessionEventDate.value[i]
+        if (!date) { availableVenues.value[i] = []; return }
+        const result = await venueApi.list({
+          from: date,
+          to: date,
+          page_size: 200,
+          branch_id: task.value?.branch_id,
+        })
+        availableVenues.value[i] = result?.data ?? []
+      }),
+    )
+  } catch (err) {
+    toast.error(getApiError(err, 'Failed to load available venues.'))
+  } finally {
+    venuesLoading.value = false
+  }
+}
+
+// Prevent the same venue being assigned to two sessions whose time slots overlap
+// on the same date.
+function venueTakenByOther(sessionIdx: number, venueId: string): boolean {
+  return Object.entries(sessionVenueSelection.value).some(([idx, vid]) => {
+    if (Number(idx) === sessionIdx || vid !== venueId) return false
+    const otherDate = sessionEventDate.value[Number(idx)]
+    const selfDate  = sessionEventDate.value[sessionIdx]
+    if (otherDate && selfDate && otherDate !== selfDate) return false
+    const otherStart = sessionStartTime.value[Number(idx)]
+    const otherEnd   = sessionEndTime.value[Number(idx)]
+    const selfStart  = sessionStartTime.value[sessionIdx]
+    const selfEnd    = sessionEndTime.value[sessionIdx]
+    if (!otherStart || !otherEnd || !selfStart || !selfEnd) return true
+    return otherStart < selfEnd && selfStart < otherEnd
+  })
+}
+
+const allSessionsAssigned = computed(() => {
+  if (!isEvent.value) return true
+  if (eventSessions.value.length === 0) return true
+  return eventSessions.value.every((_, i) => !!sessionVenueSelection.value[i])
+})
 
 const documents = computed<string[]>(() => {
   if (isCorporate.value) return corporateRequest.value?.documents ?? []
@@ -452,6 +522,27 @@ async function handleConfirm(action: string, comments: string) {
         await bookingRequestApi.approveIndividual(refId, {
           assignments: indAssignments.length ? indAssignments : undefined,
         })
+        // Materialise venue assignments for individual event bookings
+        if (isEvent.value) {
+          const venueAssignments = eventSessions.value
+            .map((_, i) => {
+              const venueId = sessionVenueSelection.value[i]
+              if (!venueId) return null
+              const venue = availableVenues.value.find(v => v.id === venueId)
+              return {
+                session_index: i,
+                venue_id: venueId,
+                venue_name: venue?.name,
+                event_date: sessionEventDate.value[i] || undefined,
+                start_time: sessionStartTime.value[i] || undefined,
+                end_time: sessionEndTime.value[i] || undefined,
+              }
+            })
+            .filter((a): a is NonNullable<typeof a> => a !== null)
+          if (venueAssignments.length) {
+            await bookingRequestApi.materialiseIndividualEvent(refId, venueAssignments)
+          }
+        }
       } else if (taskType === 'corporate_booking') {
         await bookingRequestApi.approve(refId)
         // Accommodation requests materialise into a booking with the rooms
@@ -465,6 +556,27 @@ async function handleConfirm(action: string, comments: string) {
             return acc
           }, [])
           await bookingRequestApi.materialise(refId, assignments)
+        }
+        // Event requests materialise into a booking with the venues staff assigned
+        if (isEvent.value) {
+          const venueAssignments = eventSessions.value
+            .map((_, i) => {
+              const venueId = sessionVenueSelection.value[i]
+              if (!venueId) return null
+              const venue = availableVenues.value.find(v => v.id === venueId)
+              return {
+                session_index: i,
+                venue_id: venueId,
+                venue_name: venue?.name,
+                event_date: sessionEventDate.value[i] || undefined,
+                start_time: sessionStartTime.value[i] || undefined,
+                end_time: sessionEndTime.value[i] || undefined,
+              }
+            })
+            .filter((a): a is NonNullable<typeof a> => a !== null)
+          if (venueAssignments.length) {
+            await bookingRequestApi.materialiseEvent(refId, venueAssignments)
+          }
         }
       }
     }
@@ -540,6 +652,22 @@ onMounted(async () => {
       if (isAccommodation.value && task.value?.status !== 'completed') {
         await loadAvailableRooms()
       }
+      // Event requests need a venue picker per session
+      if (isEvent.value && task.value?.status !== 'completed') {
+        eventSessions.value.forEach((s, i) => {
+          sessionEventDate.value[i] = s.event_date ?? ''
+          sessionStartTime.value[i] = s.start_time ?? ''
+          sessionEndTime.value[i]   = s.end_time ?? ''
+          if (s.venue_id) sessionVenueSelection.value[i] = s.venue_id
+        })
+        await loadAvailableVenues()
+      }
+      if (isMeal.value) {
+        try {
+          const menu = await menusApi.getMenu({ page_size: 500 })
+          for (const item of menu.items?.data ?? []) menuItemMap.value[item.id] = item
+        } catch { /* non-fatal */ }
+      }
     } else {
       individualRequest.value = await bookingRequestApi.getIndividual(refId)
       if (isIndAccommodation.value) {
@@ -559,6 +687,25 @@ onMounted(async () => {
         }
         if (task.value?.status === 'pending' || task.value?.status === 'in_progress') {
           await loadIndAvailableRooms()
+        }
+      }
+      if (isEvent.value && task.value?.status !== 'completed') {
+        eventSessions.value.forEach((s, i) => {
+          sessionEventDate.value[i] = s.event_date ?? ''
+          sessionStartTime.value[i] = s.start_time ?? ''
+          sessionEndTime.value[i]   = s.end_time ?? ''
+          if (s.venue_id) sessionVenueSelection.value[i] = s.venue_id
+        })
+        await loadAvailableVenues()
+      }
+      if (isMeal.value) {
+        try {
+          const menu = await menusApi.getMenu({ page_size: 500 })
+          for (const item of menu.items?.data ?? []) {
+            menuItemMap.value[item.id] = item
+          }
+        } catch {
+          // non-fatal: items will display ID fallback
         }
       }
     }
@@ -707,24 +854,97 @@ onMounted(async () => {
                 </template>
               </div>
 
-              <!-- Meal sessions -->
+              <!-- Meal sessions (individual booking) -->
               <div v-if="isMeal && mealSessions.length" class="rounded-xl border bg-muted/20 overflow-hidden">
                 <div class="px-4 py-2 text-xs text-muted-foreground font-medium uppercase tracking-wide bg-muted/40">
                   Meal Sessions ({{ mealSessions.length }})
                 </div>
                 <div class="divide-y">
-                  <div v-for="(s, i) in mealSessions" :key="i" class="px-4 py-3 text-sm">
+                  <div v-for="(s, si) in mealSessions" :key="si" class="px-4 py-3 text-sm">
+                    <!-- Session header -->
                     <div class="flex items-center justify-between gap-2 mb-1">
                       <span class="font-medium">{{ s.session_name || fmt(s.meal_date || '') }}</span>
                       <span class="text-xs text-muted-foreground capitalize">{{ (s.meal_period || '').replace('_', ' ') }}</span>
                     </div>
-                    <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                    <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground mb-2">
                       <span v-if="s.meal_date">{{ fmt(s.meal_date) }}</span>
                       <span v-if="s.service_type" class="capitalize">{{ s.service_type.replace('_', ' ') }}</span>
                       <span v-if="s.pax_count">{{ s.pax_count }} pax</span>
                     </div>
-                    <p v-if="s.dietary_notes" class="text-xs mt-1 text-muted-foreground">{{ s.dietary_notes }}</p>
-                    <p v-if="s.arrangements_notes" class="text-xs mt-1">{{ s.arrangements_notes }}</p>
+                    <p v-if="s.dietary_notes" class="text-xs mb-2 text-muted-foreground">{{ s.dietary_notes }}</p>
+                    <p v-if="s.arrangements_notes" class="text-xs mb-2">{{ s.arrangements_notes }}</p>
+
+                    <!-- Per-attendant orders -->
+                    <template v-if="s.service_type === 'individual_order' && s.individual_orders?.length">
+                      <div v-if="mealAttendants.length" class="flex flex-col gap-2 mt-1">
+                        <div
+                          v-for="(a, ai) in mealAttendants"
+                          :key="ai"
+                          class="rounded-lg border bg-card overflow-hidden"
+                        >
+                          <div class="flex items-center gap-2 px-3 py-1.5 bg-muted/40 border-b">
+                            <span class="text-xs font-medium">{{ a.full_name || `Guest ${ai + 1}` }}</span>
+                            <span v-if="a.is_lead_contact" class="text-[10px] font-semibold text-amber-600 border border-amber-300 rounded px-1">Lead</span>
+                            <span class="ml-auto text-xs text-muted-foreground tabular-nums">
+                              {{ ordersForAttendant(s, ai).reduce((sum, o) => sum + o.quantity, 0) }} item(s)
+                            </span>
+                          </div>
+                          <div v-if="ordersForAttendant(s, ai).length" class="divide-y">
+                            <div
+                              v-for="(o, oi) in ordersForAttendant(s, ai)"
+                              :key="oi"
+                              class="flex items-center justify-between px-3 py-2 text-xs"
+                            >
+                              <span class="font-medium">
+                                {{ menuItemMap[o.menu_item_id]?.name || o.menu_item_id }}
+                              </span>
+                              <div class="flex items-center gap-3 text-muted-foreground">
+                                <span>× {{ o.quantity }}</span>
+                                <span v-if="menuItemMap[o.menu_item_id]?.price" class="tabular-nums">
+                                  ZMW {{ (menuItemMap[o.menu_item_id].price * o.quantity).toLocaleString() }}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <p v-else class="px-3 py-2 text-xs text-muted-foreground">No items selected.</p>
+                        </div>
+                      </div>
+                      <!-- Fallback when no attendant list: flat item list -->
+                      <div v-else class="flex flex-col gap-1 mt-1">
+                        <div
+                          v-for="(o, oi) in s.individual_orders"
+                          :key="oi"
+                          class="flex items-center justify-between text-xs bg-muted/30 rounded px-3 py-1.5"
+                        >
+                          <span class="font-medium">{{ menuItemMap[o.menu_item_id]?.name || o.menu_item_id }}</span>
+                          <div class="flex items-center gap-3 text-muted-foreground">
+                            <span>× {{ o.quantity }}</span>
+                            <span v-if="menuItemMap[o.menu_item_id]?.price" class="tabular-nums">
+                              ZMW {{ (menuItemMap[o.menu_item_id].price * o.quantity).toLocaleString() }}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </template>
+
+                    <!-- Buffet / shared items for this session -->
+                    <template v-else-if="s.individual_orders?.length">
+                      <div class="flex flex-col gap-1 mt-1">
+                        <div
+                          v-for="(o, oi) in s.individual_orders"
+                          :key="oi"
+                          class="flex items-center justify-between text-xs bg-muted/30 rounded px-3 py-1.5"
+                        >
+                          <span class="font-medium">{{ menuItemMap[o.menu_item_id]?.name || o.menu_item_id }}</span>
+                          <div class="flex items-center gap-3 text-muted-foreground">
+                            <span>× {{ o.quantity }}</span>
+                            <span v-if="menuItemMap[o.menu_item_id]?.price" class="tabular-nums">
+                              ZMW {{ (menuItemMap[o.menu_item_id].price * o.quantity).toLocaleString() }}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </template>
                   </div>
                 </div>
               </div>
@@ -802,6 +1022,87 @@ onMounted(async () => {
                 <div v-if="individualRequest.booker_phone">
                   <p class="text-xs text-muted-foreground mb-0.5">Phone</p>
                   <p>{{ individualRequest.booker_phone }}</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Venue Assignment card (individual event booking) -->
+            <div v-if="isEvent && eventSessions.length" class="rounded-xl border bg-card overflow-hidden">
+              <div class="flex items-center gap-2 p-5 pb-4 border-b">
+                <Theater class="size-4 text-primary" />
+                <h3 class="font-semibold">Venue Assignment</h3>
+              </div>
+              <div v-if="task.status === 'pending' || task.status === 'in_progress'" class="px-5 py-2 text-xs text-muted-foreground bg-amber-50 dark:bg-amber-950/20 border-b flex items-center gap-1.5">
+                <Theater class="size-3.5" />
+                Assign a venue to every session before approving.
+              </div>
+              <div class="divide-y">
+                <div class="grid grid-cols-12 gap-2 px-5 py-2 text-xs text-muted-foreground font-medium uppercase tracking-wide bg-muted/40">
+                  <div class="col-span-3">Session</div>
+                  <div class="col-span-2">Date</div>
+                  <div class="col-span-2">Start</div>
+                  <div class="col-span-2">End</div>
+                  <div class="col-span-3">Venue</div>
+                </div>
+                <div v-for="(s, i) in eventSessions" :key="i" class="grid grid-cols-12 gap-2 px-5 py-3 text-sm items-center">
+                  <div class="col-span-3">
+                    <span class="font-medium leading-snug block">{{ s.event_name || ('Session ' + (i + 1)) }}</span>
+                    <span v-if="s.event_type" class="text-[10px] text-muted-foreground capitalize">{{ s.event_type.replace('_', ' ') }}</span>
+                  </div>
+                  <div class="col-span-2">
+                    <input
+                      v-if="task.status === 'pending' || task.status === 'in_progress'"
+                      v-model="sessionEventDate[i]"
+                      type="date"
+                      class="w-full rounded-md border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      @change="loadAvailableVenues(i)"
+                    />
+                    <div v-else class="flex items-center gap-1 text-xs">
+                      <CalendarDays class="size-3 text-muted-foreground shrink-0" />
+                      <span>{{ fmt(sessionEventDate[i] || '') }}</span>
+                    </div>
+                  </div>
+                  <div class="col-span-2">
+                    <input
+                      v-if="task.status === 'pending' || task.status === 'in_progress'"
+                      v-model="sessionStartTime[i]"
+                      type="time"
+                      class="w-full rounded-md border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    />
+                    <span v-else class="text-xs">{{ sessionStartTime[i] || '—' }}</span>
+                  </div>
+                  <div class="col-span-2">
+                    <input
+                      v-if="task.status === 'pending' || task.status === 'in_progress'"
+                      v-model="sessionEndTime[i]"
+                      type="time"
+                      class="w-full rounded-md border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    />
+                    <span v-else class="text-xs">{{ sessionEndTime[i] || '—' }}</span>
+                  </div>
+                  <div class="col-span-3">
+                    <select
+                      v-if="task.status === 'pending' || task.status === 'in_progress'"
+                      v-model="sessionVenueSelection[i]"
+                      class="w-full rounded-md border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      :class="{ 'border-amber-400': !sessionVenueSelection[i] }"
+                    >
+                      <option value="" disabled>
+                        {{ venuesLoading ? 'Loading…' : !sessionEventDate[i] ? 'Set date first' : (availableVenues[i]?.length ?? 0) > 0 ? 'Select venue' : 'No venues available' }}
+                      </option>
+                      <option
+                        v-for="v in (availableVenues[i] ?? [])"
+                        :key="v.id"
+                        :value="v.id"
+                        :disabled="venueTakenByOther(i, v.id)"
+                      >
+                        {{ v.name }} ({{ v.venue_type.replace('_', ' ') }}, cap. {{ v.capacity }}){{ venueTakenByOther(i, v.id) ? ' · taken' : '' }}
+                      </option>
+                    </select>
+                    <div v-else class="text-xs font-medium">
+                      {{ (availableVenues[i] ?? []).find(v => v.id === sessionVenueSelection[i])?.name || s.venue_name || '—' }}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1270,20 +1571,42 @@ onMounted(async () => {
                         <span v-if="s.service_type" class="capitalize">{{ s.service_type.replace('_', ' ') }}</span>
                         <span v-if="s.pax_count">{{ s.pax_count }} pax</span>
                       </div>
-                      <!-- Per-attendant order counts when service_type is individual_order -->
-                      <div v-if="s.service_type === 'individual_order' && s.individual_orders?.length && mealAttendants.length" class="flex flex-col gap-1 mt-1">
-                        <div
-                          v-for="(a, ai) in mealAttendants"
-                          :key="ai"
-                          class="flex items-center justify-between text-xs bg-muted/30 rounded px-3 py-1.5"
-                        >
-                          <span class="font-medium">{{ a.full_name }}</span>
-                          <span class="text-muted-foreground tabular-nums">
-                            {{ ordersForAttendant(s, ai).reduce((sum, o) => sum + o.quantity, 0) }} item(s)
-                            ({{ ordersForAttendant(s, ai).length }} line{{ ordersForAttendant(s, ai).length !== 1 ? 's' : '' }})
-                          </span>
+                      <!-- Per-attendant items when service_type is individual_order -->
+                      <template v-if="s.service_type === 'individual_order' && s.individual_orders?.length && mealAttendants.length">
+                        <div class="flex flex-col gap-2 mt-2">
+                          <div
+                            v-for="(a, ai) in mealAttendants"
+                            :key="ai"
+                            class="rounded-lg border bg-card overflow-hidden"
+                          >
+                            <div class="flex items-center gap-2 px-3 py-1.5 bg-muted/40 border-b">
+                              <span class="text-xs font-medium">{{ a.full_name || `Guest ${ai + 1}` }}</span>
+                              <span v-if="a.is_lead_contact" class="text-[10px] font-semibold text-amber-600 border border-amber-300 rounded px-1">Lead</span>
+                              <span class="ml-auto text-xs text-muted-foreground tabular-nums">
+                                {{ ordersForAttendant(s, ai).reduce((sum, o) => sum + o.quantity, 0) }} item(s)
+                              </span>
+                            </div>
+                            <div v-if="ordersForAttendant(s, ai).length" class="divide-y">
+                              <div
+                                v-for="(o, oi) in ordersForAttendant(s, ai)"
+                                :key="oi"
+                                class="flex items-center justify-between px-3 py-2 text-xs"
+                              >
+                                <span class="font-medium">
+                                  {{ menuItemMap[o.menu_item_id]?.name || o.menu_item_id }}
+                                </span>
+                                <div class="flex items-center gap-3 text-muted-foreground">
+                                  <span>× {{ o.quantity }}</span>
+                                  <span v-if="menuItemMap[o.menu_item_id]?.price" class="tabular-nums">
+                                    ZMW {{ (menuItemMap[o.menu_item_id].price * o.quantity).toLocaleString() }}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <p v-else class="px-3 py-2 text-xs text-muted-foreground">No items selected.</p>
+                          </div>
                         </div>
-                      </div>
+                      </template>
                       <p v-if="s.dietary_notes" class="text-xs text-muted-foreground mt-1">{{ s.dietary_notes }}</p>
                       <p v-if="s.arrangements_notes" class="text-xs mt-1">{{ s.arrangements_notes }}</p>
                     </div>
@@ -1346,6 +1669,87 @@ onMounted(async () => {
                 </div>
               </template>
             </div>
+
+            <!-- Venue Assignment card (corporate event booking) -->
+            <div v-if="isEvent && eventSessions.length" class="rounded-xl border bg-card overflow-hidden">
+              <div class="flex items-center gap-2 p-5 pb-4 border-b">
+                <Theater class="size-4 text-primary" />
+                <h3 class="font-semibold">Venue Assignment</h3>
+              </div>
+              <div v-if="task.status === 'pending' || task.status === 'in_progress'" class="px-5 py-2 text-xs text-muted-foreground bg-amber-50 dark:bg-amber-950/20 border-b flex items-center gap-1.5">
+                <Theater class="size-3.5" />
+                Assign a venue to every session before approving.
+              </div>
+              <div class="divide-y">
+                <div class="grid grid-cols-12 gap-2 px-5 py-2 text-xs text-muted-foreground font-medium uppercase tracking-wide bg-muted/40">
+                  <div class="col-span-3">Session</div>
+                  <div class="col-span-2">Date</div>
+                  <div class="col-span-2">Start</div>
+                  <div class="col-span-2">End</div>
+                  <div class="col-span-3">Venue</div>
+                </div>
+                <div v-for="(s, i) in eventSessions" :key="i" class="grid grid-cols-12 gap-2 px-5 py-3 text-sm items-center">
+                  <div class="col-span-3">
+                    <span class="font-medium leading-snug block">{{ s.event_name || ('Session ' + (i + 1)) }}</span>
+                    <span v-if="s.event_type" class="text-[10px] text-muted-foreground capitalize">{{ s.event_type.replace('_', ' ') }}</span>
+                  </div>
+                  <div class="col-span-2">
+                    <input
+                      v-if="task.status === 'pending' || task.status === 'in_progress'"
+                      v-model="sessionEventDate[i]"
+                      type="date"
+                      class="w-full rounded-md border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      @change="loadAvailableVenues(i)"
+                    />
+                    <div v-else class="flex items-center gap-1 text-xs">
+                      <CalendarDays class="size-3 text-muted-foreground shrink-0" />
+                      <span>{{ fmt(sessionEventDate[i] || '') }}</span>
+                    </div>
+                  </div>
+                  <div class="col-span-2">
+                    <input
+                      v-if="task.status === 'pending' || task.status === 'in_progress'"
+                      v-model="sessionStartTime[i]"
+                      type="time"
+                      class="w-full rounded-md border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    />
+                    <span v-else class="text-xs">{{ sessionStartTime[i] || '—' }}</span>
+                  </div>
+                  <div class="col-span-2">
+                    <input
+                      v-if="task.status === 'pending' || task.status === 'in_progress'"
+                      v-model="sessionEndTime[i]"
+                      type="time"
+                      class="w-full rounded-md border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    />
+                    <span v-else class="text-xs">{{ sessionEndTime[i] || '—' }}</span>
+                  </div>
+                  <div class="col-span-3">
+                    <select
+                      v-if="task.status === 'pending' || task.status === 'in_progress'"
+                      v-model="sessionVenueSelection[i]"
+                      class="w-full rounded-md border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      :class="{ 'border-amber-400': !sessionVenueSelection[i] }"
+                    >
+                      <option value="" disabled>
+                        {{ venuesLoading ? 'Loading…' : !sessionEventDate[i] ? 'Set date first' : (availableVenues[i]?.length ?? 0) > 0 ? 'Select venue' : 'No venues available' }}
+                      </option>
+                      <option
+                        v-for="v in (availableVenues[i] ?? [])"
+                        :key="v.id"
+                        :value="v.id"
+                        :disabled="venueTakenByOther(i, v.id)"
+                      >
+                        {{ v.name }} ({{ v.venue_type.replace('_', ' ') }}, cap. {{ v.capacity }}){{ venueTakenByOther(i, v.id) ? ' · taken' : '' }}
+                      </option>
+                    </select>
+                    <div v-else class="text-xs font-medium">
+                      {{ (availableVenues[i] ?? []).find(v => v.id === sessionVenueSelection[i])?.name || s.venue_name || '—' }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </template>
         </div>
 
@@ -1391,8 +1795,8 @@ onMounted(async () => {
               <CheckCircle2 class="size-4 mr-2" />
               Approve
             </Button>
-            <p v-if="isAccommodation && !allGuestsAssigned" class="text-xs text-amber-600 text-center -mt-1">
-              Assign a room to every guest first
+            <p v-if="!allGuestsAssigned" class="text-xs text-amber-600 text-center -mt-1">
+              {{ isEvent ? 'Assign a venue to every session first' : 'Assign a room to every guest first' }}
             </p>
             <Button
               variant="outline"
