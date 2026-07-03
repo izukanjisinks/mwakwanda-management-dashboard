@@ -26,7 +26,8 @@
       "Bash(node -e ' *)",
       "Bash(python -c \"import docx; print\\('python-docx ok'\\)\")",
       "PowerShell($word = New-Object -ComObject Word.Application; $word.Visible = $false; Write-Host \"Word COM available: $\\($word.Version\\)\"; $word.Quit\\(\\); [System.Runtime.Interopservices.Marshal]::ReleaseComObject\\($word\\) | Out-Null)",
-      "PowerShell($f = \"$env:USERPROFILE\\\\Documents\\\\Mwakwanda_User_Roles_and_Permissions.docx\"; if \\(Test-Path $f\\) { $item = Get-Item $f; \"File: $\\($item.FullName\\)`nSize: $\\([math]::Round\\($item.Length/1KB, 1\\)\\) KB`nModified: $\\($item.LastWriteTime\\)\" } else { \"NOT FOUND\" })"
+      "PowerShell($f = \"$env:USERPROFILE\\\\Documents\\\\Mwakwanda_User_Roles_and_Permissions.docx\"; if \\(Test-Path $f\\) { $item = Get-Item $f; \"File: $\\($item.FullName\\)`nSize: $\\([math]::Round\\($item.Length/1KB, 1\\)\\) KB`nModified: $\\($item.LastWriteTime\\)\" } else { \"NOT FOUND\" })",
+      "Bash(git checkout *)"
     ]
   }
 }
