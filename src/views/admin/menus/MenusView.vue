@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
-import { Plus, Pencil, Trash2, PackageOpen, Loader2, Check, X, ChevronLeft, ChevronRight, ImagePlus, UtensilsCrossed } from 'lucide-vue-next'
+import { Plus, Pencil, Trash2, PackageOpen, Loader2, Check, X, ChevronLeft, ChevronRight, ImagePlus, UtensilsCrossed, Layers } from 'lucide-vue-next'
 import { Switch } from '@/components/ui/switch'
 import { toast } from 'vue-sonner'
 import { getApiError } from '@/utils/errors'
@@ -117,6 +117,16 @@ function clearAddImage() {
   addImageFile.value = null
   addImagePreview.value = ''
   if (addImageInput.value) addImageInput.value.value = ''
+}
+
+function onAddImageInputChange(e: Event) {
+  const t = e.target as HTMLInputElement
+  if (t.files) onAddImageFiles(t.files)
+}
+
+function onEditImageInputChange(e: Event) {
+  const t = e.target as HTMLInputElement
+  if (t.files) onEditImageFiles(t.files)
 }
 
 // ── Add item form ──────────────────────────────────────────────────────────
@@ -318,6 +328,111 @@ async function handleDeleteItem() {
 function categoryLabel(cat?: MenuCategory) {
   return MENU_CATEGORIES.find(c => c.value === cat)?.label ?? '—'
 }
+
+// ── Buffet package helpers ─────────────────────────────────────────────────
+const BUFFET_TYPES = [
+  { value: 'breakfast', label: 'Breakfast'      },
+  { value: 'brunch',    label: 'Brunch'         },
+  { value: 'lunch',     label: 'Lunch'          },
+  { value: 'dinner',    label: 'Dinner'         },
+  { value: 'supper',    label: 'Supper'         },
+  { value: 'special',   label: "Chef's Special" },
+]
+
+const DISH_COURSES = [
+  { value: 'starters',  label: 'Starters' },
+  { value: 'mains',     label: 'Mains'    },
+  { value: 'sides',     label: 'Sides'    },
+  { value: 'desserts',  label: 'Desserts' },
+  { value: 'drinks',    label: 'Drinks'   },
+]
+
+interface BuffetDish { id: string; course: string; name: string }
+
+function parseBuffetData(item: MenuItem): { buffet_type?: string; min_covers?: number; note?: string; dishes?: { course: string; name: string }[] } | null {
+  if (item.category !== 'buffet' || !item.description) return null
+  try { return JSON.parse(item.description) } catch { return null }
+}
+
+// ── Item type toggle ────────────────────────────────────────────────────────
+const itemType = ref<'single' | 'buffet'>('single')
+
+function switchItemType(type: 'single' | 'buffet') {
+  itemType.value = type
+  resetItemForm()
+  resetBuffetForm()
+}
+
+// ── Buffet form ─────────────────────────────────────────────────────────────
+const buffetForm = ref({
+  name: '',
+  buffet_type: '',
+  price: '',
+  min_covers: '',
+  is_available: true,
+  note: '',
+  dishes: [] as BuffetDish[],
+})
+const buffetFormError = ref('')
+const savingBuffet = ref(false)
+
+function resetBuffetForm() {
+  buffetForm.value = { name: '', buffet_type: '', price: '', min_covers: '', is_available: true, note: '', dishes: [] }
+  buffetFormError.value = ''
+  clearAddImage()
+}
+
+function addDish() {
+  buffetForm.value.dishes.push({ id: crypto.randomUUID(), course: 'mains', name: '' })
+}
+
+function removeDish(id: string) {
+  buffetForm.value.dishes = buffetForm.value.dishes.filter(d => d.id !== id)
+}
+
+async function handleAddBuffet() {
+  buffetFormError.value = ''
+  const priceNum = parseFloat(buffetForm.value.price)
+  if (!buffetForm.value.name.trim())   { buffetFormError.value = 'Buffet name is required.'; return }
+  if (!buffetForm.value.buffet_type)   { buffetFormError.value = 'Select a buffet type.'; return }
+  if (isNaN(priceNum) || priceNum < 0) { buffetFormError.value = 'Enter a valid price per person.'; return }
+  if (!buffetForm.value.dishes.length) { buffetFormError.value = 'Add at least one dish.'; return }
+  if (buffetForm.value.dishes.some(d => !d.name.trim())) { buffetFormError.value = 'All dish names must be filled in.'; return }
+
+  savingBuffet.value = true
+  try {
+    const buffetData = {
+      buffet_type: buffetForm.value.buffet_type,
+      min_covers:  buffetForm.value.min_covers ? parseInt(buffetForm.value.min_covers) : undefined,
+      note:        buffetForm.value.note.trim() || undefined,
+      dishes:      buffetForm.value.dishes.map(d => ({ course: d.course, name: d.name.trim() })),
+    }
+
+    const item = await store.createMenuItem({
+      name:         buffetForm.value.name.trim(),
+      description:  JSON.stringify(buffetData),
+      price:        priceNum,
+      category:     'buffet',
+      is_available: buffetForm.value.is_available,
+    })
+
+    if (addImageFile.value) {
+      try {
+        const url = await uploadMenuItemImage(item.id, addImageFile.value)
+        await store.updateMenuItem(item.id, { image_url: url })
+      } catch {
+        toast.error('Buffet added but image upload failed.')
+      }
+    }
+
+    resetBuffetForm()
+    toast.success('Buffet package added to menu.')
+  } catch (err) {
+    buffetFormError.value = getApiError(err, 'Failed to add buffet.')
+  } finally {
+    savingBuffet.value = false
+  }
+}
 </script>
 
 <template>
@@ -343,123 +458,310 @@ function categoryLabel(cat?: MenuCategory) {
 
     <!-- ── Add Item Form ──────────────────────────────────────────────────── -->
       <div v-if="canWrite" class="rounded-xl border bg-card overflow-hidden">
-        <div class="px-6 py-4 border-b">
-          <h3 class="font-semibold text-base">Add Menu Item</h3>
-          <p class="text-sm text-muted-foreground mt-0.5">Populate your menu with a new culinary item.</p>
+        <div class="px-6 py-4 border-b flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <h3 class="font-semibold text-base">Add Menu Item</h3>
+            <p class="text-sm text-muted-foreground mt-0.5">
+              {{ itemType === 'single' ? 'Populate your menu with a new culinary item.' : 'Create a buffet package with multiple dishes.' }}
+            </p>
+          </div>
+          <div class="flex items-center gap-1 bg-muted rounded-lg p-1 shrink-0">
+            <button
+              class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
+              :class="itemType === 'single' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'"
+              @click="switchItemType('single')"
+            >Single Item</button>
+            <button
+              class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
+              :class="itemType === 'buffet' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'"
+              @click="switchItemType('buffet')"
+            >
+              <Layers class="size-3.5" />
+              Buffet Package
+            </button>
+          </div>
         </div>
 
         <div class="p-6">
-          <div v-if="itemFormError" class="mb-5 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-sm text-destructive">
-            {{ itemFormError }}
-          </div>
 
-          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <!-- Left: image upload -->
-            <div class="lg:col-span-4 flex flex-col gap-2">
-              <Label class="text-xs text-muted-foreground uppercase tracking-wider">Item Photo <span class="normal-case font-normal">(optional)</span></Label>
-
-              <!-- Preview -->
-              <div v-if="addImagePreview" class="relative group rounded-xl overflow-hidden border aspect-3/2 bg-muted">
-                <img :src="addImagePreview" alt="Preview" class="w-full h-full object-cover" />
-                <button
-                  type="button"
-                  class="absolute top-2 right-2 size-6 rounded-full bg-destructive/90 text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                  @click="clearAddImage"
-                >
-                  <X class="size-3" />
-                </button>
-              </div>
-
-              <!-- Drop zone -->
-              <div
-                v-else
-                class="relative rounded-xl border-2 border-dashed transition-colors cursor-pointer flex flex-col items-center justify-center gap-3 aspect-3/2"
-                :class="addImageDragging ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/40 bg-muted/20'"
-                @click="addImageInput?.click()"
-                @dragover.prevent="addImageDragging = true"
-                @dragleave="addImageDragging = false"
-                @drop.prevent="e => { addImageDragging = false; if (e.dataTransfer?.files) onAddImageFiles(e.dataTransfer.files) }"
-              >
-                <div class="size-12 rounded-xl bg-background flex items-center justify-center shadow-sm">
-                  <ImagePlus class="size-5 text-primary" />
-                </div>
-                <div class="text-center px-4">
-                  <p class="text-sm font-medium">Upload a clear photo</p>
-                  <p class="text-xs text-muted-foreground mt-1">Drag & drop or click to browse<br/>JPG, PNG, WebP · max 10 MB</p>
-                </div>
-              </div>
-
-              <input
-                ref="addImageInput"
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                class="hidden"
-                @change="e => { const t = e.target as HTMLInputElement; if (t.files) onAddImageFiles(t.files) }"
-              />
-              <p class="text-xs text-muted-foreground text-center">Recommended aspect ratio: 3:2</p>
+          <!-- ── Single Item Form ──────────────────────────────────────────── -->
+          <template v-if="itemType === 'single'">
+            <div v-if="itemFormError" class="mb-5 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-sm text-destructive">
+              {{ itemFormError }}
             </div>
 
-            <!-- Right: form fields -->
-            <div class="lg:col-span-8 flex flex-col gap-4">
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div class="grid gap-2">
-                  <Label>Item Name <span class="text-destructive">*</span></Label>
-                  <Input v-model="itemForm.name" placeholder="e.g. Grilled Lemon Herb Chicken" />
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <!-- Left: image upload -->
+              <div class="lg:col-span-4 flex flex-col gap-2">
+                <Label class="text-xs text-muted-foreground uppercase tracking-wider">Item Photo <span class="normal-case font-normal">(optional)</span></Label>
+
+                <div v-if="addImagePreview" class="relative group rounded-xl overflow-hidden border aspect-3/2 bg-muted">
+                  <img :src="addImagePreview" alt="Preview" class="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    class="absolute top-2 right-2 size-6 rounded-full bg-destructive/90 text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    @click="clearAddImage"
+                  >
+                    <X class="size-3" />
+                  </button>
                 </div>
+
+                <div
+                  v-else
+                  class="relative rounded-xl border-2 border-dashed transition-colors cursor-pointer flex flex-col items-center justify-center gap-3 aspect-3/2"
+                  :class="addImageDragging ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/40 bg-muted/20'"
+                  @click="addImageInput?.click()"
+                  @dragover.prevent="addImageDragging = true"
+                  @dragleave="addImageDragging = false"
+                  @drop.prevent="e => { addImageDragging = false; if (e.dataTransfer?.files) onAddImageFiles(e.dataTransfer.files) }"
+                >
+                  <div class="size-12 rounded-xl bg-background flex items-center justify-center shadow-sm">
+                    <ImagePlus class="size-5 text-primary" />
+                  </div>
+                  <div class="text-center px-4">
+                    <p class="text-sm font-medium">Upload a clear photo</p>
+                    <p class="text-xs text-muted-foreground mt-1">Drag & drop or click to browse<br/>JPG, PNG, WebP · max 10 MB</p>
+                  </div>
+                </div>
+
+                <input
+                  ref="addImageInput"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  class="hidden"
+                  @change="onAddImageInputChange"
+                />
+                <p class="text-xs text-muted-foreground text-center">Recommended aspect ratio: 3:2</p>
+              </div>
+
+              <!-- Right: form fields -->
+              <div class="lg:col-span-8 flex flex-col gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div class="grid gap-2">
+                    <Label>Item Name <span class="text-destructive">*</span></Label>
+                    <Input v-model="itemForm.name" placeholder="e.g. Grilled Lemon Herb Chicken" />
+                  </div>
+                  <div class="grid gap-2">
+                    <Label>Category</Label>
+                    <Select v-model="itemForm.category">
+                      <SelectTrigger class="w-full">
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem v-for="cat in MENU_CATEGORIES" :key="cat.value" :value="cat.value">
+                          {{ cat.label }}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div class="grid gap-2">
+                    <Label>Price (ZMW) <span class="text-destructive">*</span></Label>
+                    <Input v-model="itemForm.price" type="number" min="0" step="0.01" placeholder="0.00" />
+                  </div>
+                  <div class="grid gap-2">
+                    <Label>Availability</Label>
+                    <div class="flex items-center gap-3 h-9 px-3 rounded-md border bg-muted/20">
+                      <Switch
+                        :checked="itemForm.is_available"
+                        @update:checked="(v) => itemForm.is_available = v"
+                      />
+                      <span class="text-sm text-muted-foreground">{{ itemForm.is_available ? 'Available' : 'Unavailable' }}</span>
+                    </div>
+                  </div>
+                </div>
+
                 <div class="grid gap-2">
-                  <Label>Category</Label>
-                  <Select v-model="itemForm.category">
-                    <SelectTrigger class="w-full">
-                      <SelectValue placeholder="Select category" />
+                  <Label>Description <span class="text-muted-foreground text-xs font-normal">(optional)</span></Label>
+                  <textarea
+                    v-model="itemForm.description"
+                    rows="4"
+                    placeholder="Detail the unique flavors, ingredients, and preparation method…"
+                    class="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none"
+                  />
+                </div>
+
+                <div class="flex items-center justify-end gap-3 pt-2">
+                  <Button variant="outline" :disabled="savingItem" @click="resetItemForm">
+                    Discard
+                  </Button>
+                  <Button :disabled="savingItem || !itemForm.name.trim() || !itemForm.price" @click="handleAddItem">
+                    <Loader2 v-if="savingItem" class="size-4 mr-2 animate-spin" />
+                    <Plus v-else class="size-4 mr-2" />
+                    Add Item to Menu
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <!-- ── Buffet Package Form ────────────────────────────────────────── -->
+          <template v-else>
+            <div v-if="buffetFormError" class="mb-5 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-sm text-destructive">
+              {{ buffetFormError }}
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <!-- Left: image upload (shared ref) -->
+              <div class="lg:col-span-4 flex flex-col gap-2">
+                <Label class="text-xs text-muted-foreground uppercase tracking-wider">Buffet Photo <span class="normal-case font-normal">(optional)</span></Label>
+
+                <div v-if="addImagePreview" class="relative group rounded-xl overflow-hidden border aspect-3/2 bg-muted">
+                  <img :src="addImagePreview" alt="Preview" class="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    class="absolute top-2 right-2 size-6 rounded-full bg-destructive/90 text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    @click="clearAddImage"
+                  >
+                    <X class="size-3" />
+                  </button>
+                </div>
+
+                <div
+                  v-else
+                  class="relative rounded-xl border-2 border-dashed transition-colors cursor-pointer flex flex-col items-center justify-center gap-3 aspect-3/2"
+                  :class="addImageDragging ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/40 bg-muted/20'"
+                  @click="addImageInput?.click()"
+                  @dragover.prevent="addImageDragging = true"
+                  @dragleave="addImageDragging = false"
+                  @drop.prevent="e => { addImageDragging = false; if (e.dataTransfer?.files) onAddImageFiles(e.dataTransfer.files) }"
+                >
+                  <div class="size-12 rounded-xl bg-background flex items-center justify-center shadow-sm">
+                    <ImagePlus class="size-5 text-primary" />
+                  </div>
+                  <div class="text-center px-4">
+                    <p class="text-sm font-medium">Upload a buffet photo</p>
+                    <p class="text-xs text-muted-foreground mt-1">Drag & drop or click to browse<br/>JPG, PNG, WebP · max 10 MB</p>
+                  </div>
+                </div>
+
+                <input
+                  ref="addImageInput"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  class="hidden"
+                  @change="onAddImageInputChange"
+                />
+                <p class="text-xs text-muted-foreground text-center">Recommended aspect ratio: 3:2</p>
+              </div>
+
+              <!-- Right: buffet core fields -->
+              <div class="lg:col-span-8 flex flex-col gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div class="grid gap-2">
+                    <Label>Buffet Name <span class="text-destructive">*</span></Label>
+                    <Input v-model="buffetForm.name" placeholder="e.g. Executive Breakfast Buffet" />
+                  </div>
+                  <div class="grid gap-2">
+                    <Label>Buffet Type <span class="text-destructive">*</span></Label>
+                    <Select v-model="buffetForm.buffet_type">
+                      <SelectTrigger class="w-full">
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem v-for="bt in BUFFET_TYPES" :key="bt.value" :value="bt.value">
+                          {{ bt.label }}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div class="grid gap-2">
+                    <Label>Price / Person (ZMW) <span class="text-destructive">*</span></Label>
+                    <Input v-model="buffetForm.price" type="number" min="0" step="0.01" placeholder="0.00" />
+                  </div>
+                  <div class="grid gap-2">
+                    <Label>Min. Covers <span class="text-muted-foreground text-xs font-normal">(optional)</span></Label>
+                    <Input v-model="buffetForm.min_covers" type="number" min="1" placeholder="e.g. 10" />
+                  </div>
+                  <div class="grid gap-2">
+                    <Label>Availability</Label>
+                    <div class="flex items-center gap-3 h-9 px-3 rounded-md border bg-muted/20">
+                      <Switch
+                        :checked="buffetForm.is_available"
+                        @update:checked="(v) => buffetForm.is_available = v"
+                      />
+                      <span class="text-sm text-muted-foreground">{{ buffetForm.is_available ? 'Available' : 'Unavailable' }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="grid gap-2">
+                  <Label>Description <span class="text-muted-foreground text-xs font-normal">(optional)</span></Label>
+                  <textarea
+                    v-model="buffetForm.note"
+                    rows="2"
+                    placeholder="e.g. A sumptuous spread ideal for morning meetings and group celebrations…"
+                    class="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- Dishes section -->
+            <div class="mt-6 border-t pt-6">
+              <div class="flex items-center justify-between mb-4">
+                <div>
+                  <p class="font-medium text-sm">Dishes Included</p>
+                  <p class="text-xs text-muted-foreground mt-0.5">Add every dish that forms part of this buffet.</p>
+                </div>
+                <Button variant="outline" size="sm" @click="addDish">
+                  <Plus class="size-3.5 mr-1.5" />
+                  Add Dish
+                </Button>
+              </div>
+
+              <div v-if="buffetForm.dishes.length === 0" class="rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center py-10 text-muted-foreground/60 gap-3">
+                <UtensilsCrossed class="size-8" />
+                <p class="text-sm">No dishes added yet</p>
+                <Button variant="outline" size="sm" @click="addDish">
+                  <Plus class="size-3.5 mr-1.5" />
+                  Add First Dish
+                </Button>
+              </div>
+
+              <div v-else class="flex flex-col gap-2">
+                <div v-for="dish in buffetForm.dishes" :key="dish.id" class="flex items-center gap-3">
+                  <Select v-model="dish.course">
+                    <SelectTrigger class="h-9 w-36 shrink-0">
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem v-for="cat in MENU_CATEGORIES" :key="cat.value" :value="cat.value">
-                        {{ cat.label }}
+                      <SelectItem v-for="c in DISH_COURSES" :key="c.value" :value="c.value">
+                        {{ c.label }}
                       </SelectItem>
                     </SelectContent>
                   </Select>
+                  <Input v-model="dish.name" placeholder="Dish name e.g. Scrambled Eggs with Chives" class="h-9 flex-1" />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    class="size-9 shrink-0 text-muted-foreground hover:text-destructive"
+                    @click="removeDish(dish.id)"
+                  >
+                    <X class="size-4" />
+                  </Button>
                 </div>
-              </div>
-
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div class="grid gap-2">
-                  <Label>Price (ZMW) <span class="text-destructive">*</span></Label>
-                  <Input v-model="itemForm.price" type="number" min="0" step="0.01" placeholder="0.00" />
-                </div>
-                <div class="grid gap-2">
-                  <Label>Availability</Label>
-                  <div class="flex items-center gap-3 h-9 px-3 rounded-md border bg-muted/20">
-                    <Switch
-                      :checked="itemForm.is_available"
-                      @update:checked="(v: boolean) => itemForm.is_available = v"
-                    />
-                    <span class="text-sm text-muted-foreground">{{ itemForm.is_available ? 'Available' : 'Unavailable' }}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div class="grid gap-2">
-                <Label>Description <span class="text-muted-foreground text-xs font-normal">(optional)</span></Label>
-                <textarea
-                  v-model="itemForm.description"
-                  rows="4"
-                  placeholder="Detail the unique flavors, ingredients, and preparation method…"
-                  class="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none"
-                />
-              </div>
-
-              <div class="flex items-center justify-end gap-3 pt-2">
-                <Button variant="outline" :disabled="savingItem" @click="resetItemForm">
-                  Discard
-                </Button>
-                <Button :disabled="savingItem || !itemForm.name.trim() || !itemForm.price" @click="handleAddItem">
-                  <Loader2 v-if="savingItem" class="size-4 mr-2 animate-spin" />
-                  <Plus v-else class="size-4 mr-2" />
-                  Add Item to Menu
-                </Button>
               </div>
             </div>
-          </div>
+
+            <div class="flex items-center justify-end gap-3 pt-6 mt-4 border-t">
+              <Button variant="outline" :disabled="savingBuffet" @click="resetBuffetForm">Discard</Button>
+              <Button
+                :disabled="savingBuffet || !buffetForm.name.trim() || !buffetForm.price || !buffetForm.buffet_type || !buffetForm.dishes.length"
+                @click="handleAddBuffet"
+              >
+                <Loader2 v-if="savingBuffet" class="size-4 mr-2 animate-spin" />
+                <Plus v-else class="size-4 mr-2" />
+                Add Buffet to Menu
+              </Button>
+            </div>
+          </template>
+
         </div>
       </div>
 
@@ -525,15 +827,31 @@ function categoryLabel(cat?: MenuCategory) {
                     </TableCell>
                     <TableCell>
                       <p class="font-medium text-sm">{{ item.name }}</p>
-                      <p v-if="item.description" class="text-xs text-muted-foreground mt-0.5 line-clamp-1">{{ item.description }}</p>
+                      <template v-if="item.category === 'buffet'">
+                        <p class="text-xs text-muted-foreground mt-0.5">
+                          {{ parseBuffetData(item)?.dishes?.length ?? 0 }} dish{{ (parseBuffetData(item)?.dishes?.length ?? 0) === 1 ? '' : 'es' }}
+                          · {{ BUFFET_TYPES.find(t => t.value === parseBuffetData(item)?.buffet_type)?.label ?? 'Buffet' }}
+                        </p>
+                      </template>
+                      <p v-else-if="item.description" class="text-xs text-muted-foreground mt-0.5 line-clamp-1">{{ item.description }}</p>
                     </TableCell>
                     <TableCell>
-                      <span v-if="item.category" class="inline-block px-2 py-0.5 bg-muted text-muted-foreground rounded text-xs font-medium uppercase tracking-tight">
+                      <span
+                        v-if="item.category === 'buffet'"
+                        class="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300 rounded text-xs font-medium"
+                      >
+                        <Layers class="size-3" />
+                        Buffet
+                      </span>
+                      <span v-else-if="item.category" class="inline-block px-2 py-0.5 bg-muted text-muted-foreground rounded text-xs font-medium uppercase tracking-tight">
                         {{ categoryLabel(item.category) }}
                       </span>
                       <span v-else class="text-muted-foreground text-sm">—</span>
                     </TableCell>
-                    <TableCell class="font-medium text-sm">ZMW {{ item.price.toLocaleString() }}</TableCell>
+                    <TableCell class="font-medium text-sm">
+                      ZMW {{ item.price.toLocaleString() }}
+                      <span v-if="item.category === 'buffet'" class="text-xs text-muted-foreground font-normal">/person</span>
+                    </TableCell>
                     <TableCell>
                       <Badge :variant="item.is_available ? 'default' : 'secondary'" class="text-xs">
                         {{ item.is_available ? 'Available' : 'Sold Out' }}
@@ -572,7 +890,7 @@ function categoryLabel(cat?: MenuCategory) {
                         type="file"
                         accept="image/jpeg,image/png,image/webp"
                         class="hidden"
-                        @change="e => { const t = e.target as HTMLInputElement; if (t.files) onEditImageFiles(t.files) }"
+                        @change="onEditImageInputChange"
                       />
                     </TableCell>
                     <TableCell class="pt-3">
