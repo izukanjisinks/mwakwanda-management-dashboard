@@ -61,6 +61,8 @@ export interface OrderItem {
   id: string
   order_id: string
   menu_item_id: string
+  attendee_id?: string
+  attendee_name?: string
   menu_item?: MenuItem
   item_name?: string
   quantity: number
@@ -81,7 +83,10 @@ export interface Order {
   room_name?: string
   client_name?: string
   company_name?: string
-  attendee_name?: string
+  attendee_name?: string  // lead contact name for meal session orders
+  scheduled_for?: string
+  meal_period?: string
+  serving_time?: string
   type: 'in_house' | 'walk_in'
   status?: 'open' | 'closed'
   notes?: string

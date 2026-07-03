@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
+import type { OrderItem } from '@/types/menu'
 import { Plus, Minus, ChevronLeft, ChevronRight, ShoppingBag, Trash2, X, FileText } from 'lucide-vue-next'
 import { useMenusStore } from '@/stores/menus'
 import { useBranchFilterStore } from '@/stores/branchFilter'
@@ -148,6 +149,25 @@ async function removeItem(itemId: string) {
   }
 }
 
+// Group order items by attendee for meal session orders.
+// Items without an attendee_id are returned under the key '' (buffet/shared).
+const groupedItems = computed<{ label: string; key: string; items: OrderItem[] }[]>(() => {
+  if (!sheetOrder.value?.items?.length) return []
+  const items = sheetOrder.value.items
+  const hasAttendees = items.some(i => i.attendee_id)
+  if (!hasAttendees) return []
+
+  const map = new Map<string, { label: string; key: string; items: OrderItem[] }>()
+  for (const item of items) {
+    const key = item.attendee_id ?? ''
+    if (!map.has(key)) {
+      map.set(key, { key, label: item.attendee_name || (key ? `Attendee (${key.slice(0, 6)})` : 'Shared / Buffet'), items: [] })
+    }
+    map.get(key)!.items.push(item)
+  }
+  return [...map.values()]
+})
+
 async function updateQuantity(itemId: string, newQty: number) {
   if (!sheetOrder.value || newQty < 1) return
   updatingItemId.value = itemId
@@ -285,10 +305,11 @@ async function updateQuantity(itemId: string, newQty: number) {
               </Badge>
             </TableCell>
             <TableCell>
-              <div v-if="order.client_name" class="text-sm font-medium truncate">{{ order.client_name }}</div>
+              <div v-if="order.attendee_name" class="text-sm font-medium truncate">{{ order.attendee_name }}</div>
+              <div v-else-if="order.client_name" class="text-sm font-medium truncate">{{ order.client_name }}</div>
               <div v-if="order.company_name && order.company_name !== order.client_name" class="text-xs text-muted-foreground mt-0.5 truncate">{{ order.company_name }}</div>
               <div v-if="order.room_name" class="text-xs text-muted-foreground mt-0.5 truncate">{{ order.room_name }}</div>
-              <div v-if="!order.client_name && !order.room_name" class="text-sm text-muted-foreground">—</div>
+              <div v-if="!order.attendee_name && !order.client_name && !order.room_name" class="text-sm text-muted-foreground">—</div>
             </TableCell>
             <TableCell class="font-mono text-sm text-muted-foreground">{{ order.booking_number ?? '—' }}</TableCell>
             <TableCell class="font-semibold text-sm">ZMW {{ (order.total ?? 0).toLocaleString() }}</TableCell>
@@ -361,12 +382,16 @@ async function updateQuantity(itemId: string, newQty: number) {
         <template v-else-if="sheetOrder">
           <!-- Guest info card (in-house only) -->
           <div
-            v-if="sheetOrder.type === 'in_house' && (sheetOrder.client_name || sheetOrder.room_name || sheetOrder.booking_number)"
+            v-if="sheetOrder.type === 'in_house' && (sheetOrder.attendee_name || sheetOrder.client_name || sheetOrder.room_name || sheetOrder.booking_number)"
             class="rounded-xl border px-4 py-3.5 flex flex-col gap-2"
           >
             <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Guest</p>
             <div class="flex flex-col gap-1.5 text-sm">
-              <div v-if="sheetOrder.client_name" class="flex justify-between">
+              <div v-if="sheetOrder.attendee_name" class="flex justify-between">
+                <span class="text-muted-foreground">Lead</span>
+                <span class="font-medium">{{ sheetOrder.attendee_name }}</span>
+              </div>
+              <div v-if="sheetOrder.client_name && sheetOrder.client_name !== sheetOrder.attendee_name" class="flex justify-between">
                 <span class="text-muted-foreground">Name</span>
                 <span class="font-medium">{{ sheetOrder.client_name }}</span>
               </div>
@@ -385,16 +410,78 @@ async function updateQuantity(itemId: string, newQty: number) {
             </div>
           </div>
 
+          <!-- Meal session info -->
+          <div
+            v-if="sheetOrder.meal_period || sheetOrder.scheduled_for || sheetOrder.serving_time"
+            class="rounded-xl border px-4 py-3.5 flex flex-col gap-2"
+          >
+            <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Meal Session</p>
+            <div class="flex flex-col gap-1.5 text-sm">
+              <div v-if="sheetOrder.meal_period" class="flex justify-between">
+                <span class="text-muted-foreground">Period</span>
+                <span class="font-medium capitalize">{{ sheetOrder.meal_period }}</span>
+              </div>
+              <div v-if="sheetOrder.scheduled_for" class="flex justify-between">
+                <span class="text-muted-foreground">Date</span>
+                <span class="font-medium">{{ new Date(sheetOrder.scheduled_for).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) }}</span>
+              </div>
+              <div v-if="sheetOrder.serving_time" class="flex justify-between">
+                <span class="text-muted-foreground">Serving time</span>
+                <span class="font-medium">{{ sheetOrder.serving_time }}</span>
+              </div>
+            </div>
+          </div>
+
           <!-- Notes -->
           <div v-if="sheetOrder.notes" class="text-sm flex justify-between">
             <span class="text-muted-foreground">Notes</span>
             <span class="text-right max-w-xs">{{ sheetOrder.notes }}</span>
           </div>
 
-          <!-- Items -->
+          <!-- Items — grouped by attendee when available, flat otherwise -->
           <div>
             <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Items</p>
-            <div class="flex flex-col gap-2">
+
+            <!-- Grouped layout (meal session orders with per-attendee items) -->
+            <template v-if="groupedItems.length > 0">
+              <div v-for="group in groupedItems" :key="group.key" class="mb-4 last:mb-0">
+                <p class="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
+                  <span class="inline-block size-1.5 rounded-full bg-muted-foreground/50" />
+                  {{ group.label }}
+                </p>
+                <div class="flex flex-col gap-2">
+                  <div
+                    v-for="oi in group.items"
+                    :key="oi.id"
+                    class="rounded-lg border bg-card px-4 py-3 flex items-center gap-3"
+                  >
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm font-medium">{{ oi.item_name ?? oi.menu_item?.name ?? `Item ${oi.menu_item_id.slice(0, 8)}` }}</p>
+                      <p v-if="oi.notes" class="text-xs text-muted-foreground">{{ oi.notes }}</p>
+                    </div>
+                    <div class="text-right shrink-0">
+                      <p class="text-sm font-semibold">ZMW {{ (oi.subtotal ?? oi.total ?? 0).toLocaleString() }}</p>
+                      <p class="text-xs text-muted-foreground">× {{ oi.quantity }} @ ZMW {{ (oi.unit_price ?? 0).toLocaleString() }}</p>
+                    </div>
+                    <button
+                      type="button"
+                      class="shrink-0 size-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                      :disabled="removingItemId === oi.id || updatingItemId === oi.id"
+                      @click.stop="removeItem(oi.id)"
+                    >
+                      <Trash2 v-if="removingItemId !== oi.id" class="size-3.5" />
+                      <svg v-else class="size-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </template>
+
+            <!-- Flat layout (walk-in / non-meal orders) -->
+            <div v-else class="flex flex-col gap-2">
               <div
                 v-for="oi in sheetOrder.items"
                 :key="oi.id"
