@@ -63,6 +63,8 @@ export interface OrderItem {
   menu_item_id: string
   menu_item?: MenuItem
   item_name?: string
+  attendee_id?: string
+  attendee_name?: string
   quantity: number
   unit_price?: number
   subtotal?: number
@@ -86,6 +88,9 @@ export interface Order {
   status?: 'open' | 'closed'
   notes?: string
   total?: number
+  meal_period?: string
+  serving_time?: string
+  scheduled_for?: string
   items: OrderItem[]
   created_at: string
   updated_at: string

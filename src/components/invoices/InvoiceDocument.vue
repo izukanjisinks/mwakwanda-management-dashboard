@@ -56,10 +56,17 @@ interface DisplayItem {
   id: string
   itemNo: number
   description: string
-  bookingTypeLabel: string
   quantity: number
   unit_price: number
   total: number
+}
+
+interface BookingTypeGroup {
+  typeKey: string
+  label: string
+  accentColor: string
+  subtotal: number
+  items: DisplayItem[]
 }
 
 interface AttendeeGroup {
@@ -67,14 +74,14 @@ interface AttendeeGroup {
   name: string
   reference: string
   total: number
-  items: DisplayItem[]
+  bookingTypes: BookingTypeGroup[]
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  accommodation: 'Accommodation',
-  meals: 'Meals',
-  event: 'Events',
-  general: 'General',
+const TYPE_CONFIG: Record<string, { label: string; accentColor: string }> = {
+  accommodation: { label: 'Accommodation', accentColor: '#92400e' },
+  meals:         { label: 'Meals',         accentColor: '#b45309' },
+  event:         { label: 'Event',         accentColor: '#1d4ed8' },
+  general:       { label: 'General',       accentColor: '#57534e' },
 }
 
 function parseDescription(raw: string): { name: string; description: string; bookingType: string } {
@@ -121,22 +128,41 @@ const groupedLineItems = computed((): AttendeeGroup[] => {
     }
 
     if (!attendeeMap.has(attendeeKey)) {
-      attendeeMap.set(attendeeKey, { key: attendeeKey, name: attendeeName, reference, total: 0, items: [] })
+      attendeeMap.set(attendeeKey, { key: attendeeKey, name: attendeeName, reference, total: 0, bookingTypes: [] })
     }
     const group = attendeeMap.get(attendeeKey)!
     group.total += item.total
-    group.items.push({
-      id: item.id,
-      itemNo,
-      description,
-      bookingTypeLabel: TYPE_LABELS[bookingType] ?? bookingType,
-      quantity: item.quantity,
-      unit_price: item.unit_price,
-      total: item.total,
-    })
+
+    let typeGroup = group.bookingTypes.find(bt => bt.typeKey === bookingType)
+    if (!typeGroup) {
+      const cfg = TYPE_CONFIG[bookingType] ?? { label: bookingType, accentColor: '#57534e' }
+      typeGroup = { typeKey: bookingType, label: cfg.label, accentColor: cfg.accentColor, subtotal: 0, items: [] }
+      group.bookingTypes.push(typeGroup)
+    }
+    typeGroup.subtotal += item.total
+    typeGroup.items.push({ id: item.id, itemNo, description, quantity: item.quantity, unit_price: item.unit_price, total: item.total })
   }
 
   return [...attendeeMap.values()]
+})
+
+// ── Invoice scenario detection ────────────────────────────────────────────────
+const invoiceScenario = computed<'accommodation' | 'meals' | 'event' | 'general'>(() => {
+  const types = new Set(props.invoice.line_items.map(li => li.booking_type).filter(Boolean))
+  if (types.has('accommodation')) return 'accommodation'
+  if (types.has('event')) return 'event'
+  if (types.has('meals')) return 'meals'
+  return 'general'
+})
+
+const scenarioConfig = computed(() => {
+  const configs = {
+    accommodation: { label: 'Accommodation & Meals Invoice', bgColor: '#292524', textColor: '#fde68a' },
+    meals:         { label: 'Meals Invoice',                 bgColor: '#fff7ed', textColor: '#9a3412' },
+    event:         { label: 'Event Invoice',                 bgColor: '#eff6ff', textColor: '#1d4ed8' },
+    general:       { label: 'Invoice',                       bgColor: '#fafaf9', textColor: '#57534e' },
+  } as const
+  return configs[invoiceScenario.value]
 })
 
 function fmt(amount: number) {
@@ -246,6 +272,18 @@ const s = {
   // Footer
   footer: { position: 'absolute', bottom: 30, left: 48, right: 48, borderTopWidth: 1, borderTopColor: '#e7e5e4', paddingTop: 8, flexDirection: 'row', justifyContent: 'space-between' } as Style,
   footerText: { fontSize: 8, color: '#a8a29e' } as Style,
+
+  // Scenario banner
+  scenarioBanner: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 4, marginBottom: 14 } as Style,
+  scenarioBannerText: { fontSize: 9, fontFamily: 'Helvetica-Bold', textTransform: 'uppercase', letterSpacing: 0.6 } as Style,
+  // Booking type sub-header (within attendee group, shown when attendee has multiple types)
+  typeSubHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 5, marginTop: 1, borderLeftWidth: 3 } as Style,
+  typeSubLabel: { flex: 1, fontSize: 7, fontFamily: 'Helvetica-Bold', textTransform: 'uppercase', letterSpacing: 0.5 } as Style,
+  typeSubTotal: { width: 80, textAlign: 'right', fontSize: 8, fontFamily: 'Helvetica-Bold' } as Style,
+  // Meal purpose box (shown before items for meals invoices)
+  mealPurposeBox: { padding: 10, backgroundColor: '#fff7ed', borderRadius: 4, borderLeftWidth: 3, borderLeftColor: '#f97316', marginBottom: 12 } as Style,
+  mealPurposeLabel: { fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#9a3412', textTransform: 'uppercase', marginBottom: 3 } as Style,
+  mealPurposeText: { fontSize: 9, color: '#7c2d12', lineHeight: 1.4 } as Style,
 }
 </script>
 
@@ -445,6 +483,17 @@ const s = {
         </View>
       </template>
 
+      <!-- Scenario banner -->
+      <View :style="[s.scenarioBanner, { backgroundColor: scenarioConfig.bgColor }]">
+        <Text :style="[s.scenarioBannerText, { color: scenarioConfig.textColor }]">{{ scenarioConfig.label }}</Text>
+      </View>
+
+      <!-- Meals: Purpose of Meal shown prominently before items -->
+      <View v-if="invoiceScenario === 'meals' && invoice.meal_purpose" :style="s.mealPurposeBox">
+        <Text :style="s.mealPurposeLabel">Purpose of Meal</Text>
+        <Text :style="s.mealPurposeText">{{ invoice.meal_purpose }}</Text>
+      </View>
+
       <!-- Line items table header -->
       <View :style="s.tableHeader">
         <Text :style="s.thNo">Item No.</Text>
@@ -454,7 +503,7 @@ const s = {
         <Text :style="s.thTotal">Total</Text>
       </View>
 
-      <!-- Person groups with individual item rows (always expanded in PDF) -->
+      <!-- Person groups → booking type sub-groups → items -->
       <View v-for="group in groupedLineItems" :key="group.key">
         <!-- Person subheader -->
         <View :style="s.attendeeRow">
@@ -462,27 +511,39 @@ const s = {
           <Text v-if="group.reference" :style="s.attendeeRefText">({{ group.reference }})</Text>
           <Text :style="s.attendeeTotalText">{{ fmt(group.total) }}</Text>
         </View>
-        <!-- Item rows: description + booking type label below, qty, unit price, total -->
-        <View
-          v-for="(item, i) in group.items"
-          :key="item.id || item.itemNo"
-          :style="i % 2 === 0 ? s.itemRow : s.itemAltRow"
-        >
-          <View :style="s.itemNoCol">
-            <Text :style="s.itemNoText">{{ item.itemNo }}</Text>
+
+        <!-- Booking type sub-groups -->
+        <View v-for="typeGroup in group.bookingTypes" :key="typeGroup.typeKey">
+          <!-- Sub-group header — only shown when attendee has multiple booking types -->
+          <View
+            v-if="group.bookingTypes.length > 1"
+            :style="[s.typeSubHeader, { borderLeftColor: typeGroup.accentColor, backgroundColor: '#f5f5f4' }]"
+          >
+            <Text :style="[s.typeSubLabel, { color: typeGroup.accentColor }]">{{ typeGroup.label }}</Text>
+            <Text :style="[s.typeSubTotal, { color: typeGroup.accentColor }]">{{ fmt(typeGroup.subtotal) }}</Text>
           </View>
-          <View :style="s.itemDescCol">
-            <Text :style="s.itemDescText">{{ item.description }}</Text>
-            <Text :style="s.itemTypeText">{{ item.bookingTypeLabel }}</Text>
-          </View>
-          <View :style="s.itemQtyCol">
-            <Text :style="s.itemQtyText">{{ item.quantity }}</Text>
-          </View>
-          <View :style="s.itemUnitCol">
-            <Text :style="s.itemUnitText">{{ fmt(item.unit_price) }}</Text>
-          </View>
-          <View :style="s.itemTotalCol">
-            <Text :style="s.itemTotalText">{{ fmt(item.total) }}</Text>
+
+          <!-- Item rows -->
+          <View
+            v-for="(item, i) in typeGroup.items"
+            :key="item.id || item.itemNo"
+            :style="i % 2 === 0 ? s.itemRow : s.itemAltRow"
+          >
+            <View :style="s.itemNoCol">
+              <Text :style="s.itemNoText">{{ item.itemNo }}</Text>
+            </View>
+            <View :style="s.itemDescCol">
+              <Text :style="s.itemDescText">{{ item.description }}</Text>
+            </View>
+            <View :style="s.itemQtyCol">
+              <Text :style="s.itemQtyText">{{ item.quantity }}</Text>
+            </View>
+            <View :style="s.itemUnitCol">
+              <Text :style="s.itemUnitText">{{ fmt(item.unit_price) }}</Text>
+            </View>
+            <View :style="s.itemTotalCol">
+              <Text :style="s.itemTotalText">{{ fmt(item.total) }}</Text>
+            </View>
           </View>
         </View>
       </View>
@@ -505,8 +566,8 @@ const s = {
         </View>
       </View>
 
-      <!-- Meal purpose -->
-      <View v-if="invoice.meal_purpose" :style="[s.notesSection, { borderLeftColor: '#d97706', backgroundColor: '#fffbeb' }]">
+      <!-- Meal purpose (after totals for non-meals invoices; meals invoices show it before items above) -->
+      <View v-if="invoiceScenario !== 'meals' && invoice.meal_purpose" :style="[s.notesSection, { borderLeftColor: '#d97706', backgroundColor: '#fffbeb' }]">
         <Text :style="s.notesLabel">Purpose of Meal</Text>
         <Text :style="s.notesText">{{ invoice.meal_purpose }}</Text>
       </View>

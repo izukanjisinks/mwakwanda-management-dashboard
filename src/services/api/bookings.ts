@@ -3,6 +3,7 @@ import { downloadFile } from './download'
 import type {
   Booking, BookingStatusUpdate, PaginatedBookings,
   BookingRoomAssignment, BookingAttendee, CreateIndividualBookingPayload,
+  CreateIndividualEventBookingPayload,
 } from '@/types/booking'
 
 export interface BookingListParams extends Record<string, string | number | boolean | undefined> {
@@ -40,6 +41,9 @@ export const bookingApi = {
 
   createIndividual: (payload: CreateIndividualBookingPayload) =>
     apiClient.post<Booking>('/bookings/individual', payload),
+
+  createIndividualEvent: (payload: CreateIndividualEventBookingPayload) =>
+    apiClient.post<Booking>('/bookings/individual/event', payload),
 
   updateStatus: (id: string, payload: BookingStatusUpdate) =>
     apiClient.put<Booking>(`/bookings/${id}/status`, payload),

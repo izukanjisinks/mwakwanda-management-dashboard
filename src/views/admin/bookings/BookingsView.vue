@@ -758,6 +758,21 @@ function syncRowStatus(id: string, status: BookingStatus) {
                   </div>
                 </div>
 
+                <!-- Actual check-in/out times (recorded when staff press the buttons) -->
+                <div
+                  v-if="row.assignment && (row.assignment.checked_in_at || row.assignment.checked_out_at)"
+                  class="flex flex-col gap-0.5 text-xs"
+                >
+                  <div v-if="row.assignment.checked_in_at" class="flex items-center gap-1.5 text-emerald-600">
+                    <LogIn class="size-3.5" />
+                    Checked in {{ fmtDateTime(row.assignment.checked_in_at) }}
+                  </div>
+                  <div v-if="row.assignment.checked_out_at" class="flex items-center gap-1.5 text-muted-foreground">
+                    <LogOut class="size-3.5" />
+                    Checked out {{ fmtDateTime(row.assignment.checked_out_at) }}
+                  </div>
+                </div>
+
                 <!-- Per-room actions (require a confirmed assignment in the system) -->
                 <div v-if="row.assignment" class="flex gap-2">
                   <Button
