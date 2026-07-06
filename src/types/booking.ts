@@ -118,6 +118,7 @@ export interface CreateIndividualEventBookingPayload {
   end_date: string     // YYYY-MM-DD
   start_time?: string  // HH:MM
   end_time?: string    // HH:MM
+  setup_type?: string
   pax_count: number
   catering_required: boolean
   special_requests?: string
