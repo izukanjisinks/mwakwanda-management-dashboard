@@ -111,19 +111,33 @@ const booker = ref({ name: '', email: '', phone: '', id_number: '', job_title: '
 // ── Approver (corporate) ──────────────────────────────────────────────────────
 const approver = ref({ name: '', title: '', email: '', phone: '' })
 
-// ── Attendants / Delegates / Additional Guests ────────────────────────────────
+// ── Attendants / Delegates / Guests ──────────────────────────────────────────
+// For individual: always starts with 1 lead contact (index 0, can't be removed).
+// For corporate:  starts empty; delegates added as needed.
 type Attendant = { name: string; email: string; phone: string; id_number: string; job_title: string }
-const attendants         = ref<Attendant[]>([])
-const attendantsExpanded = ref(false)
+const attendants         = ref<Attendant[]>([{ name: '', email: '', phone: '', id_number: '', job_title: '' }])
+const attendantsExpanded = ref(true)
 
 function addAttendant() {
   attendants.value.push({ name: '', email: '', phone: '', id_number: '', job_title: '' })
   attendantsExpanded.value = true
 }
 function removeAttendant(i: number) {
+  if (!isCorporate.value && i === 0) return  // lead contact cannot be removed for individual
   attendants.value.splice(i, 1)
   if (attendants.value.length === 0) attendantsExpanded.value = false
 }
+
+// Re-initialise attendants when context switches
+watch(context, (ctx) => {
+  if (ctx === 'individual') {
+    attendants.value = [{ name: '', email: '', phone: '', id_number: '', job_title: '' }]
+    attendantsExpanded.value = true
+  } else {
+    attendants.value = []
+    attendantsExpanded.value = false
+  }
+})
 
 // ── Accommodation form ────────────────────────────────────────────────────────
 const acc = ref({ check_in: '', check_out: '', room_id: '', special_requests: '' })
@@ -246,8 +260,8 @@ function reset() {
   company.value     = { name: '', tpin: '', industry: '', email: '', phone: '', branch: '', department: '', cost_center_type: 'cost_center', cost_center: '', gl_code: '' }
   booker.value      = { name: '', email: '', phone: '', id_number: '', job_title: '', man_number: '' }
   approver.value    = { name: '', title: '', email: '', phone: '' }
-  attendants.value  = []
-  attendantsExpanded.value = false
+  attendants.value  = [{ name: '', email: '', phone: '', id_number: '', job_title: '' }]
+  attendantsExpanded.value = true
   acc.value = { check_in: '', check_out: '', room_id: '', special_requests: '' }
   evt.value = { event_type: '', venue_id: '', start_date: '', end_date: '', start_time: '', end_time: '', setup_type: '', pax_count: '', catering_required: false, notes: '' }
   rooms.value  = []
@@ -259,11 +273,16 @@ watch(() => props.open, (isOpen) => { if (isOpen) reset() })
 // ── Serialize corporate data into special_requests ────────────────────────────
 function buildNotes(baseNotes: string) {
   if (!isCorporate.value) {
-    const extra = attendants.value
-      .filter(a => a.name.trim())
-      .map((a, i) => `Guest ${i + 2}: ${a.name}${a.id_number ? ` (ID: ${a.id_number})` : ''}${a.phone ? ` · ${a.phone}` : ''}`)
+    const guests = attendants.value.filter(a => a.name.trim())
     const parts: string[] = []
-    if (extra.length) parts.push(`Additional guests:\n${extra.join('\n')}`)
+    if (guests.length > 0) {
+      const guestLines = guests.map((g, i) => {
+        const label   = i === 0 ? 'Lead Guest' : `Guest ${i + 1}`
+        const details = [g.id_number ? `ID: ${g.id_number}` : null, g.email || null, g.phone || null].filter(Boolean).join(' · ')
+        return `${label}: ${g.name}${details ? ` (${details})` : ''}`
+      })
+      parts.push(`Guests:\n${guestLines.join('\n')}`)
+    }
     if (baseNotes.trim()) parts.push(baseNotes.trim())
     return parts.join('\n\n') || undefined
   }
@@ -311,7 +330,10 @@ async function handleSubmit() {
   const bookerName  = isCorporate.value ? (booker.value.name.trim() || company.value.name.trim()) : booker.value.name.trim()
   const bookerEmail = booker.value.email.trim() || undefined
   const bookerPhone = booker.value.phone.trim() || undefined
-  const bookerId    = booker.value.id_number.trim() || undefined
+  // For individual: lead guest's ID (attendants[0]). For corporate: unused.
+  const bookerId    = !isCorporate.value
+    ? (attendants.value[0]?.id_number.trim() || undefined)
+    : undefined
   try {
     let booking: Booking
     if (bookingType.value === 'accommodation') {
@@ -554,13 +576,13 @@ async function handleSubmit() {
         <!-- ═══════════ INDIVIDUAL SECTIONS ══════════════════════════════ -->
         <template v-else>
 
-          <!-- ─── Lead Guest ─── -->
+          <!-- ─── Booked By (individual) ─── -->
           <div class="rounded-xl border p-5 flex flex-col gap-4">
             <div class="flex items-center gap-2.5">
               <User class="size-4 text-muted-foreground" />
               <div>
-                <p class="text-sm font-semibold">{{ bookingType === 'accommodation' ? 'Lead Guest' : 'Contact Person' }}</p>
-                <p class="text-xs text-muted-foreground">Primary contact who receives all booking communications</p>
+                <p class="text-sm font-semibold">Booked By</p>
+                <p class="text-xs text-muted-foreground">Person making this booking — receives all booking communications</p>
               </div>
             </div>
             <div class="grid grid-cols-2 gap-3">
@@ -569,100 +591,164 @@ async function handleSubmit() {
                 <Input v-model="booker.name" placeholder="e.g. Grace Zulu" class="mt-1.5" />
               </div>
               <div>
-                <Label class="text-xs">Email Address</Label>
+                <Label class="text-xs">Email Address <span class="text-destructive">*</span></Label>
                 <Input v-model="booker.email" type="email" placeholder="guest@email.com" class="mt-1.5" />
               </div>
               <div>
                 <Label class="text-xs">Phone Number</Label>
                 <Input v-model="booker.phone" placeholder="e.g. 0977 000 000" class="mt-1.5" />
               </div>
-              <div class="col-span-2">
-                <Label class="text-xs">Passport / NRC Number</Label>
-                <Input v-model="booker.id_number" placeholder="Passport or ID number" class="mt-1.5" />
+            </div>
+          </div>
+
+          <!-- ─── Guests (individual) ─── -->
+          <div class="rounded-xl border overflow-hidden">
+            <button type="button"
+              class="w-full flex items-center justify-between gap-3 px-5 py-4 hover:bg-muted/30 transition-colors text-left"
+              @click="attendantsExpanded = !attendantsExpanded">
+              <div class="flex items-center gap-2.5">
+                <Users class="size-4 text-muted-foreground shrink-0" />
+                <p class="text-sm font-semibold">Guests</p>
               </div>
+              <ChevronDown class="size-4 text-muted-foreground transition-transform duration-200" :class="attendantsExpanded && 'rotate-180'" />
+            </button>
+
+            <div v-if="attendantsExpanded" class="px-5 pb-5 border-t flex flex-col gap-3 pt-4">
+              <p class="text-xs text-muted-foreground">
+                Register all guests. The lead contact receives all booking communications.
+              </p>
+
+              <div v-for="(att, i) in attendants" :key="i" class="rounded-lg border bg-muted/20 p-4 flex flex-col gap-2.5">
+                <!-- Row header: number + label + trash -->
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold"
+                      :class="i === 0 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'">
+                      {{ i + 1 }}
+                    </span>
+                    <span class="text-sm font-medium" :class="i === 0 ? 'text-primary' : 'text-muted-foreground'">
+                      {{ i === 0 ? 'Lead Contact' : (att.name || `Guest ${i + 1}`) }}
+                    </span>
+                  </div>
+                  <button type="button"
+                    class="rounded p-1 transition-colors"
+                    :class="i === 0 ? 'text-muted-foreground/30 cursor-not-allowed' : 'text-muted-foreground hover:text-destructive'"
+                    :disabled="i === 0"
+                    @click="removeAttendant(i)">
+                    <Trash2 class="size-3.5" />
+                  </button>
+                </div>
+
+                <!-- Fields: 4-column single row -->
+                <div class="grid grid-cols-4 gap-2.5">
+                  <div>
+                    <Label class="text-xs uppercase tracking-wide">Full Name <span class="text-destructive">*</span></Label>
+                    <Input v-model="att.name" placeholder="John Doe" class="mt-1 h-8 text-sm" />
+                  </div>
+                  <div>
+                    <Label class="text-xs uppercase tracking-wide">Email <span class="text-destructive">*</span></Label>
+                    <Input v-model="att.email" type="email" placeholder="email@example.com" class="mt-1 h-8 text-sm" />
+                  </div>
+                  <div>
+                    <Label class="text-xs uppercase tracking-wide">Phone <span class="text-destructive">*</span></Label>
+                    <Input v-model="att.phone" placeholder="+260 977 000 000" class="mt-1 h-8 text-sm" />
+                  </div>
+                  <div>
+                    <Label class="text-xs uppercase tracking-wide">Passport / ID <span class="text-destructive">*</span></Label>
+                    <Input v-model="att.id_number" placeholder="ID number" class="mt-1 h-8 text-sm" />
+                  </div>
+                </div>
+              </div>
+
+              <button type="button"
+                class="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline w-fit mt-1"
+                @click="addAttendant">
+                <UserPlus class="size-3.5" />
+                Add Guest
+              </button>
             </div>
           </div>
 
         </template>
 
-        <!-- ═══════════ DELEGATES / GUESTS (shared collapsible) ══════════ -->
-        <div class="rounded-xl border overflow-hidden">
-          <button type="button"
-            class="w-full flex items-center justify-between gap-3 px-5 py-4 hover:bg-muted/30 transition-colors text-left"
-            @click="attendantsExpanded = !attendantsExpanded">
-            <div class="flex items-center gap-2.5">
-              <Users class="size-4 text-muted-foreground shrink-0" />
-              <div>
-                <p class="text-sm font-semibold">{{ isCorporate ? 'Delegates' : 'Additional Guests' }}</p>
-                <p class="text-xs text-muted-foreground">
-                  {{ attendants.length === 0
-                    ? `No ${isCorporate ? 'delegates' : 'guests'} added — click to register`
-                    : `${attendants.length} ${isCorporate ? 'delegate' : 'guest'}${attendants.length !== 1 ? 's' : ''} registered` }}
-                </p>
-              </div>
-            </div>
-            <div class="flex items-center gap-2 shrink-0">
-              <span v-if="attendants.length > 0"
-                class="inline-flex items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold px-2 py-0.5 min-w-[1.5rem]">
-                {{ attendants.length }}
-              </span>
-              <ChevronDown class="size-4 text-muted-foreground transition-transform duration-200" :class="attendantsExpanded && 'rotate-180'" />
-            </div>
-          </button>
-
-          <div v-if="attendantsExpanded" class="px-5 pb-5 border-t flex flex-col gap-3 pt-4">
-            <p class="text-xs text-muted-foreground">
-              {{ isCorporate
-                ? 'Register each delegate attending. Lead delegate receives all booking communications.'
-                : 'Register each additional guest staying in the same room.' }}
-            </p>
-
-            <div v-for="(att, i) in attendants" :key="i" class="rounded-lg border bg-muted/20 p-4 flex flex-col gap-3">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                  <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-muted text-muted-foreground text-xs font-bold">
-                    {{ isCorporate ? i + 1 : i + 2 }}
-                  </span>
-                  <span class="text-sm font-medium text-muted-foreground">
-                    {{ isCorporate ? (att.name || `Delegate ${i + 1}`) : `Guest ${i + 2}` }}
-                  </span>
-                </div>
-                <button type="button" class="text-muted-foreground hover:text-destructive transition-colors rounded p-1" @click="removeAttendant(i)">
-                  <Trash2 class="size-3.5" />
-                </button>
-              </div>
-              <div class="grid grid-cols-2 gap-2.5">
-                <div class="col-span-2">
-                  <Label class="text-xs">Full Name <span class="text-destructive">*</span></Label>
-                  <Input v-model="att.name" placeholder="Full name" class="mt-1 h-8 text-sm" />
-                </div>
-                <div>
-                  <Label class="text-xs">Email</Label>
-                  <Input v-model="att.email" type="email" placeholder="Email" class="mt-1 h-8 text-sm" />
-                </div>
-                <div>
-                  <Label class="text-xs">Phone</Label>
-                  <Input v-model="att.phone" placeholder="Phone" class="mt-1 h-8 text-sm" />
-                </div>
-                <div>
-                  <Label class="text-xs">Passport / NRC</Label>
-                  <Input v-model="att.id_number" placeholder="ID number" class="mt-1 h-8 text-sm" />
-                </div>
-                <div v-if="isCorporate">
-                  <Label class="text-xs">Job Title</Label>
-                  <Input v-model="att.job_title" placeholder="e.g. Engineer" class="mt-1 h-8 text-sm" />
-                </div>
-              </div>
-            </div>
-
+        <!-- ═══════════ DELEGATES (corporate collapsible) ══════════════════ -->
+        <template v-if="isCorporate">
+          <div class="rounded-xl border overflow-hidden">
             <button type="button"
-              class="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline w-fit mt-1"
-              @click="addAttendant">
-              <UserPlus class="size-3.5" />
-              {{ isCorporate ? 'Add Delegate' : 'Add Guest' }}
+              class="w-full flex items-center justify-between gap-3 px-5 py-4 hover:bg-muted/30 transition-colors text-left"
+              @click="attendantsExpanded = !attendantsExpanded">
+              <div class="flex items-center gap-2.5">
+                <Users class="size-4 text-muted-foreground shrink-0" />
+                <div>
+                  <p class="text-sm font-semibold">Delegates</p>
+                  <p class="text-xs text-muted-foreground">
+                    {{ attendants.length === 0
+                      ? 'No delegates added — click to register'
+                      : `${attendants.length} delegate${attendants.length !== 1 ? 's' : ''} registered` }}
+                  </p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <span v-if="attendants.length > 0"
+                  class="inline-flex items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold px-2 py-0.5 min-w-[1.5rem]">
+                  {{ attendants.length }}
+                </span>
+                <ChevronDown class="size-4 text-muted-foreground transition-transform duration-200" :class="attendantsExpanded && 'rotate-180'" />
+              </div>
             </button>
+
+            <div v-if="attendantsExpanded" class="px-5 pb-5 border-t flex flex-col gap-3 pt-4">
+              <p class="text-xs text-muted-foreground">
+                Register each delegate attending. Lead delegate receives all booking communications.
+              </p>
+
+              <div v-for="(att, i) in attendants" :key="i" class="rounded-lg border bg-muted/20 p-4 flex flex-col gap-3">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-muted text-muted-foreground text-xs font-bold">
+                      {{ i + 1 }}
+                    </span>
+                    <span class="text-sm font-medium text-muted-foreground">{{ att.name || `Delegate ${i + 1}` }}</span>
+                  </div>
+                  <button type="button"
+                    class="text-muted-foreground hover:text-destructive transition-colors rounded p-1"
+                    @click="removeAttendant(i)">
+                    <Trash2 class="size-3.5" />
+                  </button>
+                </div>
+                <div class="grid grid-cols-2 gap-2.5">
+                  <div class="col-span-2">
+                    <Label class="text-xs">Full Name <span class="text-destructive">*</span></Label>
+                    <Input v-model="att.name" placeholder="Full name" class="mt-1 h-8 text-sm" />
+                  </div>
+                  <div>
+                    <Label class="text-xs">Email</Label>
+                    <Input v-model="att.email" type="email" placeholder="Email" class="mt-1 h-8 text-sm" />
+                  </div>
+                  <div>
+                    <Label class="text-xs">Phone</Label>
+                    <Input v-model="att.phone" placeholder="Phone" class="mt-1 h-8 text-sm" />
+                  </div>
+                  <div>
+                    <Label class="text-xs">Passport / NRC <span class="text-destructive">*</span></Label>
+                    <Input v-model="att.id_number" placeholder="ID number" class="mt-1 h-8 text-sm" />
+                  </div>
+                  <div>
+                    <Label class="text-xs">Job Title</Label>
+                    <Input v-model="att.job_title" placeholder="e.g. Engineer" class="mt-1 h-8 text-sm" />
+                  </div>
+                </div>
+              </div>
+
+              <button type="button"
+                class="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline w-fit mt-1"
+                @click="addAttendant">
+                <UserPlus class="size-3.5" />
+                Add Delegate
+              </button>
+            </div>
           </div>
-        </div>
+        </template>
 
         <!-- ═══════════════════ ACCOMMODATION FIELDS ══════════════════════ -->
         <template v-if="bookingType === 'accommodation'">
