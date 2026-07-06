@@ -213,6 +213,12 @@ function clearEditImage() {
 }
 
 function startEdit(item: MenuItem) {
+  // Buffet packages carry structured data that doesn't fit the compact inline
+  // row — edit them in a dedicated dialog instead.
+  if (item.category === 'buffet') {
+    startEditBuffet(item)
+    return
+  }
   editingItem.value = item
   editForm.value = {
     name: item.name,
@@ -349,9 +355,9 @@ const DISH_COURSES = [
 
 interface BuffetDish { id: string; course: string; name: string }
 
-function parseBuffetData(item: MenuItem): { buffet_type?: string; min_covers?: number; note?: string; dishes?: { course: string; name: string }[] } | null {
-  if (item.category !== 'buffet' || !item.description) return null
-  try { return JSON.parse(item.description) } catch { return null }
+function parseBuffetData(item: MenuItem) {
+  if (item.category !== 'buffet') return null
+  return item.buffet_data ?? null
 }
 
 // ── Item type toggle ────────────────────────────────────────────────────────
@@ -401,19 +407,17 @@ async function handleAddBuffet() {
 
   savingBuffet.value = true
   try {
-    const buffetData = {
-      buffet_type: buffetForm.value.buffet_type,
-      min_covers:  buffetForm.value.min_covers ? parseInt(buffetForm.value.min_covers) : undefined,
-      note:        buffetForm.value.note.trim() || undefined,
-      dishes:      buffetForm.value.dishes.map(d => ({ course: d.course, name: d.name.trim() })),
-    }
-
     const item = await store.createMenuItem({
       name:         buffetForm.value.name.trim(),
-      description:  JSON.stringify(buffetData),
+      description:  buffetForm.value.note.trim() || undefined,
       price:        priceNum,
       category:     'buffet',
       is_available: buffetForm.value.is_available,
+      buffet_data: {
+        buffet_type: buffetForm.value.buffet_type,
+        min_covers:  buffetForm.value.min_covers ? parseInt(buffetForm.value.min_covers) : undefined,
+        dishes:      buffetForm.value.dishes.map(d => ({ course: d.course, name: d.name.trim() })),
+      },
     })
 
     if (addImageFile.value) {
@@ -431,6 +435,79 @@ async function handleAddBuffet() {
     buffetFormError.value = getApiError(err, 'Failed to add buffet.')
   } finally {
     savingBuffet.value = false
+  }
+}
+
+// ── Buffet edit dialog ───────────────────────────────────────────────────────
+const editBuffetOpen = ref(false)
+const editingBuffet = ref<MenuItem | null>(null)
+const editBuffetError = ref('')
+const savingEditBuffet = ref(false)
+const editBuffetForm = ref({
+  name: '',
+  buffet_type: '',
+  price: '',
+  min_covers: '',
+  is_available: true,
+  note: '',
+  dishes: [] as BuffetDish[],
+})
+
+function startEditBuffet(item: MenuItem) {
+  editingBuffet.value = item
+  editBuffetError.value = ''
+  const data = item.buffet_data
+  editBuffetForm.value = {
+    name: item.name,
+    buffet_type: data?.buffet_type ?? '',
+    price: String(item.price),
+    min_covers: data?.min_covers != null ? String(data.min_covers) : '',
+    is_available: item.is_available,
+    note: item.description ?? '',
+    dishes: (data?.dishes ?? []).map(d => ({ id: crypto.randomUUID(), course: d.course, name: d.name })),
+  }
+  editBuffetOpen.value = true
+}
+
+function addEditDish() {
+  editBuffetForm.value.dishes.push({ id: crypto.randomUUID(), course: 'mains', name: '' })
+}
+
+function removeEditDish(id: string) {
+  editBuffetForm.value.dishes = editBuffetForm.value.dishes.filter(d => d.id !== id)
+}
+
+async function handleSaveEditBuffet() {
+  if (!editingBuffet.value) return
+  editBuffetError.value = ''
+  const priceNum = parseFloat(editBuffetForm.value.price)
+  if (!editBuffetForm.value.name.trim())   { editBuffetError.value = 'Buffet name is required.'; return }
+  if (!editBuffetForm.value.buffet_type)   { editBuffetError.value = 'Select a buffet type.'; return }
+  if (isNaN(priceNum) || priceNum < 0)     { editBuffetError.value = 'Enter a valid price per person.'; return }
+  if (!editBuffetForm.value.dishes.length) { editBuffetError.value = 'Add at least one dish.'; return }
+  if (editBuffetForm.value.dishes.some(d => !d.name.trim())) { editBuffetError.value = 'All dish names must be filled in.'; return }
+
+  savingEditBuffet.value = true
+  try {
+    await store.updateMenuItem(editingBuffet.value.id, {
+      name:         editBuffetForm.value.name.trim(),
+      description:  editBuffetForm.value.note.trim() || undefined,
+      price:        priceNum,
+      category:     'buffet',
+      is_available: editBuffetForm.value.is_available,
+      buffet_data: {
+        buffet_type: editBuffetForm.value.buffet_type,
+        min_covers:  editBuffetForm.value.min_covers ? parseInt(editBuffetForm.value.min_covers) : undefined,
+        dishes:      editBuffetForm.value.dishes.map(d => ({ course: d.course, name: d.name.trim() })),
+      },
+    })
+    editBuffetOpen.value = false
+    editingBuffet.value = null
+    toast.success('Buffet package updated.')
+  } catch (err) {
+    editBuffetError.value = getApiError(err, 'Failed to update buffet.')
+  } finally {
+    savingEditBuffet.value = false
   }
 }
 </script>
@@ -829,8 +906,9 @@ async function handleAddBuffet() {
                       <p class="font-medium text-sm">{{ item.name }}</p>
                       <template v-if="item.category === 'buffet'">
                         <p class="text-xs text-muted-foreground mt-0.5">
-                          {{ parseBuffetData(item)?.dishes?.length ?? 0 }} dish{{ (parseBuffetData(item)?.dishes?.length ?? 0) === 1 ? '' : 'es' }}
-                          · {{ BUFFET_TYPES.find(t => t.value === parseBuffetData(item)?.buffet_type)?.label ?? 'Buffet' }}
+                          {{ item.buffet_data?.dishes?.length ?? 0 }} dish{{ (item.buffet_data?.dishes?.length ?? 0) === 1 ? '' : 'es' }}
+                          · {{ BUFFET_TYPES.find(t => t.value === item.buffet_data?.buffet_type)?.label ?? 'Buffet' }}
+                          <span v-if="item.buffet_data?.min_covers"> · min {{ item.buffet_data.min_covers }} covers</span>
                         </p>
                       </template>
                       <p v-else-if="item.description" class="text-xs text-muted-foreground mt-0.5 line-clamp-1">{{ item.description }}</p>
@@ -999,6 +1077,127 @@ async function handleAddBuffet() {
       <DialogFooter class="gap-2">
         <Button variant="outline" :disabled="deletingItem" @click="deleteItemOpen = false">Cancel</Button>
         <Button variant="destructive" :disabled="deletingItem" @click="handleDeleteItem">Remove</Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+
+  <!-- Edit Buffet Package Dialog -->
+  <Dialog v-model:open="editBuffetOpen">
+    <DialogContent class="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogHeader>
+        <div class="flex items-center gap-3">
+          <div class="size-10 rounded-full bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300 flex items-center justify-center shrink-0">
+            <Layers class="size-5" />
+          </div>
+          <div>
+            <DialogTitle>Edit Buffet Package</DialogTitle>
+            <DialogDescription class="mt-0.5">Update the package details and its included dishes.</DialogDescription>
+          </div>
+        </div>
+      </DialogHeader>
+
+      <div v-if="editBuffetError" class="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-sm text-destructive">
+        {{ editBuffetError }}
+      </div>
+
+      <div class="flex flex-col gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="grid gap-2">
+            <Label>Buffet Name <span class="text-destructive">*</span></Label>
+            <Input v-model="editBuffetForm.name" placeholder="e.g. Executive Breakfast Buffet" />
+          </div>
+          <div class="grid gap-2">
+            <Label>Buffet Type <span class="text-destructive">*</span></Label>
+            <Select v-model="editBuffetForm.buffet_type">
+              <SelectTrigger class="w-full"><SelectValue placeholder="Select type" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="bt in BUFFET_TYPES" :key="bt.value" :value="bt.value">{{ bt.label }}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div class="grid gap-2">
+            <Label>Price / Person (ZMW) <span class="text-destructive">*</span></Label>
+            <Input v-model="editBuffetForm.price" type="number" min="0" step="0.01" placeholder="0.00" />
+          </div>
+          <div class="grid gap-2">
+            <Label>Min. Covers <span class="text-muted-foreground text-xs font-normal">(optional)</span></Label>
+            <Input v-model="editBuffetForm.min_covers" type="number" min="1" placeholder="e.g. 10" />
+          </div>
+          <div class="grid gap-2">
+            <Label>Availability</Label>
+            <div class="flex items-center gap-3 h-9 px-3 rounded-md border bg-muted/20">
+              <Switch
+                :checked="editBuffetForm.is_available"
+                @update:checked="(v) => editBuffetForm.is_available = v"
+              />
+              <span class="text-sm text-muted-foreground">{{ editBuffetForm.is_available ? 'Available' : 'Unavailable' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid gap-2">
+          <Label>Description <span class="text-muted-foreground text-xs font-normal">(optional)</span></Label>
+          <textarea
+            v-model="editBuffetForm.note"
+            rows="2"
+            placeholder="e.g. A sumptuous spread ideal for morning meetings…"
+            class="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none"
+          />
+        </div>
+
+        <!-- Dishes -->
+        <div class="border-t pt-4">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <p class="font-medium text-sm">Dishes Included</p>
+              <p class="text-xs text-muted-foreground mt-0.5">Add every dish that forms part of this buffet.</p>
+            </div>
+            <Button variant="outline" size="sm" @click="addEditDish">
+              <Plus class="size-3.5 mr-1.5" />
+              Add Dish
+            </Button>
+          </div>
+
+          <div v-if="editBuffetForm.dishes.length === 0" class="rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center py-8 text-muted-foreground/60 gap-2">
+            <UtensilsCrossed class="size-7" />
+            <p class="text-sm">No dishes added yet</p>
+          </div>
+
+          <div v-else class="flex flex-col gap-2">
+            <div v-for="dish in editBuffetForm.dishes" :key="dish.id" class="flex items-center gap-3">
+              <Select v-model="dish.course">
+                <SelectTrigger class="h-9 w-36 shrink-0"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="c in DISH_COURSES" :key="c.value" :value="c.value">{{ c.label }}</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input v-model="dish.name" placeholder="Dish name e.g. Scrambled Eggs with Chives" class="h-9 flex-1" />
+              <Button
+                variant="ghost"
+                size="icon"
+                class="size-9 shrink-0 text-muted-foreground hover:text-destructive"
+                @click="removeEditDish(dish.id)"
+              >
+                <X class="size-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <DialogFooter class="gap-2">
+        <Button variant="outline" :disabled="savingEditBuffet" @click="editBuffetOpen = false">Cancel</Button>
+        <Button
+          :disabled="savingEditBuffet || !editBuffetForm.name.trim() || !editBuffetForm.price || !editBuffetForm.buffet_type || !editBuffetForm.dishes.length"
+          @click="handleSaveEditBuffet"
+        >
+          <Loader2 v-if="savingEditBuffet" class="size-4 mr-2 animate-spin" />
+          <Check v-else class="size-4 mr-2" />
+          Save Changes
+        </Button>
       </DialogFooter>
     </DialogContent>
   </Dialog>

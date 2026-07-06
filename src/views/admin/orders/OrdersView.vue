@@ -315,10 +315,11 @@ async function updateQuantity(itemId: string, newQty: number) {
               </Badge>
             </TableCell>
             <TableCell>
-              <div v-if="order.client_name" class="text-sm font-medium truncate">{{ order.client_name }}</div>
+              <div v-if="order.attendee_name" class="text-sm font-medium truncate">{{ order.attendee_name }}</div>
+              <div v-else-if="order.client_name" class="text-sm font-medium truncate">{{ order.client_name }}</div>
               <div v-if="order.company_name && order.company_name !== order.client_name" class="text-xs text-muted-foreground mt-0.5 truncate">{{ order.company_name }}</div>
               <div v-if="order.room_name" class="text-xs text-muted-foreground mt-0.5 truncate">{{ order.room_name }}</div>
-              <div v-if="!order.client_name && !order.room_name" class="text-sm text-muted-foreground">—</div>
+              <div v-if="!order.attendee_name && !order.client_name && !order.room_name" class="text-sm text-muted-foreground">—</div>
             </TableCell>
             <TableCell class="font-mono text-sm text-muted-foreground">{{ order.booking_number ?? '—' }}</TableCell>
             <TableCell class="font-semibold text-sm">ZMW {{ (order.total ?? 0).toLocaleString() }}</TableCell>
