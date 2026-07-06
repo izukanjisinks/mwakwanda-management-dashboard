@@ -44,6 +44,21 @@ export const MENU_CATEGORIES: { value: MenuCategory; label: string }[] = [
   { value: 'buffet', label: "Executive Buffet" },
 ]
 
+// Course groupings used within a buffet package.
+export type BuffetCourse = 'starters' | 'mains' | 'sides' | 'desserts' | 'drinks'
+
+export interface BuffetDish {
+  course: BuffetCourse | string
+  name: string
+}
+
+// Structured payload stored in menu_items.buffet_data when category === 'buffet'.
+export interface BuffetData {
+  buffet_type: string
+  min_covers?: number
+  dishes: BuffetDish[]
+}
+
 export interface MenuItem {
   id: string
   menu_id: string
@@ -53,6 +68,7 @@ export interface MenuItem {
   category?: MenuCategory
   image_url?: string
   is_available: boolean
+  buffet_data?: BuffetData
   created_at: string
   updated_at: string
 }
@@ -65,8 +81,6 @@ export interface OrderItem {
   attendee_name?: string
   menu_item?: MenuItem
   item_name?: string
-  attendee_id?: string
-  attendee_name?: string
   quantity: number
   unit_price?: number
   subtotal?: number
@@ -85,7 +99,7 @@ export interface Order {
   room_name?: string
   client_name?: string
   company_name?: string
-  attendee_name?: string  // lead contact name for meal session orders
+  attendee_name?: string
   scheduled_for?: string
   meal_period?: string
   serving_time?: string
@@ -93,9 +107,6 @@ export interface Order {
   status?: 'open' | 'closed'
   notes?: string
   total?: number
-  meal_period?: string
-  serving_time?: string
-  scheduled_for?: string
   items: OrderItem[]
   created_at: string
   updated_at: string
@@ -140,6 +151,7 @@ export interface MenuItemPayload {
   category?: MenuCategory
   image_url?: string
   is_available: boolean
+  buffet_data?: BuffetData
 }
 
 export interface OrderItemInput {
