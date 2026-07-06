@@ -202,6 +202,7 @@ interface MealSession {
   session_name?: string
   meal_date?: string
   meal_period?: string
+  serving_time?: string
   service_type?: string
   pax_count?: number
   dietary_notes?: string
@@ -868,6 +869,9 @@ onMounted(async () => {
                     </div>
                     <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground mb-2">
                       <span v-if="s.meal_date">{{ fmt(s.meal_date) }}</span>
+                      <span v-if="s.serving_time" class="flex items-center gap-1">
+                        <Clock class="size-3" />{{ s.serving_time }}
+                      </span>
                       <span v-if="s.service_type" class="capitalize">{{ s.service_type.replace('_', ' ') }}</span>
                       <span v-if="s.pax_count">{{ s.pax_count }} pax</span>
                     </div>
@@ -1568,6 +1572,9 @@ onMounted(async () => {
                       </div>
                       <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground mb-2">
                         <span v-if="s.meal_date">{{ fmt(s.meal_date) }}</span>
+                        <span v-if="s.serving_time" class="flex items-center gap-1">
+                          <Clock class="size-3" />{{ s.serving_time }}
+                        </span>
                         <span v-if="s.service_type" class="capitalize">{{ s.service_type.replace('_', ' ') }}</span>
                         <span v-if="s.pax_count">{{ s.pax_count }} pax</span>
                       </div>

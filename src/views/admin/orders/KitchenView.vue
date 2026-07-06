@@ -139,11 +139,28 @@ const typeFilters: { value: TypeFilter; label: string }[] = [
   { value: 'walk_in',  label: 'Walk-In'    },
 ]
 
+// Build a sortable ms timestamp for an order:
+//   scheduled orders → scheduled date + serving_time (or midnight if no time)
+//   unscheduled (walk-in) → created_at, so they sort among themselves naturally
+// Within the same primary key, created_at breaks the tie.
+function orderSortKey(order: Order): number {
+  if (order.scheduled_for) {
+    const date = order.scheduled_for.slice(0, 10) // YYYY-MM-DD
+    const time = order.serving_time ? `T${order.serving_time}:00` : 'T00:00:00'
+    return new Date(`${date}${time}`).getTime()
+  }
+  return new Date(order.created_at).getTime()
+}
+
 const visibleOrders = computed(() =>
   orders.value
     .filter(o => !servedIds.value.has(o.id))
     .filter(o => typeFilter.value === 'all' || o.type === typeFilter.value)
-    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
+    .sort((a, b) => {
+      const diff = orderSortKey(a) - orderSortKey(b)
+      if (diff !== 0) return diff
+      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    }),
 )
 
 const newOrders      = computed(() => visibleOrders.value.filter(o => getStatus(o.id) === 'new'))
@@ -190,6 +207,37 @@ function guestLabel(order: Order): string {
   if (order.room_name) return order.room_name
   if (order.client_name) return order.client_name
   return ''
+}
+
+interface AggregatedItem { key: string; name: string; notes?: string; quantity: number }
+
+function aggregateItems(items: Order['items']): AggregatedItem[] {
+  const map = new Map<string, AggregatedItem>()
+  for (const oi of items) {
+    const name = itemName(oi)
+    const key = `${name}||${oi.notes ?? ''}`
+    if (map.has(key)) {
+      map.get(key)!.quantity += oi.quantity
+    } else {
+      map.set(key, { key, name, notes: oi.notes, quantity: oi.quantity })
+    }
+  }
+  return [...map.values()]
+}
+
+function formatServingDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
+}
+
+function mealPeriodClass(period: string): string {
+  switch (period.toLowerCase()) {
+    case 'breakfast': return 'bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700'
+    case 'brunch':    return 'bg-lime-100 text-lime-800 border border-lime-300 dark:bg-lime-900/40 dark:text-lime-300 dark:border-lime-700'
+    case 'lunch':     return 'bg-sky-100 text-sky-800 border border-sky-300 dark:bg-sky-900/40 dark:text-sky-300 dark:border-sky-700'
+    case 'dinner':    return 'bg-violet-100 text-violet-800 border border-violet-300 dark:bg-violet-900/40 dark:text-violet-300 dark:border-violet-700'
+    case 'supper':    return 'bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-900/40 dark:text-rose-300 dark:border-rose-700'
+    default:          return 'bg-teal-100 text-teal-800 border border-teal-300 dark:bg-teal-900/40 dark:text-teal-300 dark:border-teal-700'
+  }
 }
 
 // ── Auto-refresh ──────────────────────────────────────────────────────────────
@@ -332,6 +380,17 @@ onUnmounted(() => {
                   <Clock class="size-3 inline-block mr-0.5 -mt-0.5" />{{ ageLabel(order.created_at) }}
                 </span>
               </div>
+              <div v-if="order.serving_time || order.meal_period || order.scheduled_for" class="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1">
+                <span v-if="order.meal_period" class="text-[10px] font-semibold px-1.5 py-0.5 rounded capitalize" :class="mealPeriodClass(order.meal_period)">{{ order.meal_period }}</span>
+                <span v-if="order.serving_time" class="text-xs flex items-center gap-1">
+                  <span class="text-muted-foreground">Serving time:</span>
+                  <span class="font-semibold tabular-nums">{{ order.serving_time }}</span>
+                </span>
+                <span v-if="order.scheduled_for" class="text-xs flex items-center gap-1">
+                  <span class="text-muted-foreground">Session date:</span>
+                  <span class="font-semibold">{{ formatServingDate(order.scheduled_for) }}</span>
+                </span>
+              </div>
             </div>
 
             <!-- Allergy warning — always above items so chef sees it first -->
@@ -347,14 +406,14 @@ onUnmounted(() => {
             <div class="border-t">
               <div class="px-4 py-3 flex flex-col gap-3">
                 <div
-                  v-for="oi in (order.items ?? [])"
-                  :key="oi.id"
+                  v-for="ai in aggregateItems(order.items ?? [])"
+                  :key="ai.key"
                   class="flex gap-3 items-start"
                 >
-                  <span class="text-2xl font-black tabular-nums leading-none text-primary w-8 text-right shrink-0 mt-0.5">{{ oi.quantity }}</span>
+                  <span class="text-2xl font-black tabular-nums leading-none text-primary w-8 text-right shrink-0 mt-0.5">{{ ai.quantity }}</span>
                   <div class="min-w-0 flex-1 pt-0.5">
-                    <p class="font-semibold text-sm leading-snug">{{ itemName(oi) }}</p>
-                    <p v-if="oi.notes" class="text-xs text-muted-foreground italic mt-0.5">↳ {{ oi.notes }}</p>
+                    <p class="font-semibold text-sm leading-snug">{{ ai.name }}</p>
+                    <p v-if="ai.notes" class="text-xs text-muted-foreground italic mt-0.5">↳ {{ ai.notes }}</p>
                   </div>
                 </div>
               </div>
@@ -412,6 +471,17 @@ onUnmounted(() => {
                   <Clock class="size-3 inline-block mr-0.5 -mt-0.5" />{{ ageLabel(order.created_at) }}
                 </span>
               </div>
+              <div v-if="order.serving_time || order.meal_period || order.scheduled_for" class="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1">
+                <span v-if="order.meal_period" class="text-[10px] font-semibold px-1.5 py-0.5 rounded capitalize" :class="mealPeriodClass(order.meal_period)">{{ order.meal_period }}</span>
+                <span v-if="order.serving_time" class="text-xs flex items-center gap-1">
+                  <span class="text-muted-foreground">Serving time:</span>
+                  <span class="font-semibold tabular-nums">{{ order.serving_time }}</span>
+                </span>
+                <span v-if="order.scheduled_for" class="text-xs flex items-center gap-1">
+                  <span class="text-muted-foreground">Session date:</span>
+                  <span class="font-semibold">{{ formatServingDate(order.scheduled_for) }}</span>
+                </span>
+              </div>
             </div>
 
             <div
@@ -425,14 +495,14 @@ onUnmounted(() => {
             <div class="border-t border-amber-200 dark:border-amber-800">
               <div class="px-4 py-3 flex flex-col gap-3">
                 <div
-                  v-for="oi in (order.items ?? [])"
-                  :key="oi.id"
+                  v-for="ai in aggregateItems(order.items ?? [])"
+                  :key="ai.key"
                   class="flex gap-3 items-start"
                 >
-                  <span class="text-2xl font-black tabular-nums leading-none text-amber-600 dark:text-amber-400 w-8 text-right shrink-0 mt-0.5">{{ oi.quantity }}</span>
+                  <span class="text-2xl font-black tabular-nums leading-none text-amber-600 dark:text-amber-400 w-8 text-right shrink-0 mt-0.5">{{ ai.quantity }}</span>
                   <div class="min-w-0 flex-1 pt-0.5">
-                    <p class="font-semibold text-sm leading-snug">{{ itemName(oi) }}</p>
-                    <p v-if="oi.notes" class="text-xs text-muted-foreground italic mt-0.5">↳ {{ oi.notes }}</p>
+                    <p class="font-semibold text-sm leading-snug">{{ ai.name }}</p>
+                    <p v-if="ai.notes" class="text-xs text-muted-foreground italic mt-0.5">↳ {{ ai.notes }}</p>
                   </div>
                 </div>
               </div>
@@ -488,19 +558,30 @@ onUnmounted(() => {
                   <Clock class="size-3 inline-block mr-0.5 -mt-0.5" />{{ ageLabel(order.created_at) }}
                 </span>
               </div>
+              <div v-if="order.serving_time || order.meal_period || order.scheduled_for" class="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1">
+                <span v-if="order.meal_period" class="text-[10px] font-semibold px-1.5 py-0.5 rounded capitalize" :class="mealPeriodClass(order.meal_period)">{{ order.meal_period }}</span>
+                <span v-if="order.serving_time" class="text-xs flex items-center gap-1">
+                  <span class="text-muted-foreground">Serving time:</span>
+                  <span class="font-semibold tabular-nums">{{ order.serving_time }}</span>
+                </span>
+                <span v-if="order.scheduled_for" class="text-xs flex items-center gap-1">
+                  <span class="text-muted-foreground">Session date:</span>
+                  <span class="font-semibold">{{ formatServingDate(order.scheduled_for) }}</span>
+                </span>
+              </div>
             </div>
 
             <div class="border-t border-green-200 dark:border-green-800">
               <div class="px-4 py-3 flex flex-col gap-3">
                 <div
-                  v-for="oi in (order.items ?? [])"
-                  :key="oi.id"
+                  v-for="ai in aggregateItems(order.items ?? [])"
+                  :key="ai.key"
                   class="flex gap-3 items-start"
                 >
-                  <span class="text-2xl font-black tabular-nums leading-none text-green-600 dark:text-green-400 w-8 text-right shrink-0 mt-0.5 line-through">{{ oi.quantity }}</span>
+                  <span class="text-2xl font-black tabular-nums leading-none text-green-600 dark:text-green-400 w-8 text-right shrink-0 mt-0.5 line-through">{{ ai.quantity }}</span>
                   <div class="min-w-0 flex-1 pt-0.5">
-                    <p class="font-semibold text-sm leading-snug line-through text-muted-foreground">{{ itemName(oi) }}</p>
-                    <p v-if="oi.notes" class="text-xs text-muted-foreground/60 italic mt-0.5">↳ {{ oi.notes }}</p>
+                    <p class="font-semibold text-sm leading-snug line-through text-muted-foreground">{{ ai.name }}</p>
+                    <p v-if="ai.notes" class="text-xs text-muted-foreground/60 italic mt-0.5">↳ {{ ai.notes }}</p>
                   </div>
                 </div>
               </div>
@@ -548,12 +629,12 @@ onUnmounted(() => {
         </div>
         <div class="mt-1 flex flex-col gap-1">
           <div
-            v-for="oi in (pendingOrder.items ?? [])"
-            :key="oi.id"
+            v-for="ai in aggregateItems(pendingOrder.items ?? [])"
+            :key="ai.key"
             class="flex items-baseline gap-2 text-xs"
           >
-            <span class="font-bold tabular-nums w-5 text-right shrink-0 text-primary">{{ oi.quantity }}</span>
-            <span class="font-medium">{{ itemName(oi) }}</span>
+            <span class="font-bold tabular-nums w-5 text-right shrink-0 text-primary">{{ ai.quantity }}</span>
+            <span class="font-medium">{{ ai.name }}</span>
           </div>
         </div>
       </div>

@@ -106,6 +106,23 @@ export interface CreateIndividualBookingPayload {
   special_requests?: string
 }
 
+// Walk-in event booking created by staff — POST /api/v1/bookings/individual/event
+export interface CreateIndividualEventBookingPayload {
+  booker_name: string
+  booker_email?: string
+  booker_phone?: string
+  identification_card?: string
+  event_type: string
+  venue_id: string
+  start_date: string   // YYYY-MM-DD
+  end_date: string     // YYYY-MM-DD
+  start_time?: string  // HH:MM
+  end_time?: string    // HH:MM
+  pax_count: number
+  catering_required: boolean
+  special_requests?: string
+}
+
 export interface BookingStatusUpdate {
   status: BookingStatus
 }

@@ -71,6 +71,17 @@ function formatDate(d?: string) {
   return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
 }
 
+// ── Cancel confirmation state ─────────────────────────────────────────────────
+const showCancelConfirm = ref(false)
+
+function onActionClick(action: { label: string; status: InvoiceStatus; variant: string }) {
+  if (action.status === 'cancelled') {
+    showCancelConfirm.value = true
+  } else {
+    emit('status-change', action.status)
+  }
+}
+
 // ── Mark as Paid form state ───────────────────────────────────────────────────
 const showPaymentForm = ref(false)
 const paymentDate = ref('')
@@ -82,6 +93,7 @@ const saving = ref(false)
 
 watch(() => props.open, (open) => {
   if (!open) {
+    showCancelConfirm.value = false
     showPaymentForm.value = false
     proofFile.value = null
     proofPreview.value = null
@@ -90,6 +102,7 @@ watch(() => props.open, (open) => {
 })
 
 watch(() => props.invoice?.id, () => {
+  showCancelConfirm.value = false
   showPaymentForm.value = false
   proofFile.value = null
   proofPreview.value = null
@@ -327,6 +340,15 @@ const groupedLineItems = computed(() => {
   }
 
   return [...attendeeMap.values()]
+})
+
+// ── Invoice scenario detection ────────────────────────────────────────────────
+const invoiceScenario = computed<'accommodation' | 'meals' | 'event' | 'general'>(() => {
+  const types = new Set((props.invoice?.line_items ?? []).map(li => li.booking_type).filter(Boolean))
+  if (types.has('accommodation')) return 'accommodation'
+  if (types.has('event')) return 'event'
+  if (types.has('meals')) return 'meals'
+  return 'general'
 })
 </script>
 
@@ -587,7 +609,29 @@ const groupedLineItems = computed(() => {
           </a>
         </div>
 
+        <!-- Meal purpose shown prominently before items for meals invoices -->
+        <div v-if="invoiceScenario === 'meals' && invoice.meal_purpose" class="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-4 py-3 text-sm">
+          <p class="font-medium text-amber-900 dark:text-amber-200 mb-1">Purpose of Meal</p>
+          <p class="text-amber-800 dark:text-amber-300">{{ invoice.meal_purpose }}</p>
+        </div>
+
         <Separator />
+
+        <!-- Charge breakdown header with invoice type indicator -->
+        <div class="flex items-center justify-between gap-3">
+          <span class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Charge Breakdown</span>
+          <span
+            class="text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded"
+            :class="{
+              'bg-stone-800 text-amber-400 dark:bg-stone-700': invoiceScenario === 'accommodation',
+              'bg-orange-100 text-orange-700 border border-orange-200 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-800': invoiceScenario === 'meals',
+              'bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800': invoiceScenario === 'event',
+              'bg-muted text-muted-foreground': invoiceScenario === 'general',
+            }"
+          >
+            {{ invoiceScenario === 'accommodation' ? 'Accommodation & Meals' : invoiceScenario === 'meals' ? 'Meals' : invoiceScenario === 'event' ? 'Event' : 'General' }}
+          </span>
+        </div>
 
         <!-- Line items: person → booking type (collapsible) → items with numbers -->
         <div class="flex flex-col gap-3">
@@ -676,8 +720,8 @@ const groupedLineItems = computed(() => {
           </div>
         </div>
 
-        <!-- Meal purpose -->
-        <div v-if="invoice.meal_purpose" class="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-4 py-3 text-sm">
+        <!-- Meal purpose (after totals for non-meals invoices; meals invoices show it before items above) -->
+        <div v-if="invoice.meal_purpose && invoiceScenario !== 'meals'" class="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-4 py-3 text-sm">
           <p class="font-medium text-amber-900 dark:text-amber-200 mb-1">Purpose of Meal</p>
           <p class="text-amber-800 dark:text-amber-300">{{ invoice.meal_purpose }}</p>
         </div>
@@ -686,6 +730,27 @@ const groupedLineItems = computed(() => {
         <div v-if="invoice.notes" class="rounded-lg bg-muted/50 border px-4 py-3 text-sm text-muted-foreground">
           <p class="font-medium text-foreground mb-1">Notes</p>
           {{ invoice.notes }}
+        </div>
+
+        <!-- Cancel confirmation inline -->
+        <div
+          v-if="showCancelConfirm"
+          class="rounded-xl border-2 border-destructive/30 bg-destructive/5 p-5 flex flex-col gap-3"
+        >
+          <p class="font-semibold text-sm">Cancel this invoice?</p>
+          <p class="text-sm text-muted-foreground">
+            This will mark the invoice as cancelled. The action cannot be undone.
+          </p>
+          <div class="flex gap-2 justify-end">
+            <Button variant="outline" size="sm" @click="showCancelConfirm = false">Go Back</Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              @click="emit('status-change', 'cancelled'); showCancelConfirm = false"
+            >
+              Yes, Cancel Invoice
+            </Button>
+          </div>
         </div>
 
         <!-- Mark as Paid inline form -->
@@ -767,12 +832,12 @@ const groupedLineItems = computed(() => {
 
       <DialogFooter class="flex-wrap gap-2">
         <Button variant="outline" @click="emit('update:open', false)">Close</Button>
-        <template v-if="!showPaymentForm">
+        <template v-if="!showPaymentForm && !showCancelConfirm">
           <Button
             v-for="action in simpleActions"
             :key="action.status"
             :variant="action.variant"
-            @click="emit('status-change', action.status)"
+            @click="onActionClick(action)"
           >
             {{ action.label }}
           </Button>

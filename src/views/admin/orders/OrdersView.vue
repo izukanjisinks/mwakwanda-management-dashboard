@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import type { OrderItem } from '@/types/menu'
-import { Plus, Minus, ChevronLeft, ChevronRight, ShoppingBag, Trash2, X, FileText } from 'lucide-vue-next'
+import { Plus, Minus, ChevronLeft, ChevronRight, ShoppingBag, Trash2, X, FileText, User, AlertTriangle, Clock } from 'lucide-vue-next'
 import { useMenusStore } from '@/stores/menus'
 import { useBranchFilterStore } from '@/stores/branchFilter'
 import type { Order } from '@/types/menu'
@@ -149,19 +148,30 @@ async function removeItem(itemId: string) {
   }
 }
 
-// Group order items by attendee for meal session orders.
-// Items without an attendee_id are returned under the key '' (buffet/shared).
-const groupedItems = computed<{ label: string; key: string; items: OrderItem[] }[]>(() => {
-  if (!sheetOrder.value?.items?.length) return []
-  const items = sheetOrder.value.items
-  const hasAttendees = items.some(i => i.attendee_id)
-  if (!hasAttendees) return []
+const MEAL_PERIOD_LABELS: Record<string, string> = {
+  breakfast: 'Breakfast',
+  brunch: 'Brunch',
+  lunch: 'Lunch',
+  dinner: 'Dinner',
+  supper: 'Supper',
+}
 
-  const map = new Map<string, { label: string; key: string; items: OrderItem[] }>()
+function hasAllergyNote(note?: string) {
+  return note ? /allerg|intoleran|gluten|nut|dairy|vegan|halal|kosher/i.test(note) : false
+}
+
+function formatScheduledDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+const groupedByAttendee = computed(() => {
+  const items = sheetOrder.value?.items ?? []
+  if (!items.length) return []
+  const map = new Map<string, { attendeeId: string; attendeeName: string; items: typeof items }>()
   for (const item of items) {
-    const key = item.attendee_id ?? ''
+    const key = item.attendee_id ?? item.attendee_name ?? '__unknown__'
     if (!map.has(key)) {
-      map.set(key, { key, label: item.attendee_name || (key ? `Attendee (${key.slice(0, 6)})` : 'Shared / Buffet'), items: [] })
+      map.set(key, { attendeeId: key, attendeeName: item.attendee_name ?? 'Guest', items: [] })
     }
     map.get(key)!.items.push(item)
   }
@@ -380,19 +390,12 @@ async function updateQuantity(itemId: string, newQty: number) {
         </div>
 
         <template v-else-if="sheetOrder">
-          <!-- Guest info card (in-house only) -->
-          <div
-            v-if="sheetOrder.type === 'in_house' && (sheetOrder.attendee_name || sheetOrder.client_name || sheetOrder.room_name || sheetOrder.booking_number)"
-            class="rounded-xl border px-4 py-3.5 flex flex-col gap-2"
-          >
-            <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Guest</p>
+          <!-- Order meta card -->
+          <div class="rounded-xl border px-4 py-3.5 flex flex-col gap-2">
+            <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Details</p>
             <div class="flex flex-col gap-1.5 text-sm">
-              <div v-if="sheetOrder.attendee_name" class="flex justify-between">
-                <span class="text-muted-foreground">Lead</span>
-                <span class="font-medium">{{ sheetOrder.attendee_name }}</span>
-              </div>
-              <div v-if="sheetOrder.client_name && sheetOrder.client_name !== sheetOrder.attendee_name" class="flex justify-between">
-                <span class="text-muted-foreground">Name</span>
+              <div v-if="sheetOrder.client_name" class="flex justify-between">
+                <span class="text-muted-foreground">Guest</span>
                 <span class="font-medium">{{ sheetOrder.client_name }}</span>
               </div>
               <div v-if="sheetOrder.company_name && sheetOrder.company_name !== sheetOrder.client_name" class="flex justify-between">
@@ -407,62 +410,111 @@ async function updateQuantity(itemId: string, newQty: number) {
                 <span class="text-muted-foreground">Booking</span>
                 <span class="font-mono">{{ sheetOrder.booking_number ?? sheetOrder.booking_id }}</span>
               </div>
-            </div>
-          </div>
-
-          <!-- Meal session info -->
-          <div
-            v-if="sheetOrder.meal_period || sheetOrder.scheduled_for || sheetOrder.serving_time"
-            class="rounded-xl border px-4 py-3.5 flex flex-col gap-2"
-          >
-            <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Meal Session</p>
-            <div class="flex flex-col gap-1.5 text-sm">
               <div v-if="sheetOrder.meal_period" class="flex justify-between">
-                <span class="text-muted-foreground">Period</span>
-                <span class="font-medium capitalize">{{ sheetOrder.meal_period }}</span>
+                <span class="text-muted-foreground">Meal Period</span>
+                <span class="font-medium capitalize">{{ MEAL_PERIOD_LABELS[sheetOrder.meal_period] ?? sheetOrder.meal_period }}</span>
               </div>
-              <div v-if="sheetOrder.scheduled_for" class="flex justify-between">
-                <span class="text-muted-foreground">Date</span>
-                <span class="font-medium">{{ new Date(sheetOrder.scheduled_for).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) }}</span>
-              </div>
-              <div v-if="sheetOrder.serving_time" class="flex justify-between">
-                <span class="text-muted-foreground">Serving time</span>
-                <span class="font-medium">{{ sheetOrder.serving_time }}</span>
+              <div v-if="sheetOrder.serving_time || sheetOrder.scheduled_for" class="flex justify-between">
+                <span class="text-muted-foreground">Serving Time</span>
+                <span class="font-medium flex items-center gap-1.5">
+                  <Clock class="size-3.5 text-muted-foreground" />
+                  {{ sheetOrder.serving_time ?? '' }}
+                  <span v-if="sheetOrder.scheduled_for" class="text-muted-foreground font-normal">
+                    · {{ formatScheduledDate(sheetOrder.scheduled_for) }}
+                  </span>
+                </span>
               </div>
             </div>
           </div>
 
-          <!-- Notes -->
-          <div v-if="sheetOrder.notes" class="text-sm flex justify-between">
-            <span class="text-muted-foreground">Notes</span>
-            <span class="text-right max-w-xs">{{ sheetOrder.notes }}</span>
+          <!-- Notes / Allergy warning -->
+          <div
+            v-if="sheetOrder.notes"
+            class="rounded-lg px-4 py-3 text-sm flex gap-2.5 items-start"
+            :class="hasAllergyNote(sheetOrder.notes)
+              ? 'bg-red-50 border border-red-300 text-red-800 dark:bg-red-950/30 dark:border-red-800 dark:text-red-300'
+              : 'bg-muted/50 border text-muted-foreground'"
+          >
+            <AlertTriangle v-if="hasAllergyNote(sheetOrder.notes)" class="size-4 shrink-0 mt-0.5 text-red-600 dark:text-red-400" />
+            <span>{{ sheetOrder.notes }}</span>
           </div>
 
-          <!-- Items — grouped by attendee when available, flat otherwise -->
+          <!-- Items grouped by attendee -->
           <div>
-            <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Items</p>
+            <div class="flex items-center justify-between mb-3">
+              <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Items</p>
+              <span v-if="groupedByAttendee.length > 1" class="text-xs text-muted-foreground">
+                {{ groupedByAttendee.length }} guests
+              </span>
+            </div>
 
-            <!-- Grouped layout (meal session orders with per-attendee items) -->
-            <template v-if="groupedItems.length > 0">
-              <div v-for="group in groupedItems" :key="group.key" class="mb-4 last:mb-0">
-                <p class="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
-                  <span class="inline-block size-1.5 rounded-full bg-muted-foreground/50" />
-                  {{ group.label }}
-                </p>
-                <div class="flex flex-col gap-2">
+            <div class="flex flex-col gap-5">
+              <div v-for="group in groupedByAttendee" :key="group.attendeeId">
+                <!-- Attendee header -->
+                <div class="flex items-center gap-2 mb-2">
+                  <div class="size-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <User class="size-3.5 text-primary" />
+                  </div>
+                  <p class="text-sm font-semibold flex-1 min-w-0 truncate">{{ group.attendeeName }}</p>
+                  <p class="text-xs text-muted-foreground tabular-nums shrink-0">
+                    ZMW {{ group.items.reduce((s, i) => s + (i.subtotal ?? i.total ?? 0), 0).toLocaleString() }}
+                  </p>
+                </div>
+
+                <!-- This attendee's items -->
+                <div class="ml-8 flex flex-col gap-1.5">
                   <div
                     v-for="oi in group.items"
                     :key="oi.id"
-                    class="rounded-lg border bg-card px-4 py-3 flex items-center gap-3"
+                    class="rounded-lg border bg-card px-3 py-2.5 flex items-center gap-3"
                   >
+                    <!-- Quantity -->
+                    <span class="text-base font-black tabular-nums text-primary leading-none w-5 text-right shrink-0">{{ oi.quantity }}</span>
+                    <span class="text-xs text-muted-foreground shrink-0">×</span>
+
+                    <!-- Name + item notes -->
                     <div class="flex-1 min-w-0">
-                      <p class="text-sm font-medium">{{ oi.item_name ?? oi.menu_item?.name ?? `Item ${oi.menu_item_id.slice(0, 8)}` }}</p>
-                      <p v-if="oi.notes" class="text-xs text-muted-foreground">{{ oi.notes }}</p>
+                      <p class="text-sm font-medium leading-snug">{{ oi.item_name ?? oi.menu_item?.name ?? `Item ${oi.menu_item_id.slice(0, 8)}` }}</p>
+                      <p v-if="oi.notes" class="text-xs text-muted-foreground italic mt-0.5">{{ oi.notes }}</p>
                     </div>
+
+                    <!-- Subtotal -->
                     <div class="text-right shrink-0">
                       <p class="text-sm font-semibold">ZMW {{ (oi.subtotal ?? oi.total ?? 0).toLocaleString() }}</p>
-                      <p class="text-xs text-muted-foreground">× {{ oi.quantity }} @ ZMW {{ (oi.unit_price ?? 0).toLocaleString() }}</p>
+                      <p v-if="oi.unit_price && oi.quantity > 1" class="text-xs text-muted-foreground">@ {{ oi.unit_price.toLocaleString() }}</p>
                     </div>
+
+                    <!-- Quantity stepper (walk-in open orders only) -->
+                    <div
+                      v-if="sheetOrder.type === 'walk_in' && sheetOrder.status === 'open'"
+                      class="flex items-center shrink-0"
+                    >
+                      <button
+                        type="button"
+                        class="size-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30"
+                        :disabled="oi.quantity <= 1 || updatingItemId === oi.id || removingItemId === oi.id"
+                        @click.stop="updateQuantity(oi.id, oi.quantity - 1)"
+                      >
+                        <Minus class="size-3" />
+                      </button>
+                      <span class="w-7 text-center text-sm font-medium tabular-nums select-none">
+                        <svg v-if="updatingItemId === oi.id" class="size-3.5 animate-spin mx-auto text-muted-foreground" viewBox="0 0 24 24" fill="none">
+                          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                        </svg>
+                        <template v-else>{{ oi.quantity }}</template>
+                      </span>
+                      <button
+                        type="button"
+                        class="size-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30"
+                        :disabled="updatingItemId === oi.id || removingItemId === oi.id"
+                        @click.stop="updateQuantity(oi.id, oi.quantity + 1)"
+                      >
+                        <Plus class="size-3" />
+                      </button>
+                    </div>
+
+                    <!-- Delete -->
                     <button
                       type="button"
                       class="shrink-0 size-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
@@ -478,77 +530,12 @@ async function updateQuantity(itemId: string, newQty: number) {
                   </div>
                 </div>
               </div>
-            </template>
-
-            <!-- Flat layout (walk-in / non-meal orders) -->
-            <div v-else class="flex flex-col gap-2">
-              <div
-                v-for="oi in sheetOrder.items"
-                :key="oi.id"
-                class="rounded-lg border bg-card px-4 py-3 flex items-center gap-3"
-              >
-                <!-- Name + notes -->
-                <div class="flex-1 min-w-0">
-                  <p class="text-sm font-medium">{{ oi.item_name ?? oi.menu_item?.name ?? `Item ${oi.menu_item_id.slice(0, 8)}` }}</p>
-                  <p v-if="oi.notes" class="text-xs text-muted-foreground">{{ oi.notes }}</p>
-                </div>
-
-                <!-- Price -->
-                <div class="text-right shrink-0">
-                  <p class="text-sm font-semibold">ZMW {{ (oi.subtotal ?? oi.total ?? 0).toLocaleString() }}</p>
-                  <p class="text-xs text-muted-foreground">@ ZMW {{ (oi.unit_price ?? 0).toLocaleString() }}</p>
-                </div>
-
-                <!-- Quantity stepper (walk-in open orders only) -->
-                <div
-                  v-if="sheetOrder.type === 'walk_in' && sheetOrder.status === 'open'"
-                  class="flex items-center shrink-0"
-                >
-                  <button
-                    type="button"
-                    class="size-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30"
-                    :disabled="oi.quantity <= 1 || updatingItemId === oi.id || removingItemId === oi.id"
-                    @click.stop="updateQuantity(oi.id, oi.quantity - 1)"
-                  >
-                    <Minus class="size-3" />
-                  </button>
-                  <span class="w-7 text-center text-sm font-medium tabular-nums select-none">
-                    <svg v-if="updatingItemId === oi.id" class="size-3.5 animate-spin mx-auto text-muted-foreground" viewBox="0 0 24 24" fill="none">
-                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                    </svg>
-                    <template v-else>{{ oi.quantity }}</template>
-                  </span>
-                  <button
-                    type="button"
-                    class="size-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30"
-                    :disabled="updatingItemId === oi.id || removingItemId === oi.id"
-                    @click.stop="updateQuantity(oi.id, oi.quantity + 1)"
-                  >
-                    <Plus class="size-3" />
-                  </button>
-                </div>
-
-                <!-- Delete -->
-                <button
-                  type="button"
-                  class="shrink-0 size-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                  :disabled="removingItemId === oi.id || updatingItemId === oi.id"
-                  @click.stop="removeItem(oi.id)"
-                >
-                  <Trash2 v-if="removingItemId !== oi.id" class="size-3.5" />
-                  <svg v-else class="size-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                  </svg>
-                </button>
-              </div>
             </div>
           </div>
 
-          <!-- Total -->
+          <!-- Order total -->
           <div class="rounded-lg bg-muted/40 px-4 py-3 flex justify-between font-semibold text-sm">
-            <span>Total</span>
+            <span>Order Total</span>
             <span>ZMW {{ (sheetOrder.total ?? 0).toLocaleString() }}</span>
           </div>
         </template>
