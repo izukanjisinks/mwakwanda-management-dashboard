@@ -38,17 +38,17 @@ const orgTpin    = computed(() => props.invoice.org_tpin      || '1000123456')
 const orgAddress = computed(() => props.invoice.org_address   || 'Plot 1234, Great East Road, Lusaka, Zambia')
 
 // ── Bill To (corporate client) ────────────────────────────────────────────────
-const clientPhone   = computed(() => props.invoice.client_phone      || '+260 977 000 001')
-const clientTpin    = computed(() => props.invoice.client_tpin       || '2000456789')
-const clientAddress = computed(() => props.invoice.client_address    || '15th Floor, Cairo Road, Lusaka, Zambia')
-const clientBranch  = computed(() => props.invoice.client_branch     || 'Lusaka Central Branch')
-const clientDept    = computed(() => props.invoice.client_department || 'Finance & Administration')
-const glCode          = computed(() => props.invoice.gl_code        || '—')
+const clientPhone   = computed(() => props.invoice.client_phone      || '')
+const clientTpin    = computed(() => props.invoice.client_tpin       || '')
+const clientAddress = computed(() => props.invoice.client_address    || '')
+const clientBranch  = computed(() => props.invoice.client_branch     || '')
+const clientDept    = computed(() => props.invoice.client_department || '')
+const glCode          = computed(() => props.invoice.gl_code        || '')
 const costCenterType  = computed(() => props.invoice.cost_center_type)
 const costCenterLabel = computed(() => costCenterType.value === 'internal_order' ? 'Internal Order' : 'Cost Center')
 const costCenterValue = computed(() => {
-  if (costCenterType.value === 'internal_order') return props.invoice.internal_order || '—'
-  return props.invoice.cost_center || '—'
+  if (costCenterType.value === 'internal_order') return props.invoice.internal_order || ''
+  return props.invoice.cost_center || ''
 })
 
 // ── Attendee grouping ─────────────────────────────────────────────────────────
@@ -351,37 +351,37 @@ const s = {
               <Text :style="s.billKeyDark">Company</Text>
               <Text :style="s.billValLight">{{ invoice.client_name }}</Text>
             </View>
-            <View :style="s.billRow">
+            <View v-if="invoice.client_email" :style="s.billRow">
               <Text :style="s.billKeyDark">Email</Text>
-              <Text :style="s.billValLight">{{ invoice.client_email || clientPhone }}</Text>
+              <Text :style="s.billValLight">{{ invoice.client_email }}</Text>
             </View>
-            <View :style="s.billRow">
+            <View v-if="clientPhone" :style="s.billRow">
               <Text :style="s.billKeyDark">Phone</Text>
               <Text :style="s.billValLight">{{ clientPhone }}</Text>
             </View>
-            <View :style="s.billRow">
+            <View v-if="clientTpin" :style="s.billRow">
               <Text :style="s.billKeyDark">TPIN</Text>
               <Text :style="s.billValLight">{{ clientTpin }}</Text>
             </View>
-            <View :style="s.billDividerLight" />
-            <View :style="s.billRow">
+            <View v-if="clientAddress || clientBranch || clientDept" :style="s.billDividerLight" />
+            <View v-if="clientAddress" :style="s.billRow">
               <Text :style="s.billKeyDark">Address</Text>
               <Text :style="s.billValLight">{{ clientAddress }}</Text>
             </View>
-            <View :style="s.billRow">
+            <View v-if="clientBranch" :style="s.billRow">
               <Text :style="s.billKeyDark">Branch</Text>
               <Text :style="s.billValLight">{{ clientBranch }}</Text>
             </View>
-            <View :style="s.billRow">
+            <View v-if="clientDept" :style="s.billRow">
               <Text :style="s.billKeyDark">Department</Text>
               <Text :style="s.billValLight">{{ clientDept }}</Text>
             </View>
-            <View :style="s.billDividerLight" />
-            <View :style="s.billRow">
+            <View v-if="glCode || costCenterValue" :style="s.billDividerLight" />
+            <View v-if="glCode" :style="s.billRow">
               <Text :style="s.billKeyDark">GL Code</Text>
               <Text :style="s.billValLight">{{ glCode }}</Text>
             </View>
-            <View :style="s.billRow">
+            <View v-if="costCenterValue" :style="s.billRow">
               <Text :style="s.billKeyDark">{{ costCenterLabel }}</Text>
               <Text :style="s.billValLight">{{ costCenterValue }}</Text>
             </View>
@@ -446,20 +446,20 @@ const s = {
               <Text :style="s.billKeyDark">Name</Text>
               <Text :style="s.billValLight">{{ invoice.client_name }}</Text>
             </View>
-            <View :style="s.billRow">
+            <View v-if="invoice.client_email" :style="s.billRow">
               <Text :style="s.billKeyDark">Email</Text>
-              <Text :style="s.billValLight">{{ invoice.client_email || '—' }}</Text>
+              <Text :style="s.billValLight">{{ invoice.client_email }}</Text>
             </View>
-            <View :style="s.billRow">
+            <View v-if="clientPhone" :style="s.billRow">
               <Text :style="s.billKeyDark">Phone</Text>
               <Text :style="s.billValLight">{{ clientPhone }}</Text>
             </View>
-            <View :style="s.billRow">
+            <View v-if="clientTpin" :style="s.billRow">
               <Text :style="s.billKeyDark">TPIN</Text>
               <Text :style="s.billValLight">{{ clientTpin }}</Text>
             </View>
-            <View :style="s.billDividerLight" />
-            <View :style="s.billRow">
+            <View v-if="clientAddress" :style="s.billDividerLight" />
+            <View v-if="clientAddress" :style="s.billRow">
               <Text :style="s.billKeyDark">Address</Text>
               <Text :style="s.billValLight">{{ clientAddress }}</Text>
             </View>

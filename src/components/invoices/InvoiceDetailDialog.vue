@@ -45,17 +45,17 @@ const orgPhone   = computed(() => props.invoice?.org_phone    || '+260 211 000 0
 const orgTpin    = computed(() => props.invoice?.org_tpin     || '1000123456')
 const orgAddress = computed(() => props.invoice?.org_address  || 'Plot 1234, Great East Road, Lusaka, Zambia')
 
-const clientPhone   = computed(() => props.invoice?.client_phone      || '+260 977 000 001')
-const clientTpin    = computed(() => props.invoice?.client_tpin       || '2000456789')
-const clientAddress = computed(() => props.invoice?.client_address    || '15th Floor, Cairo Road, Lusaka, Zambia')
-const clientBranch  = computed(() => props.invoice?.client_branch     || 'Lusaka Central Branch')
-const clientDept    = computed(() => props.invoice?.client_department || 'Finance & Administration')
-const glCode           = computed(() => props.invoice?.gl_code        || '—')
+const clientPhone   = computed(() => props.invoice?.client_phone      || '')
+const clientTpin    = computed(() => props.invoice?.client_tpin       || '')
+const clientAddress = computed(() => props.invoice?.client_address    || '')
+const clientBranch  = computed(() => props.invoice?.client_branch     || '')
+const clientDept    = computed(() => props.invoice?.client_department || '')
+const glCode           = computed(() => props.invoice?.gl_code        || '')
 const costCenterType   = computed(() => props.invoice?.cost_center_type)
 const costCenterLabel  = computed(() => costCenterType.value === 'internal_order' ? 'Internal Order' : 'Cost Center')
 const costCenterValue  = computed(() => {
-  if (costCenterType.value === 'internal_order') return props.invoice?.internal_order || '—'
-  return props.invoice?.cost_center || '—'
+  if (costCenterType.value === 'internal_order') return props.invoice?.internal_order || ''
+  return props.invoice?.cost_center || ''
 })
 
 const statusConfig: Record<InvoiceStatus, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
@@ -414,33 +414,33 @@ const invoiceScenario = computed<'accommodation' | 'meals' | 'event' | 'general'
                 <span class="w-24 shrink-0 text-muted-foreground">Email</span>
                 <span class="font-medium break-all">{{ invoice.client_email || '—' }}</span>
               </div>
-              <div class="flex gap-2 text-xs">
+              <div v-if="clientPhone" class="flex gap-2 text-xs">
                 <span class="w-24 shrink-0 text-muted-foreground">Phone</span>
                 <span class="font-medium">{{ clientPhone }}</span>
               </div>
-              <div class="flex gap-2 text-xs">
+              <div v-if="clientTpin" class="flex gap-2 text-xs">
                 <span class="w-24 shrink-0 text-muted-foreground">TPIN</span>
                 <span class="font-medium">{{ clientTpin }}</span>
               </div>
-              <div class="border-t my-1" />
-              <div class="flex gap-2 text-xs">
+              <div v-if="clientAddress || clientBranch || clientDept" class="border-t my-1" />
+              <div v-if="clientAddress" class="flex gap-2 text-xs">
                 <span class="w-24 shrink-0 text-muted-foreground">Address</span>
                 <span class="font-medium">{{ clientAddress }}</span>
               </div>
-              <div class="flex gap-2 text-xs">
+              <div v-if="clientBranch" class="flex gap-2 text-xs">
                 <span class="w-24 shrink-0 text-muted-foreground">Branch</span>
                 <span class="font-medium">{{ clientBranch }}</span>
               </div>
-              <div class="flex gap-2 text-xs">
+              <div v-if="clientDept" class="flex gap-2 text-xs">
                 <span class="w-24 shrink-0 text-muted-foreground">Department</span>
                 <span class="font-medium">{{ clientDept }}</span>
               </div>
-              <div class="border-t my-1" />
-              <div class="flex gap-2 text-xs">
+              <div v-if="glCode || costCenterValue" class="border-t my-1" />
+              <div v-if="glCode" class="flex gap-2 text-xs">
                 <span class="w-24 shrink-0 text-muted-foreground">GL Code</span>
                 <span class="font-medium">{{ glCode }}</span>
               </div>
-              <div class="flex gap-2 text-xs">
+              <div v-if="costCenterValue" class="flex gap-2 text-xs">
                 <span class="w-24 shrink-0 text-muted-foreground">{{ costCenterLabel }}</span>
                 <span class="font-medium">{{ costCenterValue }}</span>
               </div>
@@ -515,16 +515,16 @@ const invoiceScenario = computed<'accommodation' | 'meals' | 'event' | 'general'
                 <span class="w-20 shrink-0 text-muted-foreground">Email</span>
                 <span class="font-medium break-all">{{ invoice.client_email || '—' }}</span>
               </div>
-              <div class="flex gap-2 text-xs">
+              <div v-if="clientPhone" class="flex gap-2 text-xs">
                 <span class="w-20 shrink-0 text-muted-foreground">Phone</span>
                 <span class="font-medium">{{ clientPhone }}</span>
               </div>
-              <div class="flex gap-2 text-xs">
+              <div v-if="clientTpin" class="flex gap-2 text-xs">
                 <span class="w-20 shrink-0 text-muted-foreground">TPIN</span>
                 <span class="font-medium">{{ clientTpin }}</span>
               </div>
-              <div class="border-t my-1" />
-              <div class="flex gap-2 text-xs">
+              <div v-if="clientAddress" class="border-t my-1" />
+              <div v-if="clientAddress" class="flex gap-2 text-xs">
                 <span class="w-20 shrink-0 text-muted-foreground">Address</span>
                 <span class="font-medium">{{ clientAddress }}</span>
               </div>
