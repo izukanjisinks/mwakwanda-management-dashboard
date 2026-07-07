@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import {
   Eye, Search, ChevronLeft, ChevronRight, Building2, User, UserCheck,
   BedDouble, CalendarDays, LogIn, LogOut, Loader2, Plus, MapPin, Users,
@@ -24,8 +25,8 @@ import {
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from '@/components/ui/sheet'
-import WalkInBookingDialog from '@/components/bookings/WalkInBookingDialog.vue'
 
+const router = useRouter()
 const store = useBookingsStore()
 const branchFilterStore = useBranchFilterStore()
 
@@ -38,12 +39,6 @@ type BookingTypeFilter = 'all' | 'accommodation' | 'event'
 const bookingTypeFilter = ref<BookingTypeFilter>('all')
 const page = ref(1)
 const pageSize = 10
-
-const walkInOpen = ref(false)
-function onWalkInSaved() {
-  page.value = 1
-  loadBookings()
-}
 
 function loadBookings() {
   const statusVal = statusFilter.value === 'all' ? undefined : statusFilter.value
@@ -408,7 +403,7 @@ function syncRowStatus(id: string, status: BookingStatus) {
         </Button>
       </div>
 
-      <Button v-if="activeTab === 'individual'" @click="walkInOpen = true">
+      <Button @click="router.push({ name: 'admin-booking-new', query: { context: activeTab } })">
         <Plus class="size-4 mr-2" />
         New Booking
       </Button>
@@ -1024,8 +1019,5 @@ function syncRowStatus(id: string, status: BookingStatus) {
       </div>
     </SheetContent>
   </Sheet>
-
-  <!-- Walk-in booking dialog (individual) -->
-  <WalkInBookingDialog :open="walkInOpen" @update:open="walkInOpen = $event" @saved="onWalkInSaved" />
   </div>
 </template>

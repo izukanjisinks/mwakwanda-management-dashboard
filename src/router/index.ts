@@ -88,6 +88,12 @@ const router = createRouter({
           meta: { roles: ['admin', 'branch_admin', 'manager', 'receptionist'] },
         },
         {
+          path: 'bookings/new',
+          name: 'admin-booking-new',
+          component: () => import('@/views/admin/bookings/NewWalkInBookingView.vue'),
+          meta: { roles: ['admin', 'branch_admin', 'manager', 'receptionist'] },
+        },
+        {
           path: 'menus',
           name: 'menus',
           component: () => import('@/views/admin/menus/MenusView.vue'),

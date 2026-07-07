@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { CalendarDate, type DateValue } from '@internationalized/date'
 import {
   CalendarIcon, Loader2, BedDouble, MapPin, Users, Clock,
   UtensilsCrossed, User, UserPlus, Trash2, ChevronDown, Building2, ShieldCheck,
+  ArrowLeft,
 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { bookingApi } from '@/services/api/bookings'
@@ -13,6 +15,7 @@ import { getApiError } from '@/utils/errors'
 import type { Room } from '@/types/room'
 import type { Venue } from '@/types/venue'
 import type { Booking } from '@/types/booking'
+import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -21,24 +24,23 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar } from '@/components/ui/calendar'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
-} from '@/components/ui/dialog'
-import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 
-const props = defineProps<{ open: boolean }>()
-const emit = defineEmits<{
-  'update:open': [value: boolean]
-  saved: [booking: Booking]
-}>()
+const route  = useRoute()
+const router = useRouter()
+
+function goBack() {
+  router.push({ name: 'admin-bookings' })
+}
 
 // ── Booking type & context ────────────────────────────────────────────────────
 type BookingType    = 'accommodation' | 'event'
 type BookingContext = 'individual' | 'corporate'
 
 const bookingType  = ref<BookingType>('accommodation')
-const context      = ref<BookingContext>('individual')
+// Context arrives from the Bookings page tab the user was on (?context=corporate)
+const context      = ref<BookingContext>(route.query.context === 'corporate' ? 'corporate' : 'individual')
 const isCorporate  = computed(() => context.value === 'corporate')
 
 const maxDate = new CalendarDate(2035, 1, 1)
@@ -115,8 +117,10 @@ const approver = ref({ name: '', title: '', email: '', phone: '' })
 // For individual: always starts with 1 lead contact (index 0, can't be removed).
 // For corporate:  starts empty; delegates added as needed.
 type Attendant = { name: string; email: string; phone: string; id_number: string; job_title: string }
-const attendants         = ref<Attendant[]>([{ name: '', email: '', phone: '', id_number: '', job_title: '' }])
-const attendantsExpanded = ref(true)
+const attendants = ref<Attendant[]>(
+  isCorporate.value ? [] : [{ name: '', email: '', phone: '', id_number: '', job_title: '' }],
+)
+const attendantsExpanded = ref(!isCorporate.value)
 
 function addAttendant() {
   attendants.value.push({ name: '', email: '', phone: '', id_number: '', job_title: '' })
@@ -180,14 +184,53 @@ const accTotal = computed(() => (selectedRoom.value?.price_per_night ?? 0) * nig
 
 // ── Event form ────────────────────────────────────────────────────────────────
 const evt = ref({
-  event_type: '', venue_id: '', start_date: '', end_date: '',
-  start_time: '', end_time: '', setup_type: '', pax_count: '',
+  start_date: '', end_date: '', pax_count: '',
   catering_required: false, notes: '',
 })
 const startOpen     = ref(false)
 const endOpen       = ref(false)
 const venues        = ref<Venue[]>([])
 const venuesLoading = ref(false)
+
+// ── Sessions (mirrors the public site's master sessions) ─────────────────────
+type Session = {
+  name: string
+  event_type: string
+  venue_id: string
+  start_time: string
+  end_time: string
+  setup_type: string
+  expected_attendees: string
+  special_requirements: string
+}
+function emptySession(): Session {
+  return {
+    name: '', event_type: '', venue_id: '', start_time: '', end_time: '',
+    setup_type: '', expected_attendees: '', special_requirements: '',
+  }
+}
+const sessions = ref<Session[]>([emptySession()])
+// Which session's venue browser is open (null = all closed)
+const expandedVenueSession = ref<number | null>(null)
+
+function addSession() {
+  sessions.value.push(emptySession())
+}
+function removeSession(i: number) {
+  if (sessions.value.length <= 1) return
+  sessions.value.splice(i, 1)
+  if (expandedVenueSession.value === i) expandedVenueSession.value = null
+}
+function venueById(id: string) {
+  return venues.value.find(v => v.id === id)
+}
+function selectVenueForSession(s: Session, venue: Venue) {
+  s.venue_id = venue.id
+  expandedVenueSession.value = null
+}
+function clearVenueFromSession(s: Session) {
+  s.venue_id = ''
+}
 
 const startDateVal = computed({
   get: () => toCalDate(evt.value.start_date),
@@ -198,9 +241,9 @@ const endDateVal = computed({
   set: (dv) => { if (dv) { evt.value.end_date = fromCalDate(dv); endOpen.value = false } },
 })
 
-watch([() => evt.value.start_date, () => evt.value.end_date], async ([sd, ed]) => {
-  evt.value.venue_id = ''
-  venues.value = []
+async function loadVenues() {
+  const sd = evt.value.start_date
+  const ed = evt.value.end_date
   if (!sd || !ed || ed < sd) return
   venuesLoading.value = true
   try {
@@ -211,26 +254,43 @@ watch([() => evt.value.start_date, () => evt.value.end_date], async ([sd, ed]) =
   } finally {
     venuesLoading.value = false
   }
+}
+
+watch([() => evt.value.start_date, () => evt.value.end_date], () => {
+  // Availability changes with the dates — clear stale venue picks and reload
+  sessions.value.forEach(s => { s.venue_id = '' })
+  venues.value = []
+  loadVenues()
 })
 
-const selectedVenue = computed(() => venues.value.find(v => v.id === evt.value.venue_id))
 const eventDays = computed(() => {
   if (!evt.value.start_date || !evt.value.end_date) return 0
   return Math.max(1, Math.round(
     (new Date(evt.value.end_date).getTime() - new Date(evt.value.start_date).getTime()) / 86400000,
   ) + 1)
 })
+
+function sessionHours(s: Session) {
+  if (!s.start_time || !s.end_time) return 0
+  const [sh, sm] = s.start_time.split(':').map(Number)
+  const [eh, em] = s.end_time.split(':').map(Number)
+  return Math.max(1, (eh! * 60 + em! - sh! * 60 - sm!) / 60)
+}
+
+// Estimate: each session's venue, daily or hourly rate, across the event days
 const eventTotal = computed(() => {
-  const v = selectedVenue.value
-  if (!v) return 0
-  if (v.rate_type === 'daily') return v.base_rate * eventDays.value
-  if (evt.value.start_time && evt.value.end_time) {
-    const [sh, sm] = evt.value.start_time.split(':').map(Number)
-    const [eh, em] = evt.value.end_time.split(':').map(Number)
-    const hrs = Math.max(1, (eh! * 60 + em! - sh! * 60 - sm!) / 60)
-    return v.base_rate * hrs * eventDays.value
+  let total = 0
+  for (const s of sessions.value) {
+    const v = venueById(s.venue_id)
+    if (!v) continue
+    if (v.rate_type === 'daily') {
+      total += v.base_rate * eventDays.value
+    } else {
+      const hrs = sessionHours(s)
+      total += v.base_rate * (hrs || 1) * eventDays.value
+    }
   }
-  return v.base_rate * eventDays.value
+  return total
 })
 
 // ── Validation ────────────────────────────────────────────────────────────────
@@ -245,30 +305,15 @@ const canSubmit = computed(() => {
     return acc.value.check_in !== '' && acc.value.check_out !== '' &&
       acc.value.check_out > acc.value.check_in && acc.value.room_id !== ''
   }
+  const s0 = sessions.value[0]
   return (
-    evt.value.event_type !== '' && evt.value.venue_id !== '' &&
+    !!s0 && s0.event_type !== '' && s0.venue_id !== '' &&
+    s0.start_time !== '' && s0.end_time !== '' &&
     evt.value.start_date !== '' && evt.value.end_date !== '' &&
     evt.value.end_date >= evt.value.start_date &&
     (isCorporate.value || Number(evt.value.pax_count) > 0)
   )
 })
-
-// ── Reset ─────────────────────────────────────────────────────────────────────
-function reset() {
-  bookingType.value = 'accommodation'
-  context.value     = 'individual'
-  company.value     = { name: '', tpin: '', industry: '', email: '', phone: '', branch: '', department: '', cost_center_type: 'cost_center', cost_center: '', gl_code: '' }
-  booker.value      = { name: '', email: '', phone: '', id_number: '', job_title: '', man_number: '' }
-  approver.value    = { name: '', title: '', email: '', phone: '' }
-  attendants.value  = [{ name: '', email: '', phone: '', id_number: '', job_title: '' }]
-  attendantsExpanded.value = true
-  acc.value = { check_in: '', check_out: '', room_id: '', special_requests: '' }
-  evt.value = { event_type: '', venue_id: '', start_date: '', end_date: '', start_time: '', end_time: '', setup_type: '', pax_count: '', catering_required: false, notes: '' }
-  rooms.value  = []
-  venues.value = []
-}
-
-watch(() => props.open, (isOpen) => { if (isOpen) reset() })
 
 // ── Serialize corporate data into special_requests ────────────────────────────
 function buildNotes(baseNotes: string) {
@@ -323,6 +368,30 @@ function buildNotes(baseNotes: string) {
   return parts.join('\n\n') || undefined
 }
 
+// The API payload only holds one venue/time slot (session 1), so the full
+// session schedule is serialized into special_requests for staff visibility.
+function buildSessionNotes() {
+  const withData = sessions.value.filter(s => s.event_type || s.venue_id || s.name.trim())
+  if (withData.length === 0) return ''
+  const needsNotes = withData.length > 1 ||
+    withData.some(s => s.name.trim() || s.expected_attendees || s.special_requirements.trim())
+  if (!needsNotes) return ''
+  const lines: string[] = [`Sessions (${withData.length}):`]
+  withData.forEach((s, i) => {
+    const label = s.name.trim() || `Session ${i + 1}`
+    const parts = [
+      EVENT_TYPES.find(t => t.value === s.event_type)?.label,
+      venueById(s.venue_id)?.name,
+      s.start_time && s.end_time ? `${s.start_time}–${s.end_time}` : null,
+      SETUP_TYPES.find(t => t.value === s.setup_type)?.label,
+      s.expected_attendees ? `${s.expected_attendees} pax` : null,
+    ].filter(Boolean).join(' · ')
+    lines.push(`  ${i + 1}. ${label}${parts ? ` — ${parts}` : ''}`)
+    if (s.special_requirements.trim()) lines.push(`     Requirements: ${s.special_requirements.trim()}`)
+  })
+  return lines.join('\n')
+}
+
 // ── Submit ────────────────────────────────────────────────────────────────────
 async function handleSubmit() {
   if (!canSubmit.value) return
@@ -351,26 +420,27 @@ async function handleSubmit() {
       const pax = isCorporate.value
         ? (attendants.value.filter(a => a.name.trim()).length || Number(evt.value.pax_count) || 1)
         : Number(evt.value.pax_count)
+      const s0 = sessions.value[0]!
+      const combinedNotes = [buildSessionNotes(), evt.value.notes.trim()].filter(Boolean).join('\n\n')
       booking = await bookingApi.createIndividualEvent({
         booker_name:         bookerName,
         booker_email:        bookerEmail,
         booker_phone:        bookerPhone,
         identification_card: bookerId,
-        event_type:          evt.value.event_type,
-        venue_id:            evt.value.venue_id,
+        event_type:          s0.event_type,
+        venue_id:            s0.venue_id,
         start_date:          evt.value.start_date,
         end_date:            evt.value.end_date,
-        start_time:          evt.value.start_time  || undefined,
-        end_time:            evt.value.end_time    || undefined,
-        setup_type:          evt.value.setup_type  || undefined,
+        start_time:          s0.start_time || undefined,
+        end_time:            s0.end_time   || undefined,
+        setup_type:          s0.setup_type || undefined,
         pax_count:           pax,
         catering_required:   evt.value.catering_required,
-        special_requests:    buildNotes(evt.value.notes),
+        special_requests:    buildNotes(combinedNotes),
       })
     }
     toast.success(`Booking created for ${booking.booker_name}.`)
-    emit('saved', booking)
-    emit('update:open', false)
+    router.push({ name: 'admin-bookings' })
   } catch (err) {
     toast.error(getApiError(err, 'Failed to create booking.'))
   } finally {
@@ -380,17 +450,47 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <Dialog :open="open" @update:open="emit('update:open', $event)">
-    <!-- sm:max-w-4xl overrides the DialogContent default sm:max-w-lg -->
-    <DialogContent class="sm:max-w-4xl">
-      <DialogHeader>
-        <DialogTitle>New Walk-In Booking</DialogTitle>
-        <DialogDescription>Create a confirmed booking on behalf of a walk-in guest or corporate client.</DialogDescription>
-      </DialogHeader>
+  <div>
+    <DashboardHeader :title="isCorporate ? 'New Corporate Booking' : 'New Walk-In Booking'" />
 
-      <div class="flex flex-col gap-4 py-1 max-h-[78vh] overflow-y-auto px-1">
+    <div class="p-6">
+      <div class="max-w-4xl mx-auto flex flex-col gap-4">
 
-        <!-- ── Step 1: Booking type ────────────────────────────────────── -->
+        <!-- Back link + intro + context switch -->
+        <div class="flex items-end justify-between gap-3 flex-wrap">
+          <div class="flex flex-col gap-1">
+            <button type="button"
+              class="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors w-fit"
+              @click="goBack">
+              <ArrowLeft class="size-4" />
+              Back to Bookings
+            </button>
+            <p class="text-sm text-muted-foreground">
+              {{ isCorporate
+                ? 'Create a confirmed booking on behalf of a corporate client.'
+                : 'Create a confirmed booking on behalf of a walk-in guest.' }}
+            </p>
+          </div>
+          <!-- Same pill style as the Bookings page tabs -->
+          <div class="flex items-center gap-1 bg-muted rounded-lg p-1 w-fit">
+            <button type="button"
+              class="flex items-center justify-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
+              :class="!isCorporate ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'"
+              @click="context = 'individual'">
+              <User class="size-4" />
+              Individual
+            </button>
+            <button type="button"
+              class="flex items-center justify-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
+              :class="isCorporate ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'"
+              @click="context = 'corporate'">
+              <Building2 class="size-4" />
+              Corporate
+            </button>
+          </div>
+        </div>
+
+        <!-- ── Booking type ────────────────────────────────────────────── -->
         <div class="grid grid-cols-2 gap-2">
           <button type="button"
             class="flex items-center gap-3 rounded-xl border-2 px-5 py-4 text-left transition-all"
@@ -410,30 +510,6 @@ async function handleSubmit() {
             <div>
               <p class="text-sm font-semibold">Event / Venue</p>
               <p class="text-xs opacity-70 mt-0.5">Function or venue booking</p>
-            </div>
-          </button>
-        </div>
-
-        <!-- ── Step 2: Individual / Corporate ────────────────────────── -->
-        <div class="grid grid-cols-2 gap-2">
-          <button type="button"
-            class="flex items-start gap-3 rounded-xl border-2 px-5 py-4 text-left transition-all"
-            :class="!isCorporate ? 'border-primary bg-primary/5 text-primary' : 'border-border text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground'"
-            @click="context = 'individual'">
-            <User class="size-5 shrink-0 mt-0.5" />
-            <div>
-              <p class="text-sm font-semibold">Individual / Guest</p>
-              <p class="text-xs opacity-70 mt-0.5">Personal travel, family stays, small groups</p>
-            </div>
-          </button>
-          <button type="button"
-            class="flex items-start gap-3 rounded-xl border-2 px-5 py-4 text-left transition-all"
-            :class="isCorporate ? 'border-primary bg-primary/5 text-primary' : 'border-border text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground'"
-            @click="context = 'corporate'">
-            <Building2 class="size-5 shrink-0 mt-0.5" />
-            <div>
-              <p class="text-sm font-semibold">Corporate / Group</p>
-              <p class="text-xs opacity-70 mt-0.5">Company stays, conferences, delegate groups</p>
             </div>
           </button>
         </div>
@@ -753,11 +829,11 @@ async function handleSubmit() {
         <!-- ═══════════════════ ACCOMMODATION FIELDS ══════════════════════ -->
         <template v-if="bookingType === 'accommodation'">
 
-          <!-- ─── Stay Details ─── -->
+          <!-- ─── Accommodation  Details ─── -->
           <div class="rounded-xl border p-5 flex flex-col gap-4">
             <div class="flex items-center gap-2.5">
               <BedDouble class="size-4 text-muted-foreground" />
-              <p class="text-sm font-semibold">Stay Details</p>
+              <p class="text-sm font-semibold">Accommodation Details</p>
             </div>
 
             <div class="grid grid-cols-2 gap-3">
@@ -853,26 +929,17 @@ async function handleSubmit() {
         <!-- ═══════════════════ EVENT FIELDS ══════════════════════════════ -->
         <template v-else>
 
-          <!-- ─── Event Details ─── -->
+          <!-- ─── Event Schedule ─── -->
           <div class="rounded-xl border p-5 flex flex-col gap-4">
             <div class="flex items-center gap-2.5">
-              <MapPin class="size-4 text-muted-foreground" />
-              <p class="text-sm font-semibold">Event Details</p>
+              <CalendarIcon class="size-4 text-muted-foreground" />
+              <div>
+                <p class="text-sm font-semibold">Event Schedule</p>
+                <p class="text-xs text-muted-foreground">Dates determine which venues are available for your sessions</p>
+              </div>
             </div>
 
             <div class="grid grid-cols-2 gap-3">
-              <div class="col-span-2">
-                <Label class="text-xs">Event Type <span class="text-destructive">*</span></Label>
-                <Select v-model="evt.event_type">
-                  <SelectTrigger class="mt-1.5">
-                    <SelectValue placeholder="Select event type…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem v-for="et in EVENT_TYPES" :key="et.value" :value="et.value">{{ et.label }}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
               <div>
                 <Label class="text-xs">Start Date <span class="text-destructive">*</span></Label>
                 <Popover v-model:open="startOpen">
@@ -913,29 +980,165 @@ async function handleSubmit() {
               <CalendarIcon class="size-3" />
               {{ eventDays }} day{{ eventDays !== 1 ? 's' : '' }} · {{ displayDate(evt.start_date) }} – {{ displayDate(evt.end_date) }}
             </div>
+          </div>
 
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <Label class="text-xs flex items-center gap-1"><Clock class="size-3" /> Start Time</Label>
-                <Input v-model="evt.start_time" type="time" class="mt-1.5" />
+          <!-- ─── Sessions ─── -->
+          <div class="rounded-xl border p-5 flex flex-col gap-4">
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex items-center gap-2.5">
+                <Clock class="size-4 text-muted-foreground" />
+                <div>
+                  <p class="text-sm font-semibold">Sessions</p>
+                  <p class="text-xs text-muted-foreground">Each session runs on every event day. Session 1 is the main session.</p>
+                </div>
               </div>
-              <div>
-                <Label class="text-xs flex items-center gap-1"><Clock class="size-3" /> End Time</Label>
-                <Input v-model="evt.end_time" type="time" class="mt-1.5" />
+              <button v-if="evt.start_date && evt.end_date && !venuesLoading" type="button"
+                class="flex items-center gap-1 text-xs font-medium text-primary hover:underline shrink-0"
+                @click="loadVenues">
+                Refresh venues
+              </button>
+            </div>
+
+            <div v-for="(session, si) in sessions" :key="si" class="rounded-lg border overflow-hidden">
+              <!-- Session header -->
+              <div class="flex items-center justify-between px-4 py-3 bg-muted/30">
+                <span class="text-sm font-semibold">
+                  {{ session.name.trim() || (session.event_type ? (EVENT_TYPES.find(t => t.value === session.event_type)?.label + ' Session') : `Session ${si + 1}`) }}
+                </span>
+                <div class="flex items-center gap-2">
+                  <span v-if="eventDays > 0"
+                    class="inline-flex items-center px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-semibold">
+                    × {{ eventDays }} day{{ eventDays !== 1 ? 's' : '' }}
+                  </span>
+                  <button type="button" :disabled="sessions.length === 1"
+                    class="rounded p-1 transition-colors"
+                    :class="sessions.length === 1 ? 'text-muted-foreground/30 cursor-not-allowed' : 'text-muted-foreground hover:text-destructive'"
+                    @click="removeSession(si)">
+                    <Trash2 class="size-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              <div class="p-4 flex flex-col gap-3">
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="col-span-2">
+                    <Label class="text-xs">Session Name</Label>
+                    <Input v-model="session.name" placeholder="e.g. Plenary, Workshop A, Closing Ceremony" class="mt-1.5" />
+                  </div>
+                  <div>
+                    <Label class="text-xs">Event Type <span v-if="si === 0" class="text-destructive">*</span></Label>
+                    <Select v-model="session.event_type">
+                      <SelectTrigger class="mt-1.5">
+                        <SelectValue placeholder="Select event type…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem v-for="et in EVENT_TYPES" :key="et.value" :value="et.value">{{ et.label }}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label class="text-xs">Room / Seating Setup</Label>
+                    <Select v-model="session.setup_type">
+                      <SelectTrigger class="mt-1.5">
+                        <SelectValue placeholder="Select setup…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem v-for="st in SETUP_TYPES" :key="st.value" :value="st.value">{{ st.label }}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label class="text-xs flex items-center gap-1"><Clock class="size-3" /> Start Time <span v-if="si === 0" class="text-destructive">*</span></Label>
+                    <Input v-model="session.start_time" type="time" class="mt-1.5" />
+                  </div>
+                  <div>
+                    <Label class="text-xs flex items-center gap-1"><Clock class="size-3" /> End Time <span v-if="si === 0" class="text-destructive">*</span></Label>
+                    <Input v-model="session.end_time" type="time" class="mt-1.5" />
+                  </div>
+                </div>
+
+                <!-- Venue picker -->
+                <div class="rounded-lg border overflow-hidden"
+                  :class="expandedVenueSession === si && 'ring-1 ring-primary/30 border-primary/40'">
+                  <div class="flex items-center justify-between gap-3 px-3 py-2.5 bg-muted/20">
+                    <div v-if="session.venue_id && venueById(session.venue_id)" class="flex items-center gap-2 min-w-0">
+                      <MapPin class="size-4 text-primary shrink-0" />
+                      <div class="min-w-0">
+                        <p class="text-sm font-semibold truncate">{{ venueById(session.venue_id)!.name }}</p>
+                        <p class="text-xs text-muted-foreground">
+                          {{ VENUE_TYPE_LABELS[venueById(session.venue_id)!.venue_type] ?? venueById(session.venue_id)!.venue_type }}
+                          · Capacity {{ venueById(session.venue_id)!.capacity }}
+                          · ZMW {{ venueById(session.venue_id)!.base_rate.toLocaleString() }}/{{ venueById(session.venue_id)!.rate_type === 'daily' ? 'day' : 'hr' }}
+                        </p>
+                      </div>
+                    </div>
+                    <p v-else class="text-sm text-muted-foreground">
+                      Venue <span v-if="si === 0" class="text-destructive">*</span> — none selected
+                    </p>
+                    <div class="flex items-center gap-1.5 shrink-0">
+                      <button v-if="session.venue_id" type="button"
+                        class="text-muted-foreground hover:text-destructive transition-colors rounded p-1"
+                        @click="clearVenueFromSession(session)">
+                        <Trash2 class="size-3.5" />
+                      </button>
+                      <Button type="button" size="sm" variant="outline"
+                        :disabled="!evt.start_date || !evt.end_date"
+                        @click="expandedVenueSession = expandedVenueSession === si ? null : si">
+                        {{ expandedVenueSession === si ? 'Close' : (session.venue_id ? 'Change' : 'Browse venues') }}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <!-- Available venue list -->
+                  <div v-if="expandedVenueSession === si" class="border-t p-3">
+                    <div v-if="!evt.start_date || !evt.end_date" class="text-xs text-muted-foreground rounded-lg border border-dashed px-4 py-4 text-center">
+                      Select event dates first to see available venues.
+                    </div>
+                    <div v-else-if="venuesLoading" class="flex items-center gap-2 text-xs text-muted-foreground rounded-lg border border-dashed px-4 py-4">
+                      <Loader2 class="size-3.5 animate-spin" /> Loading available venues…
+                    </div>
+                    <div v-else-if="venues.length === 0" class="text-xs text-amber-600 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 px-4 py-4 text-center">
+                      No venues available for these dates.
+                    </div>
+                    <div v-else class="flex flex-col gap-2 max-h-52 overflow-y-auto">
+                      <button v-for="venue in venues" :key="venue.id" type="button"
+                        class="flex items-center justify-between gap-3 rounded-lg border px-3 py-3 text-left text-sm transition-colors"
+                        :class="session.venue_id === venue.id ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'hover:bg-muted/40'"
+                        @click="selectVenueForSession(session, venue)">
+                        <div class="flex items-center gap-2.5">
+                          <MapPin class="size-4 text-muted-foreground shrink-0" />
+                          <div>
+                            <p class="font-semibold">{{ venue.name }}</p>
+                            <p class="text-xs text-muted-foreground">{{ VENUE_TYPE_LABELS[venue.venue_type] ?? venue.venue_type }} · Capacity {{ venue.capacity }}</p>
+                          </div>
+                        </div>
+                        <span class="text-xs font-semibold shrink-0">
+                          ZMW {{ venue.base_rate.toLocaleString() }}<span class="font-normal text-muted-foreground">/{{ venue.rate_type === 'daily' ? 'day' : 'hr' }}</span>
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label class="text-xs">Expected Attendees</Label>
+                    <Input v-model="session.expected_attendees" type="number" min="1" placeholder="e.g. 50" class="mt-1.5" />
+                  </div>
+                  <div>
+                    <Label class="text-xs">Special Requirements</Label>
+                    <Input v-model="session.special_requirements" placeholder="AV equipment, branding, signage…" class="mt-1.5" />
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div>
-              <Label class="text-xs">Room / Seating Setup</Label>
-              <Select v-model="evt.setup_type">
-                <SelectTrigger class="mt-1.5">
-                  <SelectValue placeholder="Select setup arrangement…" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem v-for="st in SETUP_TYPES" :key="st.value" :value="st.value">{{ st.label }}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <button type="button"
+              class="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline w-fit"
+              @click="addSession">
+              <UserPlus class="size-3.5" />
+              Add Another Session
+            </button>
           </div>
 
           <!-- ─── Attendees (individual only — corporate uses delegates) ─── -->
@@ -953,43 +1156,6 @@ async function handleSubmit() {
             </div>
           </div>
 
-          <!-- ─── Venue ─── -->
-          <div class="rounded-xl border p-5 flex flex-col gap-3">
-            <div class="flex items-center gap-2.5">
-              <MapPin class="size-4 text-muted-foreground" />
-              <div>
-                <p class="text-sm font-semibold">Venue <span class="text-destructive">*</span></p>
-                <p class="text-xs text-muted-foreground">Set event dates above to load available venues</p>
-              </div>
-            </div>
-            <div v-if="!evt.start_date || !evt.end_date" class="text-xs text-muted-foreground rounded-lg border border-dashed px-4 py-4 text-center">
-              Select event dates first to see available venues.
-            </div>
-            <div v-else-if="venuesLoading" class="flex items-center gap-2 text-xs text-muted-foreground rounded-lg border border-dashed px-4 py-4">
-              <Loader2 class="size-3.5 animate-spin" /> Loading available venues…
-            </div>
-            <div v-else-if="venues.length === 0" class="text-xs text-amber-600 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 px-4 py-4 text-center">
-              No venues available for these dates.
-            </div>
-            <div v-else class="flex flex-col gap-2 max-h-52 overflow-y-auto">
-              <button v-for="venue in venues" :key="venue.id" type="button"
-                class="flex items-center justify-between gap-3 rounded-lg border px-3 py-3 text-left text-sm transition-colors"
-                :class="evt.venue_id === venue.id ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'hover:bg-muted/40'"
-                @click="evt.venue_id = venue.id">
-                <div class="flex items-center gap-2.5">
-                  <MapPin class="size-4 text-muted-foreground shrink-0" />
-                  <div>
-                    <p class="font-semibold">{{ venue.name }}</p>
-                    <p class="text-xs text-muted-foreground">{{ VENUE_TYPE_LABELS[venue.venue_type] ?? venue.venue_type }} · Capacity {{ venue.capacity }}</p>
-                  </div>
-                </div>
-                <span class="text-xs font-semibold shrink-0">
-                  ZMW {{ venue.base_rate.toLocaleString() }}<span class="font-normal text-muted-foreground">/{{ venue.rate_type === 'daily' ? 'day' : 'hr' }}</span>
-                </span>
-              </button>
-            </div>
-          </div>
-
           <!-- ─── Catering & Requirements ─── -->
           <div class="rounded-xl border p-5 flex flex-col gap-4">
             <div class="flex items-center gap-2.5">
@@ -997,7 +1163,7 @@ async function handleSubmit() {
               <p class="text-sm font-semibold">Catering &amp; Requirements</p>
             </div>
             <label class="flex items-start gap-3 cursor-pointer">
-              <Checkbox :checked="evt.catering_required" class="mt-0.5" @update:checked="(v) => evt.catering_required = v" />
+              <Checkbox :checked="evt.catering_required" class="mt-0.5" @update:checked="evt.catering_required = $event" />
               <div>
                 <p class="text-sm font-medium">Catering required</p>
                 <p class="text-xs text-muted-foreground mt-0.5">Include meal or refreshment service for this event</p>
@@ -1012,11 +1178,11 @@ async function handleSubmit() {
           </div>
 
           <!-- Event estimate -->
-          <div v-if="selectedVenue && eventTotal > 0" class="rounded-xl bg-muted/40 border px-5 py-3.5 flex flex-col gap-1 text-sm">
+          <div v-if="eventTotal > 0" class="rounded-xl bg-muted/40 border px-5 py-3.5 flex flex-col gap-1 text-sm">
             <div class="flex items-center justify-between">
               <span class="text-muted-foreground">
-                {{ selectedVenue.name }} · {{ eventDays }} day{{ eventDays !== 1 ? 's' : '' }}
-                <template v-if="selectedVenue.rate_type === 'hourly' && evt.start_time && evt.end_time"> (hourly)</template>
+                {{ sessions.filter(s => s.venue_id).length }} session{{ sessions.filter(s => s.venue_id).length !== 1 ? 's' : '' }}
+                · {{ eventDays }} day{{ eventDays !== 1 ? 's' : '' }}
               </span>
               <span class="font-semibold">ZMW {{ eventTotal.toLocaleString() }}</span>
             </div>
@@ -1025,15 +1191,16 @@ async function handleSubmit() {
 
         </template>
 
-      </div>
+        <!-- ── Actions ─────────────────────────────────────────────────── -->
+        <div class="flex items-center justify-end gap-2 pt-2 pb-8">
+          <Button variant="outline" :disabled="saving" @click="goBack">Cancel</Button>
+          <Button :disabled="!canSubmit" @click="handleSubmit">
+            <Loader2 v-if="saving" class="size-4 mr-2 animate-spin" />
+            Create Booking
+          </Button>
+        </div>
 
-      <DialogFooter class="gap-2 pt-2">
-        <Button variant="outline" :disabled="saving" @click="emit('update:open', false)">Cancel</Button>
-        <Button :disabled="!canSubmit" @click="handleSubmit">
-          <Loader2 v-if="saving" class="size-4 mr-2 animate-spin" />
-          Create Booking
-        </Button>
-      </DialogFooter>
-    </DialogContent>
-  </Dialog>
+      </div>
+    </div>
+  </div>
 </template>
