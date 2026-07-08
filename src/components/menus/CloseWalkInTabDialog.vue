@@ -10,6 +10,9 @@ import { menusApi } from '@/services/api/menus'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -23,12 +26,31 @@ const emit = defineEmits<{ 'update:open': [boolean]; invoiced: [Invoice] }>()
 
 const router = useRouter()
 
+const INDUSTRIES = [
+  'Agriculture & Agribusiness', 'Banking & Finance',
+  'Construction & Infrastructure', 'Education & Training',
+  'Energy & Utilities', 'Government & Public Sector',
+  'Healthcare & Medical', 'Hospitality & Tourism',
+  'Information Technology', 'Legal & Professional Services',
+  'Manufacturing', 'Media & Communications',
+  'Mining & Extractives', 'NGO & Non-profit',
+  'Real Estate', 'Retail & Trade',
+  'Telecommunications', 'Transportation & Logistics', 'Other',
+]
+
 interface Form {
   client_name: string
   client_type: 'individual' | 'corporate'
   client_email: string
   client_phone: string
   client_tpin: string
+  client_industry: string
+  client_branch: string
+  client_department: string
+  client_cost_center: string
+  client_cost_center_type: 'cost_center' | 'internal_order'
+  client_gl_code: string
+  client_country: string
   due_date: string
   notes: string
 }
@@ -39,15 +61,26 @@ function defaultDueDate() {
   return d.toISOString().split('T')[0]!
 }
 
-const form = ref<Form>({
-  client_name: '',
-  client_type: 'individual',
-  client_email: '',
-  client_phone: '',
-  client_tpin: '',
-  due_date: defaultDueDate(),
-  notes: '',
-})
+function blankForm(): Form {
+  return {
+    client_name: '',
+    client_type: 'individual',
+    client_email: '',
+    client_phone: '',
+    client_tpin: '',
+    client_industry: '',
+    client_branch: '',
+    client_department: '',
+    client_cost_center: '',
+    client_cost_center_type: 'cost_center',
+    client_gl_code: '',
+    client_country: '',
+    due_date: defaultDueDate(),
+    notes: '',
+  }
+}
+
+const form = ref<Form>(blankForm())
 
 const loading = ref(false)
 const createdInvoice = ref<Invoice | null>(null)
@@ -55,12 +88,8 @@ const createdInvoice = ref<Invoice | null>(null)
 watch(() => props.open, (open) => {
   if (open) {
     form.value = {
+      ...blankForm(),
       client_name: props.order?.client_name ?? '',
-      client_type: 'individual',
-      client_email: '',
-      client_phone: '',
-      client_tpin: '',
-      due_date: defaultDueDate(),
       notes: props.order?.notes ?? '',
     }
     createdInvoice.value = null
@@ -71,20 +100,46 @@ const orderTotal = computed(() =>
   props.order?.total ?? props.order?.items.reduce((s, i) => s + (i.subtotal ?? i.total ?? 0), 0) ?? 0,
 )
 
-const canSubmit = computed(() => form.value.client_name.trim().length > 0 && !loading.value)
+const canSubmit = computed(() => {
+  if (loading.value || !form.value.client_name.trim()) return false
+  if (form.value.client_type === 'corporate') {
+    return form.value.client_tpin.trim().length > 0 &&
+      form.value.client_industry.trim().length > 0 &&
+      form.value.client_email.trim().length > 0 &&
+      form.value.client_phone.trim().length > 0
+  }
+  return true
+})
 
 async function submit() {
   if (!props.order || !canSubmit.value) return
   loading.value = true
   try {
+    const isCorporate = form.value.client_type === 'corporate'
+    // Industry and Country aren't part of the invoice schema yet, so they're
+    // captured in notes alongside any staff-entered notes for visibility.
+    const extraLines = isCorporate
+      ? [
+          form.value.client_industry ? `Industry: ${form.value.client_industry}` : null,
+          form.value.client_country ? `Country: ${form.value.client_country}` : null,
+        ].filter((l): l is string => Boolean(l)).join('\n')
+      : ''
+    const combinedNotes = [extraLines, form.value.notes.trim()].filter(Boolean).join('\n\n')
+
     const payload: CloseWalkInOrderPayload = {
       client_name: form.value.client_name.trim(),
       client_type: form.value.client_type,
       client_email: form.value.client_email || undefined,
       client_phone: form.value.client_phone || undefined,
-      client_tpin: form.value.client_type === 'corporate' && form.value.client_tpin ? form.value.client_tpin : undefined,
+      client_tpin: form.value.client_tpin || undefined,
+      client_branch: isCorporate ? (form.value.client_branch || undefined) : undefined,
+      client_department: isCorporate ? (form.value.client_department || undefined) : undefined,
+      cost_center: isCorporate && form.value.client_cost_center_type === 'cost_center' ? (form.value.client_cost_center || undefined) : undefined,
+      internal_order: isCorporate && form.value.client_cost_center_type === 'internal_order' ? (form.value.client_cost_center || undefined) : undefined,
+      cost_center_type: isCorporate ? form.value.client_cost_center_type : undefined,
+      gl_code: isCorporate ? (form.value.client_gl_code || undefined) : undefined,
       due_date: form.value.due_date || undefined,
-      notes: form.value.notes || undefined,
+      notes: combinedNotes || undefined,
     }
     const invoice = await menusApi.convertToInvoice(props.order.id, payload)
     createdInvoice.value = invoice
@@ -223,20 +278,85 @@ function fmt(n: number) {
           <!-- Email + Phone -->
           <div class="grid grid-cols-2 gap-3">
             <div class="flex flex-col gap-1.5">
-              <label class="text-sm font-medium">Email</label>
+              <label class="text-sm font-medium">
+                {{ form.client_type === 'corporate' ? 'Billing Email' : 'Email' }}
+                <span v-if="form.client_type === 'corporate'" class="text-destructive ml-0.5">*</span>
+              </label>
               <Input v-model="form.client_email" type="email" placeholder="email@example.com" />
             </div>
             <div class="flex flex-col gap-1.5">
-              <label class="text-sm font-medium">Phone</label>
+              <label class="text-sm font-medium">
+                {{ form.client_type === 'corporate' ? 'Company Phone' : 'Phone' }}
+                <span v-if="form.client_type === 'corporate'" class="text-destructive ml-0.5">*</span>
+              </label>
               <Input v-model="form.client_phone" type="tel" placeholder="+260..." />
             </div>
           </div>
 
-          <!-- TPIN (corporate only) -->
-          <div v-if="form.client_type === 'corporate'" class="flex flex-col gap-1.5">
-            <label class="text-sm font-medium">TPIN</label>
-            <Input v-model="form.client_tpin" placeholder="e.g. 1001757365" class="font-mono" />
+          <!-- TPIN + Industry -->
+          <div class="grid grid-cols-2 gap-3">
+            <div class="flex flex-col gap-1.5">
+              <label class="text-sm font-medium">
+                TPIN
+                <span v-if="form.client_type === 'corporate'" class="text-destructive ml-0.5">*</span>
+                <span v-else class="text-muted-foreground font-normal">(optional)</span>
+              </label>
+              <Input v-model="form.client_tpin" placeholder="e.g. 1001757365" class="font-mono" />
+            </div>
+            <div v-if="form.client_type === 'corporate'" class="flex flex-col gap-1.5">
+              <label class="text-sm font-medium">Industry <span class="text-destructive ml-0.5">*</span></label>
+              <Select v-model="form.client_industry">
+                <SelectTrigger>
+                  <SelectValue placeholder="Select industry…" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="ind in INDUSTRIES" :key="ind" :value="ind">{{ ind }}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+
+          <!-- Corporate: Branch, Department, Cost Centre, GL Code, Country -->
+          <template v-if="form.client_type === 'corporate'">
+            <div class="grid grid-cols-2 gap-3">
+              <div class="flex flex-col gap-1.5">
+                <label class="text-sm font-medium">Branch</label>
+                <Input v-model="form.client_branch" placeholder="e.g. Lusaka North" />
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <label class="text-sm font-medium">Department</label>
+                <Input v-model="form.client_department" placeholder="e.g. Finance" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div class="flex flex-col gap-2">
+                <label class="text-sm font-medium">
+                  {{ form.client_cost_center_type === 'internal_order' ? 'Internal Order No.' : 'Cost Centre' }}
+                </label>
+                <div class="flex rounded-lg border overflow-hidden text-xs font-medium">
+                  <button type="button"
+                    class="flex-1 py-1.5 px-3 transition-colors"
+                    :class="form.client_cost_center_type === 'cost_center' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'"
+                    @click="form.client_cost_center_type = 'cost_center'">Cost Centre</button>
+                  <button type="button"
+                    class="flex-1 py-1.5 px-3 transition-colors border-l"
+                    :class="form.client_cost_center_type === 'internal_order' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'"
+                    @click="form.client_cost_center_type = 'internal_order'">Internal Order</button>
+                </div>
+                <Input v-model="form.client_cost_center" :placeholder="form.client_cost_center_type === 'cost_center' ? 'e.g. CC-1234' : 'e.g. IO-5678'" />
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <label class="text-sm font-medium">GL Code</label>
+                <Input v-model="form.client_gl_code" placeholder="e.g. GL-4000" />
+              </div>
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+              <label class="text-sm font-medium">Country</label>
+              <Input v-model="form.client_country" placeholder="e.g. Zambia" />
+            </div>
+          </template>
 
           <!-- Due date + Notes -->
           <div class="grid grid-cols-2 gap-3">

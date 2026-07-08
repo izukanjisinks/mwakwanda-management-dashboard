@@ -104,6 +104,11 @@ function setTypeTab(val: typeof typeFilter.value) {
 
 const totalPages = computed(() => Math.max(1, Math.ceil(store.ordersTotal / pageSize)))
 
+// Newest orders first, regardless of the order the API returns them in
+const sortedOrders = computed(() =>
+  [...store.orders].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
+)
+
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
@@ -303,7 +308,7 @@ async function updateQuantity(itemId: string, newQty: number) {
         </TableHeader>
         <TableBody>
           <TableRow
-            v-for="order in store.orders"
+            v-for="order in sortedOrders"
             :key="order.id"
             class="cursor-pointer hover:bg-muted/40"
             @click="openSheet(order)"

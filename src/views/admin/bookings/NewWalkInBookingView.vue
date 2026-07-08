@@ -4,8 +4,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { CalendarDate, type DateValue } from '@internationalized/date'
 import {
   CalendarIcon, Loader2, BedDouble, MapPin, Users, Clock,
-  UtensilsCrossed, User, UserPlus, Trash2, ChevronDown, Building2, ShieldCheck,
-  ArrowLeft,
+  User, UserPlus, Trash2, ChevronDown, List, Building2, ShieldCheck,
+  ArrowLeft, StickyNote, CalendarRange, CalendarClock, Ban, RotateCcw,
 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { bookingApi } from '@/services/api/bookings'
@@ -20,7 +20,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar } from '@/components/ui/calendar'
 import {
@@ -76,6 +75,13 @@ const SETUP_TYPES = [
   { value: 'cocktail',  label: 'Cocktail' },
 ]
 
+const PRICING_BASIS = [
+  { value: 'half_day',  label: 'Half Day' },
+  { value: 'full_day',  label: 'Full Day' },
+  { value: 'hourly',    label: 'Hourly' },
+  { value: 'flat_rate', label: 'Flat Rate' },
+]
+
 const VENUE_TYPE_LABELS: Record<string, string> = {
   conference_hall: 'Conference Hall',
   event_space:     'Event Space',
@@ -102,7 +108,7 @@ function displayDate(iso: string) {
 // ── Company information (corporate) ──────────────────────────────────────────
 const company = ref({
   name: '', tpin: '', industry: '', email: '', phone: '',
-  branch: '', department: '',
+  branch: '', department: '', country: '',
   cost_center_type: 'cost_center' as 'cost_center' | 'internal_order',
   cost_center: '', gl_code: '',
 })
@@ -130,7 +136,24 @@ function removeAttendant(i: number) {
   if (!isCorporate.value && i === 0) return  // lead contact cannot be removed for individual
   attendants.value.splice(i, 1)
   if (attendants.value.length === 0) attendantsExpanded.value = false
+  // Reindex delegate room assignments to follow the shifted attendant indices
+  const reindexed: Record<number, DelegateRoomAssignment> = {}
+  Object.entries(delegateRooms.value).forEach(([k, v]) => {
+    const idx = Number(k)
+    if (idx === i) return
+    reindexed[idx > i ? idx - 1 : idx] = v
+  })
+  delegateRooms.value = reindexed
 }
+
+// ── Attendee registration mode (individual events) ───────────────────────────
+// 'headcount' = expected pax only; 'detailed' = register each attendee record.
+const participantMode   = ref<'headcount' | 'detailed'>('headcount')
+const attendeesExpanded = ref(true)
+
+// ── Delegate registration mode (corporate events — accommodation always needs
+// individual records so rooms can be assigned per delegate) ──────────────────
+const delegateMode = ref<'headcount' | 'detailed'>('headcount')
 
 // Re-initialise attendants when context switches
 watch(context, (ctx) => {
@@ -141,6 +164,8 @@ watch(context, (ctx) => {
     attendants.value = []
     attendantsExpanded.value = false
   }
+  participantMode.value = 'headcount'
+  delegateMode.value    = 'headcount'
 })
 
 // ── Accommodation form ────────────────────────────────────────────────────────
@@ -159,9 +184,37 @@ const checkOutDate = computed({
   set: (dv) => { if (dv) { acc.value.check_out = fromCalDate(dv); toOpen.value = false } },
 })
 
+// Corporate: one room can be assigned to each delegate (keyed by attendant index)
+type DelegateRoomAssignment = { room_id: string; room_name: string; room_type: string; rate_per_night: number }
+const delegateRooms             = ref<Record<number, DelegateRoomAssignment>>({})
+const expandedDelegateRoomPicker = ref<number | null>(null)
+
+function getDelegateRoom(i: number) {
+  return delegateRooms.value[i] ?? null
+}
+function setDelegateRoom(i: number, room: Room) {
+  delegateRooms.value[i] = {
+    room_id: room.id, room_name: room.name, room_type: room.type, rate_per_night: room.price_per_night,
+  }
+  expandedDelegateRoomPicker.value = null
+}
+function clearDelegateRoom(i: number) {
+  delete delegateRooms.value[i]
+}
+// Rooms already assigned to other delegates are hidden from this delegate's picker
+function availableRoomsForDelegate(i: number) {
+  const takenByOthers = new Set(
+    Object.entries(delegateRooms.value)
+      .filter(([k]) => Number(k) !== i)
+      .map(([, r]) => r.room_id),
+  )
+  return rooms.value.filter(r => !takenByOthers.has(r.id))
+}
+
 watch([() => acc.value.check_in, () => acc.value.check_out], async ([ci, co]) => {
   acc.value.room_id = ''
   rooms.value = []
+  delegateRooms.value = {}
   if (!ci || !co || co <= ci) return
   roomsLoading.value = true
   try {
@@ -181,11 +234,26 @@ const nights = computed(() => {
   ))
 })
 const accTotal = computed(() => (selectedRoom.value?.price_per_night ?? 0) * nights.value)
+const delegateRoomTotal = computed(() =>
+  Object.values(delegateRooms.value).reduce((sum, r) => sum + r.rate_per_night, 0) * nights.value,
+)
 
 // ── Event form ────────────────────────────────────────────────────────────────
 const evt = ref({
   start_date: '', end_date: '', pax_count: '',
   catering_required: false, notes: '',
+})
+
+// Detailed mode derives the total attendee/delegate count from the records
+watch([participantMode, () => attendants.value.length], () => {
+  if (!isCorporate.value && participantMode.value === 'detailed') {
+    evt.value.pax_count = String(attendants.value.length)
+  }
+})
+watch([delegateMode, () => attendants.value.length], () => {
+  if (isCorporate.value && delegateMode.value === 'detailed') {
+    evt.value.pax_count = String(attendants.value.length)
+  }
 })
 const startOpen     = ref(false)
 const endOpen       = ref(false)
@@ -200,13 +268,14 @@ type Session = {
   start_time: string
   end_time: string
   setup_type: string
+  pricing_basis: string
   expected_attendees: string
   special_requirements: string
 }
 function emptySession(): Session {
   return {
     name: '', event_type: '', venue_id: '', start_time: '', end_time: '',
-    setup_type: '', expected_attendees: '', special_requirements: '',
+    setup_type: '', pricing_basis: 'full_day', expected_attendees: '', special_requirements: '',
   }
 }
 const sessions = ref<Session[]>([emptySession()])
@@ -230,6 +299,83 @@ function selectVenueForSession(s: Session, venue: Venue) {
 }
 function clearVenueFromSession(s: Session) {
   s.venue_id = ''
+}
+function sessionLabel(s: Session, i: number) {
+  return s.name.trim() || (s.event_type ? `${EVENT_TYPES.find(t => t.value === s.event_type)?.label} Session` : `Session ${i + 1}`)
+}
+
+// ── Multi-day scheduling: uniform (same sessions every day) vs per-day ───────
+// (mirrors the public site's schedule-mode / day-overrides behaviour)
+const scheduleMode = ref<'uniform' | 'per_day'>('uniform')
+type DayOverride = { excluded: boolean; sessions: Session[] }
+const dayOverrides         = ref<Record<string, DayOverride>>({})
+const expandedDayOverride  = ref<string | null>(null)
+const expandedOverrideVenue = ref<string | null>(null)
+
+const dayRange = computed(() => {
+  const sd = evt.value.start_date
+  const ed = evt.value.end_date
+  if (!sd || !ed || ed < sd) return [] as string[]
+  const [sy, sm, sdd] = sd.split('-').map(Number)
+  const [ey, em, edd] = ed.split('-').map(Number)
+  const start = new Date(Date.UTC(sy!, sm! - 1, sdd!))
+  const end   = new Date(Date.UTC(ey!, em! - 1, edd!))
+  const dates: string[] = []
+  for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1))
+    dates.push(d.toISOString().slice(0, 10))
+  return dates
+})
+
+watch(dayRange, (range) => { if (range.length <= 1) scheduleMode.value = 'uniform' })
+
+const eventDaySummary = computed(() => {
+  const total      = dayRange.value.length
+  const skipped    = Object.values(dayOverrides.value).filter(o =>  o.excluded).length
+  const customised = Object.values(dayOverrides.value).filter(o => !o.excluded).length
+  return { total, skipped, customised, defaultCount: total - skipped - customised }
+})
+
+function fmtDayLabel(iso: string) {
+  return new Date(iso + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
+}
+
+function dayStatus(date: string): 'default' | 'skipped' | 'overridden' {
+  const ov = dayOverrides.value[date]
+  if (!ov) return 'default'
+  return ov.excluded ? 'skipped' : 'overridden'
+}
+
+function setDayOverride(date: string) {
+  if (!dayOverrides.value[date]) {
+    dayOverrides.value[date] = { excluded: false, sessions: sessions.value.map(s => ({ ...s })) }
+  }
+}
+function startDayOverride(date: string) {
+  setDayOverride(date)
+  expandedDayOverride.value = expandedDayOverride.value === date ? null : date
+}
+function collapseDayOverride(date: string) {
+  delete dayOverrides.value[date]
+  if (expandedDayOverride.value === date) expandedDayOverride.value = null
+}
+function toggleDayExcluded(date: string) {
+  const ov = dayOverrides.value[date]
+  if (!ov) dayOverrides.value[date] = { excluded: true, sessions: [] }
+  else ov.excluded = !ov.excluded
+}
+function addOverrideSession(date: string) {
+  dayOverrides.value[date]?.sessions.push(emptySession())
+}
+function removeOverrideSession(date: string, i: number) {
+  const ov = dayOverrides.value[date]
+  if (ov && ov.sessions.length > 1) ov.sessions.splice(i, 1)
+}
+function selectVenueForOverrideSession(s: Session, venue: Venue) {
+  s.venue_id = venue.id
+  expandedOverrideVenue.value = null
+}
+function overrideSessions(date: string): Session[] {
+  return dayOverrides.value[date]?.sessions ?? []
 }
 
 const startDateVal = computed({
@@ -259,6 +405,7 @@ async function loadVenues() {
 watch([() => evt.value.start_date, () => evt.value.end_date], () => {
   // Availability changes with the dates — clear stale venue picks and reload
   sessions.value.forEach(s => { s.venue_id = '' })
+  Object.values(dayOverrides.value).forEach(ov => ov.sessions.forEach(s => { s.venue_id = '' }))
   venues.value = []
   loadVenues()
 })
@@ -302,8 +449,10 @@ const canSubmit = computed(() => {
   if (!primaryName.value || saving.value) return false
   if (!isCorporate.value && !booker.value.name.trim()) return false
   if (bookingType.value === 'accommodation') {
-    return acc.value.check_in !== '' && acc.value.check_out !== '' &&
-      acc.value.check_out > acc.value.check_in && acc.value.room_id !== ''
+    if (acc.value.check_in === '' || acc.value.check_out === '' || acc.value.check_out <= acc.value.check_in) return false
+    return isCorporate.value
+      ? Object.keys(delegateRooms.value).length > 0
+      : acc.value.room_id !== ''
   }
   const s0 = sessions.value[0]
   return (
@@ -311,14 +460,18 @@ const canSubmit = computed(() => {
     s0.start_time !== '' && s0.end_time !== '' &&
     evt.value.start_date !== '' && evt.value.end_date !== '' &&
     evt.value.end_date >= evt.value.start_date &&
-    (isCorporate.value || Number(evt.value.pax_count) > 0)
+    (isCorporate.value || (participantMode.value === 'detailed'
+      ? attendants.value.some(a => a.name.trim())
+      : Number(evt.value.pax_count) > 0))
   )
 })
 
 // ── Serialize corporate data into special_requests ────────────────────────────
 function buildNotes(baseNotes: string) {
   if (!isCorporate.value) {
-    const guests = attendants.value.filter(a => a.name.trim())
+    // Events in headcount mode carry no individual records — skip the guest list
+    const includeGuests = bookingType.value === 'accommodation' || participantMode.value === 'detailed'
+    const guests = includeGuests ? attendants.value.filter(a => a.name.trim()) : []
     const parts: string[] = []
     if (guests.length > 0) {
       const guestLines = guests.map((g, i) => {
@@ -342,6 +495,7 @@ function buildNotes(baseNotes: string) {
   if (company.value.department) lines.push(`Department: ${company.value.department}`)
   if (company.value.cost_center) lines.push(`${company.value.cost_center_type === 'internal_order' ? 'Internal Order' : 'Cost Centre'}: ${company.value.cost_center}`)
   if (company.value.gl_code)    lines.push(`GL Code: ${company.value.gl_code}`)
+  if (company.value.country)   lines.push(`Country: ${company.value.country}`)
 
   lines.push(`\nBooked By: ${booker.value.name}`)
   if (booker.value.email)      lines.push(`Contact Email: ${booker.value.email}`)
@@ -356,39 +510,69 @@ function buildNotes(baseNotes: string) {
     if (approver.value.phone) lines.push(`Approver Phone: ${approver.value.phone}`)
   }
 
-  const validDelegates = attendants.value.filter(a => a.name.trim())
+  const validDelegates = attendants.value
+    .map((a, i) => ({ ...a, _idx: i }))
+    .filter(a => a.name.trim())
   if (validDelegates.length) {
     lines.push(`\nDelegates (${validDelegates.length}):`)
-    validDelegates.forEach((d, i) =>
-      lines.push(`  ${i + 1}. ${d.name}${d.job_title ? ` — ${d.job_title}` : ''}${d.id_number ? ` (ID: ${d.id_number})` : ''}${d.phone ? ` · ${d.phone}` : ''}`)
-    )
+    validDelegates.forEach((d, i) => {
+      const room = bookingType.value === 'accommodation' ? getDelegateRoom(d._idx) : null
+      lines.push(`  ${i + 1}. ${d.name}${d.job_title ? ` — ${d.job_title}` : ''}${d.id_number ? ` (ID: ${d.id_number})` : ''}${d.phone ? ` · ${d.phone}` : ''}${room ? ` · Room: ${room.room_name}` : ''}`)
+    })
+  } else if (bookingType.value === 'event' && delegateMode.value === 'headcount' && Number(evt.value.pax_count) > 0) {
+    lines.push(`\nDelegates: ${evt.value.pax_count} (headcount only)`)
   }
 
   const parts = [lines.join('\n'), baseNotes.trim()].filter(Boolean)
   return parts.join('\n\n') || undefined
 }
 
+function sessionSummaryLine(s: Session, i: number, indent: string) {
+  const label = s.name.trim() || `Session ${i + 1}`
+  const parts = [
+    EVENT_TYPES.find(t => t.value === s.event_type)?.label,
+    venueById(s.venue_id)?.name,
+    s.start_time && s.end_time ? `${s.start_time}–${s.end_time}` : null,
+    SETUP_TYPES.find(t => t.value === s.setup_type)?.label,
+    PRICING_BASIS.find(p => p.value === s.pricing_basis)?.label,
+    s.expected_attendees ? `${s.expected_attendees} pax` : null,
+  ].filter(Boolean).join(' · ')
+  const lines = [`${indent}${i + 1}. ${label}${parts ? ` — ${parts}` : ''}`]
+  if (s.special_requirements.trim()) lines.push(`${indent}   Requirements: ${s.special_requirements.trim()}`)
+  return lines
+}
+
 // The API payload only holds one venue/time slot (session 1), so the full
-// session schedule is serialized into special_requests for staff visibility.
+// session schedule — including any per-day customisations — is serialized
+// into special_requests for staff visibility.
 function buildSessionNotes() {
-  const withData = sessions.value.filter(s => s.event_type || s.venue_id || s.name.trim())
-  if (withData.length === 0) return ''
-  const needsNotes = withData.length > 1 ||
-    withData.some(s => s.name.trim() || s.expected_attendees || s.special_requirements.trim())
-  if (!needsNotes) return ''
-  const lines: string[] = [`Sessions (${withData.length}):`]
-  withData.forEach((s, i) => {
-    const label = s.name.trim() || `Session ${i + 1}`
-    const parts = [
-      EVENT_TYPES.find(t => t.value === s.event_type)?.label,
-      venueById(s.venue_id)?.name,
-      s.start_time && s.end_time ? `${s.start_time}–${s.end_time}` : null,
-      SETUP_TYPES.find(t => t.value === s.setup_type)?.label,
-      s.expected_attendees ? `${s.expected_attendees} pax` : null,
-    ].filter(Boolean).join(' · ')
-    lines.push(`  ${i + 1}. ${label}${parts ? ` — ${parts}` : ''}`)
-    if (s.special_requirements.trim()) lines.push(`     Requirements: ${s.special_requirements.trim()}`)
-  })
+  const withData  = sessions.value.filter(s => s.event_type || s.venue_id || s.name.trim())
+  const multiDay  = dayRange.value.length > 1
+  const perDay    = multiDay && scheduleMode.value === 'per_day'
+  const hasOverrides = perDay && Object.keys(dayOverrides.value).length > 0
+
+  if (withData.length === 0 && !hasOverrides) return ''
+
+  const lines: string[] = []
+  if (multiDay) lines.push(`Schedule: ${perDay ? 'Per-Day' : 'Uniform'} (${dayRange.value.length} days)`)
+
+  if (withData.length) {
+    lines.push(`${perDay ? 'Default Sessions' : 'Sessions'} (${withData.length}):`)
+    withData.forEach((s, i) => lines.push(...sessionSummaryLine(s, i, '  ')))
+  }
+
+  if (hasOverrides) {
+    lines.push('', 'Day-by-Day:')
+    dayRange.value.forEach(date => {
+      const ov    = dayOverrides.value[date]
+      const label = fmtDayLabel(date)
+      if (!ov)             { lines.push(`  ${label}: Using default schedule`); return }
+      if (ov.excluded)     { lines.push(`  ${label}: Skipped`); return }
+      lines.push(`  ${label}: ${ov.sessions.length} custom session${ov.sessions.length !== 1 ? 's' : ''}`)
+      ov.sessions.forEach((s, i) => lines.push(...sessionSummaryLine(s, i, '    ')))
+    })
+  }
+
   return lines.join('\n')
 }
 
@@ -406,12 +590,18 @@ async function handleSubmit() {
   try {
     let booking: Booking
     if (bookingType.value === 'accommodation') {
+      // The booking API reserves a single room per booking — for corporate stays with
+      // several delegate room assignments, the first assigned room anchors the booking
+      // and the full delegate → room breakdown is captured in special_requests below.
+      const roomId = isCorporate.value
+        ? (Object.values(delegateRooms.value)[0]?.room_id ?? '')
+        : acc.value.room_id
       booking = await bookingApi.createIndividual({
         booker_name:         bookerName,
         booker_email:        bookerEmail,
         booker_phone:        bookerPhone,
         identification_card: bookerId,
-        room_id:             acc.value.room_id,
+        room_id:             roomId,
         check_in:            acc.value.check_in,
         check_out:           acc.value.check_out,
         special_requests:    buildNotes(acc.value.special_requests),
@@ -419,7 +609,9 @@ async function handleSubmit() {
     } else {
       const pax = isCorporate.value
         ? (attendants.value.filter(a => a.name.trim()).length || Number(evt.value.pax_count) || 1)
-        : Number(evt.value.pax_count)
+        : (participantMode.value === 'detailed'
+            ? (attendants.value.filter(a => a.name.trim()).length || 1)
+            : Number(evt.value.pax_count))
       const s0 = sessions.value[0]!
       const combinedNotes = [buildSessionNotes(), evt.value.notes.trim()].filter(Boolean).join('\n\n')
       booking = await bookingApi.createIndividualEvent({
@@ -582,6 +774,10 @@ async function handleSubmit() {
                 <Label class="text-xs">GL Code</Label>
                 <Input v-model="company.gl_code" placeholder="e.g. GL-4000" class="mt-1.5" />
               </div>
+              <div>
+                <Label class="text-xs">Country</Label>
+                <Input v-model="company.country" placeholder="e.g. Zambia" class="mt-1.5" />
+              </div>
             </div>
           </div>
 
@@ -677,8 +873,114 @@ async function handleSubmit() {
             </div>
           </div>
 
-          <!-- ─── Guests (individual) ─── -->
-          <div class="rounded-xl border overflow-hidden">
+          <!-- ─── Attendees (individual event — corporate uses delegates) ─── -->
+          <div v-if="bookingType === 'event'" class="rounded-xl border overflow-hidden">
+            <button type="button"
+              class="w-full flex items-center justify-between gap-3 px-5 py-4 hover:bg-muted/30 transition-colors text-left"
+              @click="attendeesExpanded = !attendeesExpanded">
+              <div class="flex items-center gap-2.5">
+                <Users class="size-4 text-muted-foreground shrink-0" />
+                <div>
+                  <p class="text-sm font-semibold">Attendees</p>
+                  <p v-if="!attendeesExpanded" class="text-xs text-muted-foreground">
+                    {{ participantMode === 'headcount'
+                      ? `Party of ${Number(evt.pax_count) || 0}`
+                      : `${attendants.filter(a => a.name.trim()).length} registered` }}
+                  </p>
+                </div>
+              </div>
+              <ChevronDown class="size-4 text-muted-foreground transition-transform duration-200" :class="attendeesExpanded && 'rotate-180'" />
+            </button>
+
+            <div v-if="attendeesExpanded" class="px-5 pb-5 border-t flex flex-col gap-4 pt-4">
+              <!-- Mode selector -->
+              <div class="grid grid-cols-2 gap-3">
+                <button type="button"
+                  class="flex items-start gap-3 rounded-xl border-2 p-4 text-left transition-all"
+                  :class="participantMode === 'headcount' ? 'border-primary bg-primary/5' : 'border-border hover:border-muted-foreground/40'"
+                  @click="participantMode = 'headcount'">
+                  <Users class="size-5 shrink-0 mt-0.5" :class="participantMode === 'headcount' ? 'text-primary' : 'text-muted-foreground'" />
+                  <div>
+                    <p class="text-sm font-semibold">Headcount Only</p>
+                    <p class="text-xs text-muted-foreground mt-0.5">Total attendee count — no individual details</p>
+                  </div>
+                </button>
+                <button type="button"
+                  class="flex items-start gap-3 rounded-xl border-2 p-4 text-left transition-all"
+                  :class="participantMode === 'detailed' ? 'border-primary bg-primary/5' : 'border-border hover:border-muted-foreground/40'"
+                  @click="participantMode = 'detailed'">
+                  <List class="size-5 shrink-0 mt-0.5" :class="participantMode === 'detailed' ? 'text-primary' : 'text-muted-foreground'" />
+                  <div>
+                    <p class="text-sm font-semibold">Individual Records</p>
+                    <p class="text-xs text-muted-foreground mt-0.5">Register each attendee with name and contact</p>
+                  </div>
+                </button>
+              </div>
+
+              <!-- Total attendees -->
+              <div>
+                <Label class="text-xs uppercase tracking-wide">Total Attendees <span v-if="participantMode === 'headcount'" class="text-destructive">*</span></Label>
+                <div class="flex items-center gap-3 mt-1.5">
+                  <Input v-model="evt.pax_count" type="number" min="1" placeholder="e.g. 50"
+                    class="w-28 text-center" :disabled="participantMode === 'detailed'" />
+                  <p v-if="participantMode === 'detailed'" class="text-xs text-muted-foreground">Set to number of attendees</p>
+                </div>
+              </div>
+
+              <!-- Individual records -->
+              <template v-if="participantMode === 'detailed'">
+                <div v-for="(att, i) in attendants" :key="i" class="rounded-lg border bg-muted/20 p-4 flex flex-col gap-2.5">
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                      <span class="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold"
+                        :class="i === 0 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'">
+                        {{ i + 1 }}
+                      </span>
+                      <span class="text-sm font-medium" :class="i === 0 ? 'text-primary' : 'text-muted-foreground'">
+                        {{ i === 0 ? 'Lead Contact' : (att.name || `Attendee ${i + 1}`) }}
+                      </span>
+                    </div>
+                    <button type="button"
+                      class="rounded p-1 transition-colors"
+                      :class="i === 0 ? 'text-muted-foreground/30 cursor-not-allowed' : 'text-muted-foreground hover:text-destructive'"
+                      :disabled="i === 0"
+                      @click="removeAttendant(i)">
+                      <Trash2 class="size-3.5" />
+                    </button>
+                  </div>
+
+                  <div class="grid grid-cols-4 gap-2.5">
+                    <div>
+                      <Label class="text-xs uppercase tracking-wide">Full Name <span class="text-destructive">*</span></Label>
+                      <Input v-model="att.name" placeholder="John Doe" class="mt-1 h-8 text-sm" />
+                    </div>
+                    <div>
+                      <Label class="text-xs uppercase tracking-wide">Email <span v-if="i === 0" class="text-destructive">*</span></Label>
+                      <Input v-model="att.email" type="email" placeholder="email@example.com" class="mt-1 h-8 text-sm" />
+                    </div>
+                    <div>
+                      <Label class="text-xs uppercase tracking-wide">Phone <span v-if="i === 0" class="text-destructive">*</span></Label>
+                      <Input v-model="att.phone" placeholder="+260 977 000 000" class="mt-1 h-8 text-sm" />
+                    </div>
+                    <div>
+                      <Label class="text-xs uppercase tracking-wide">Passport / ID <span class="text-destructive">*</span></Label>
+                      <Input v-model="att.id_number" placeholder="ID number" class="mt-1 h-8 text-sm" />
+                    </div>
+                  </div>
+                </div>
+
+                <button type="button"
+                  class="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline w-fit"
+                  @click="addAttendant">
+                  <UserPlus class="size-3.5" />
+                  Add Attendee
+                </button>
+              </template>
+            </div>
+          </div>
+
+          <!-- ─── Guests (individual accommodation — events use the Attendees section) ─── -->
+          <div v-if="bookingType === 'accommodation'" class="rounded-xl border overflow-hidden">
             <button type="button"
               class="w-full flex items-center justify-between gap-3 px-5 py-4 hover:bg-muted/30 transition-colors text-left"
               @click="attendantsExpanded = !attendantsExpanded">
@@ -758,14 +1060,20 @@ async function handleSubmit() {
                 <div>
                   <p class="text-sm font-semibold">Delegates</p>
                   <p class="text-xs text-muted-foreground">
-                    {{ attendants.length === 0
-                      ? 'No delegates added — click to register'
-                      : `${attendants.length} delegate${attendants.length !== 1 ? 's' : ''} registered` }}
+                    {{ bookingType === 'event' && delegateMode === 'headcount'
+                      ? `${Number(evt.pax_count) || 0} delegate${Number(evt.pax_count) !== 1 ? 's' : ''} — headcount only`
+                      : attendants.length === 0
+                        ? 'No delegates added — click to register'
+                        : `${attendants.length} delegate${attendants.length !== 1 ? 's' : ''} registered` }}
                   </p>
                 </div>
               </div>
               <div class="flex items-center gap-2 shrink-0">
-                <span v-if="attendants.length > 0"
+                <span v-if="bookingType === 'event' && delegateMode === 'headcount' && Number(evt.pax_count) > 0"
+                  class="inline-flex items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold px-2 py-0.5 min-w-[1.5rem]">
+                  {{ evt.pax_count }}
+                </span>
+                <span v-else-if="attendants.length > 0"
                   class="inline-flex items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold px-2 py-0.5 min-w-[1.5rem]">
                   {{ attendants.length }}
                 </span>
@@ -774,54 +1082,90 @@ async function handleSubmit() {
             </button>
 
             <div v-if="attendantsExpanded" class="px-5 pb-5 border-t flex flex-col gap-3 pt-4">
-              <p class="text-xs text-muted-foreground">
-                Register each delegate attending. Lead delegate receives all booking communications.
-              </p>
-
-              <div v-for="(att, i) in attendants" :key="i" class="rounded-lg border bg-muted/20 p-4 flex flex-col gap-3">
-                <div class="flex items-center justify-between">
-                  <div class="flex items-center gap-2">
-                    <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-muted text-muted-foreground text-xs font-bold">
-                      {{ i + 1 }}
-                    </span>
-                    <span class="text-sm font-medium text-muted-foreground">{{ att.name || `Delegate ${i + 1}` }}</span>
-                  </div>
+              <!-- Mode selector (event only — accommodation always needs individual records to assign rooms) -->
+              <template v-if="bookingType === 'event'">
+                <div class="grid grid-cols-2 gap-3">
                   <button type="button"
-                    class="text-muted-foreground hover:text-destructive transition-colors rounded p-1"
-                    @click="removeAttendant(i)">
-                    <Trash2 class="size-3.5" />
+                    class="flex items-start gap-3 rounded-xl border-2 p-4 text-left transition-all"
+                    :class="delegateMode === 'headcount' ? 'border-primary bg-primary/5' : 'border-border hover:border-muted-foreground/40'"
+                    @click="delegateMode = 'headcount'">
+                    <Users class="size-5 shrink-0 mt-0.5" :class="delegateMode === 'headcount' ? 'text-primary' : 'text-muted-foreground'" />
+                    <div>
+                      <p class="text-sm font-semibold">Headcount Only</p>
+                      <p class="text-xs text-muted-foreground mt-0.5">Total delegate count — no individual details needed</p>
+                    </div>
+                  </button>
+                  <button type="button"
+                    class="flex items-start gap-3 rounded-xl border-2 p-4 text-left transition-all"
+                    :class="delegateMode === 'detailed' ? 'border-primary bg-primary/5' : 'border-border hover:border-muted-foreground/40'"
+                    @click="delegateMode = 'detailed'">
+                    <List class="size-5 shrink-0 mt-0.5" :class="delegateMode === 'detailed' ? 'text-primary' : 'text-muted-foreground'" />
+                    <div>
+                      <p class="text-sm font-semibold">Individual Records</p>
+                      <p class="text-xs text-muted-foreground mt-0.5">Register each delegate with their details</p>
+                    </div>
                   </button>
                 </div>
-                <div class="grid grid-cols-2 gap-2.5">
-                  <div class="col-span-2">
-                    <Label class="text-xs">Full Name <span class="text-destructive">*</span></Label>
-                    <Input v-model="att.name" placeholder="Full name" class="mt-1 h-8 text-sm" />
+
+                <div class="flex items-center gap-3">
+                  <Input v-model="evt.pax_count" type="number" min="1" placeholder="e.g. 50"
+                    class="w-28 text-center" :disabled="delegateMode === 'detailed'" />
+                  <p class="text-sm text-muted-foreground">
+                    {{ delegateMode === 'detailed' ? 'Set to number of registered delegates' : 'Total delegates attending across all sessions' }}
+                  </p>
+                </div>
+              </template>
+
+              <template v-if="bookingType === 'accommodation' || delegateMode === 'detailed'">
+                <p class="text-xs text-muted-foreground">
+                  Register each delegate attending. Lead delegate receives all booking communications.
+                </p>
+
+                <div v-for="(att, i) in attendants" :key="i" class="rounded-lg border bg-muted/20 p-4 flex flex-col gap-3">
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                      <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-muted text-muted-foreground text-xs font-bold">
+                        {{ i + 1 }}
+                      </span>
+                      <span class="text-sm font-medium text-muted-foreground">{{ att.name || `Delegate ${i + 1}` }}</span>
+                    </div>
+                    <button type="button"
+                      class="text-muted-foreground hover:text-destructive transition-colors rounded p-1"
+                      @click="removeAttendant(i)">
+                      <Trash2 class="size-3.5" />
+                    </button>
                   </div>
-                  <div>
-                    <Label class="text-xs">Email</Label>
-                    <Input v-model="att.email" type="email" placeholder="Email" class="mt-1 h-8 text-sm" />
-                  </div>
-                  <div>
-                    <Label class="text-xs">Phone</Label>
-                    <Input v-model="att.phone" placeholder="Phone" class="mt-1 h-8 text-sm" />
-                  </div>
-                  <div>
-                    <Label class="text-xs">Passport / NRC <span class="text-destructive">*</span></Label>
-                    <Input v-model="att.id_number" placeholder="ID number" class="mt-1 h-8 text-sm" />
-                  </div>
-                  <div>
-                    <Label class="text-xs">Job Title</Label>
-                    <Input v-model="att.job_title" placeholder="e.g. Engineer" class="mt-1 h-8 text-sm" />
+                  <div class="grid grid-cols-2 gap-2.5">
+                    <div class="col-span-2">
+                      <Label class="text-xs">Full Name <span class="text-destructive">*</span></Label>
+                      <Input v-model="att.name" placeholder="Full name" class="mt-1 h-8 text-sm" />
+                    </div>
+                    <div>
+                      <Label class="text-xs">Email</Label>
+                      <Input v-model="att.email" type="email" placeholder="Email" class="mt-1 h-8 text-sm" />
+                    </div>
+                    <div>
+                      <Label class="text-xs">Phone</Label>
+                      <Input v-model="att.phone" placeholder="Phone" class="mt-1 h-8 text-sm" />
+                    </div>
+                    <div>
+                      <Label class="text-xs">Passport / NRC <span class="text-destructive">*</span></Label>
+                      <Input v-model="att.id_number" placeholder="ID number" class="mt-1 h-8 text-sm" />
+                    </div>
+                    <div>
+                      <Label class="text-xs">Job Title</Label>
+                      <Input v-model="att.job_title" placeholder="e.g. Engineer" class="mt-1 h-8 text-sm" />
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <button type="button"
-                class="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline w-fit mt-1"
-                @click="addAttendant">
-                <UserPlus class="size-3.5" />
-                Add Delegate
-              </button>
+                <button type="button"
+                  class="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline w-fit mt-1"
+                  @click="addAttendant">
+                  <UserPlus class="size-3.5" />
+                  Add Delegate
+                </button>
+              </template>
             </div>
           </div>
         </template>
@@ -878,8 +1222,8 @@ async function handleSubmit() {
               {{ nights }} night{{ nights !== 1 ? 's' : '' }} · {{ displayDate(acc.check_in) }} – {{ displayDate(acc.check_out) }}
             </div>
 
-            <!-- Room picker -->
-            <div>
+            <!-- Room picker (individual: single room for the booking) -->
+            <div v-if="!isCorporate">
               <Label class="text-xs">Room <span class="text-destructive">*</span></Label>
               <div v-if="!acc.check_in || !acc.check_out" class="mt-1.5 text-xs text-muted-foreground rounded-lg border border-dashed px-4 py-4 text-center">
                 Select check-in and check-out dates to see available rooms.
@@ -908,20 +1252,99 @@ async function handleSubmit() {
                 </button>
               </div>
             </div>
+
+            <!-- Room assignments (corporate: one room per delegate) -->
+            <div v-else>
+              <div class="flex items-center justify-between">
+                <Label class="text-xs">Room Assignments <span class="text-destructive">*</span></Label>
+                <span v-if="attendants.length > 0" class="text-xs text-muted-foreground">
+                  {{ Object.keys(delegateRooms).length }} of {{ attendants.length }} assigned
+                </span>
+              </div>
+
+              <div v-if="!acc.check_in || !acc.check_out" class="mt-1.5 text-xs text-muted-foreground rounded-lg border border-dashed px-4 py-4 text-center">
+                Select check-in and check-out dates to see available rooms.
+              </div>
+              <div v-else-if="attendants.length === 0" class="mt-1.5 text-xs text-muted-foreground rounded-lg border border-dashed px-4 py-4 text-center">
+                Add delegates in the section above to assign rooms.
+              </div>
+              <div v-else-if="roomsLoading" class="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground rounded-lg border border-dashed px-4 py-4">
+                <Loader2 class="size-3.5 animate-spin" /> Checking room availability…
+              </div>
+              <div v-else-if="rooms.length === 0" class="mt-1.5 text-xs text-amber-600 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 px-4 py-4 text-center">
+                No rooms available for these dates.
+              </div>
+              <div v-else class="mt-1.5 flex flex-col gap-2">
+                <div v-for="(delegate, i) in attendants" :key="i" class="rounded-lg border overflow-hidden"
+                  :class="expandedDelegateRoomPicker === i && 'ring-1 ring-primary/30 border-primary/40'">
+                  <div class="flex items-center justify-between gap-3 px-3 py-2.5 bg-muted/20">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                      <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-muted text-muted-foreground text-xs font-bold shrink-0">{{ i + 1 }}</span>
+                      <div class="min-w-0">
+                        <p class="text-sm font-medium truncate">{{ delegate.name || `Delegate ${i + 1}` }}</p>
+                        <p v-if="getDelegateRoom(i)" class="text-xs text-primary">{{ getDelegateRoom(i)?.room_name }}</p>
+                        <p v-else class="text-xs text-muted-foreground">No room assigned</p>
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-1.5 shrink-0">
+                      <button v-if="getDelegateRoom(i)" type="button"
+                        class="text-muted-foreground hover:text-destructive transition-colors rounded p-1"
+                        @click="clearDelegateRoom(i)">
+                        <Trash2 class="size-3.5" />
+                      </button>
+                      <Button type="button" size="sm" variant="outline"
+                        @click="expandedDelegateRoomPicker = expandedDelegateRoomPicker === i ? null : i">
+                        {{ expandedDelegateRoomPicker === i ? 'Close' : (getDelegateRoom(i) ? 'Change' : 'Assign Room') }}
+                      </Button>
+                    </div>
+                  </div>
+                  <div v-if="expandedDelegateRoomPicker === i" class="border-t p-3 flex flex-col gap-2 max-h-52 overflow-y-auto">
+                    <p v-if="availableRoomsForDelegate(i).length === 0" class="text-xs text-muted-foreground text-center py-2">
+                      All available rooms are already assigned to other delegates.
+                    </p>
+                    <button v-for="room in availableRoomsForDelegate(i)" :key="room.id" type="button"
+                      class="flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors"
+                      :class="getDelegateRoom(i)?.room_id === room.id ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'hover:bg-muted/40'"
+                      @click="setDelegateRoom(i, room)">
+                      <div class="flex items-center gap-2.5">
+                        <BedDouble class="size-4 text-muted-foreground shrink-0" />
+                        <div>
+                          <p class="font-semibold">{{ room.name }}</p>
+                          <p class="text-xs text-muted-foreground capitalize">{{ room.type }} · Capacity {{ room.capacity }}</p>
+                        </div>
+                      </div>
+                      <span class="text-xs font-semibold shrink-0">
+                        ZMW {{ room.price_per_night.toLocaleString() }}<span class="font-normal text-muted-foreground">/night</span>
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <!-- ─── Special Requests ─── -->
+          <!-- ─── Additional Requests ─── -->
           <div class="rounded-xl border p-5 flex flex-col gap-3">
-            <p class="text-sm font-semibold">Special Requests</p>
+            <div class="flex items-center gap-2.5">
+              <StickyNote class="size-4 text-muted-foreground" />
+              <p class="text-sm font-semibold">Additional Requests</p>
+            </div>
             <Textarea v-model="acc.special_requests"
-              placeholder="Any special requirements, dietary needs, accessibility requests, preferred floor…"
+              placeholder="Special requests, accessibility needs, floor preferences, early check-in requirements…"
               class="resize-none" rows="3" />
           </div>
 
           <!-- Estimate -->
-          <div v-if="selectedRoom && nights > 0" class="rounded-xl bg-muted/40 border px-5 py-3.5 flex items-center justify-between text-sm">
+          <div v-if="!isCorporate && selectedRoom && nights > 0" class="rounded-xl bg-muted/40 border px-5 py-3.5 flex items-center justify-between text-sm">
             <span class="text-muted-foreground">{{ nights }} night{{ nights !== 1 ? 's' : '' }} × ZMW {{ selectedRoom.price_per_night.toLocaleString() }}/night</span>
             <span class="font-semibold">ZMW {{ accTotal.toLocaleString() }}</span>
+          </div>
+          <div v-else-if="isCorporate && Object.keys(delegateRooms).length > 0 && nights > 0"
+            class="rounded-xl bg-muted/40 border px-5 py-3.5 flex items-center justify-between text-sm">
+            <span class="text-muted-foreground">
+              {{ nights }} night{{ nights !== 1 ? 's' : '' }} × {{ Object.keys(delegateRooms).length }} room{{ Object.keys(delegateRooms).length !== 1 ? 's' : '' }}
+            </span>
+            <span class="font-semibold">ZMW {{ delegateRoomTotal.toLocaleString() }}</span>
           </div>
 
         </template>
@@ -980,6 +1403,43 @@ async function handleSubmit() {
               <CalendarIcon class="size-3" />
               {{ eventDays }} day{{ eventDays !== 1 ? 's' : '' }} · {{ displayDate(evt.start_date) }} – {{ displayDate(evt.end_date) }}
             </div>
+
+            <!-- Schedule mode (multi-day only) -->
+            <div v-if="dayRange.length > 1" class="grid grid-cols-2 gap-3">
+              <button type="button"
+                class="flex items-start gap-3 rounded-xl border-2 p-4 text-left transition-all"
+                :class="scheduleMode === 'uniform' ? 'border-primary bg-primary/5' : 'border-border hover:border-muted-foreground/40'"
+                @click="scheduleMode = 'uniform'">
+                <CalendarRange class="size-5 shrink-0 mt-0.5" :class="scheduleMode === 'uniform' ? 'text-primary' : 'text-muted-foreground'" />
+                <div>
+                  <p class="text-sm font-semibold">Uniform Schedule</p>
+                  <p class="text-xs text-muted-foreground mt-0.5">Same schedule repeated across all event days</p>
+                </div>
+              </button>
+              <button type="button"
+                class="flex items-start gap-3 rounded-xl border-2 p-4 text-left transition-all"
+                :class="scheduleMode === 'per_day' ? 'border-primary bg-primary/5' : 'border-border hover:border-muted-foreground/40'"
+                @click="scheduleMode = 'per_day'">
+                <CalendarClock class="size-5 shrink-0 mt-0.5" :class="scheduleMode === 'per_day' ? 'text-primary' : 'text-muted-foreground'" />
+                <div>
+                  <p class="text-sm font-semibold">Per-Day Schedule</p>
+                  <p class="text-xs text-muted-foreground mt-0.5">Start from a default, then customise or skip individual days</p>
+                </div>
+              </button>
+            </div>
+
+            <!-- Scope banner -->
+            <div v-if="dayRange.length > 1" class="rounded-lg border px-4 py-3 bg-primary/5 border-primary/20">
+              <p class="text-sm font-semibold">{{ scheduleMode === 'per_day' ? 'Default Daily Schedule' : 'Daily Schedule Template' }}</p>
+              <p v-if="scheduleMode === 'uniform'" class="text-xs text-muted-foreground mt-0.5">
+                Applied to all <strong class="text-foreground">{{ dayRange.length }} days</strong>
+                · {{ displayDate(evt.start_date) }} – {{ displayDate(evt.end_date) }}.
+              </p>
+              <p v-else class="text-xs text-muted-foreground mt-0.5">
+                Fallback for days without a custom plan — covering
+                <strong class="text-foreground">{{ eventDaySummary.defaultCount }} of {{ eventDaySummary.total }}</strong> days.
+              </p>
+            </div>
           </div>
 
           <!-- ─── Sessions ─── -->
@@ -989,7 +1449,11 @@ async function handleSubmit() {
                 <Clock class="size-4 text-muted-foreground" />
                 <div>
                   <p class="text-sm font-semibold">Sessions</p>
-                  <p class="text-xs text-muted-foreground">Each session runs on every event day. Session 1 is the main session.</p>
+                  <p class="text-xs text-muted-foreground">
+                    {{ dayRange.length > 1 && scheduleMode === 'per_day'
+                      ? 'Default schedule — used for days without a custom plan. Session 1 is the main session.'
+                      : 'Each session runs on every event day. Session 1 is the main session.' }}
+                  </p>
                 </div>
               </div>
               <button v-if="evt.start_date && evt.end_date && !venuesLoading" type="button"
@@ -1002,13 +1466,15 @@ async function handleSubmit() {
             <div v-for="(session, si) in sessions" :key="si" class="rounded-lg border overflow-hidden">
               <!-- Session header -->
               <div class="flex items-center justify-between px-4 py-3 bg-muted/30">
-                <span class="text-sm font-semibold">
-                  {{ session.name.trim() || (session.event_type ? (EVENT_TYPES.find(t => t.value === session.event_type)?.label + ' Session') : `Session ${si + 1}`) }}
-                </span>
+                <span class="text-sm font-semibold">{{ sessionLabel(session, si) }}</span>
                 <div class="flex items-center gap-2">
-                  <span v-if="eventDays > 0"
+                  <span v-if="dayRange.length > 1 && scheduleMode === 'uniform'"
                     class="inline-flex items-center px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-semibold">
-                    × {{ eventDays }} day{{ eventDays !== 1 ? 's' : '' }}
+                    × {{ dayRange.length }} days
+                  </span>
+                  <span v-else-if="dayRange.length > 1 && scheduleMode === 'per_day'"
+                    class="inline-flex items-center px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-xs font-semibold">
+                    default
                   </span>
                   <button type="button" :disabled="sessions.length === 1"
                     class="rounded p-1 transition-colors"
@@ -1044,6 +1510,17 @@ async function handleSubmit() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem v-for="st in SETUP_TYPES" :key="st.value" :value="st.value">{{ st.label }}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label class="text-xs">Pricing Basis</Label>
+                    <Select v-model="session.pricing_basis">
+                      <SelectTrigger class="mt-1.5">
+                        <SelectValue placeholder="Select pricing basis…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem v-for="p in PRICING_BASIS" :key="p.value" :value="p.value">{{ p.label }}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1137,44 +1614,195 @@ async function handleSubmit() {
               class="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline w-fit"
               @click="addSession">
               <UserPlus class="size-3.5" />
-              Add Another Session
+              {{ dayRange.length > 1 && scheduleMode === 'per_day' ? 'Add Session to Default Schedule' : 'Add Another Session' }}
             </button>
-          </div>
 
-          <!-- ─── Attendees (individual only — corporate uses delegates) ─── -->
-          <div v-if="!isCorporate" class="rounded-xl border p-5 flex flex-col gap-3">
-            <div class="flex items-center gap-2.5">
-              <Users class="size-4 text-muted-foreground" />
+            <!-- ── Day-by-day overrides ── -->
+            <div v-if="scheduleMode === 'per_day' && dayRange.length > 0" class="mt-2 pt-4 border-t flex flex-col gap-3">
               <div>
-                <p class="text-sm font-semibold">Attendees</p>
-                <p class="text-xs text-muted-foreground">Expected number of people attending the event</p>
+                <p class="text-xs font-semibold uppercase tracking-wide">
+                  Day-by-Day Schedule <span class="text-muted-foreground font-normal normal-case">({{ dayRange.length }} days)</span>
+                </p>
+                <p class="text-xs text-muted-foreground mt-0.5">Skip days your event doesn't run, or customise sessions for individual days.</p>
+              </div>
+
+              <!-- Status strip -->
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted text-xs font-semibold text-muted-foreground">
+                  <span class="w-1.5 h-1.5 rounded-full bg-muted-foreground inline-block"></span>
+                  {{ eventDaySummary.defaultCount }} using default
+                </span>
+                <span v-if="eventDaySummary.customised > 0"
+                  class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                  <span class="w-1.5 h-1.5 rounded-full bg-primary inline-block"></span>
+                  {{ eventDaySummary.customised }} customised
+                </span>
+                <span v-if="eventDaySummary.skipped > 0"
+                  class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted text-xs font-semibold text-muted-foreground">
+                  {{ eventDaySummary.skipped }} skipped
+                </span>
+              </div>
+
+              <div class="flex flex-col gap-2">
+                <div v-for="date in dayRange" :key="date" class="rounded-lg border overflow-hidden"
+                  :class="dayStatus(date) === 'skipped' && 'opacity-60'">
+                  <!-- Day row -->
+                  <div class="flex items-center justify-between px-4 py-3 bg-muted/30">
+                    <div class="flex items-center gap-2 min-w-0">
+                      <span class="text-sm font-semibold shrink-0">{{ fmtDayLabel(date) }}</span>
+                      <span v-if="dayStatus(date) === 'overridden'"
+                        class="inline-flex items-center px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-semibold shrink-0">
+                        {{ overrideSessions(date).length }} override{{ overrideSessions(date).length !== 1 ? 's' : '' }}
+                      </span>
+                      <span v-else-if="dayStatus(date) === 'skipped'"
+                        class="inline-flex items-center px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-xs font-semibold shrink-0">
+                        Skipped
+                      </span>
+                      <span v-else class="text-xs text-muted-foreground hidden sm:inline">Using default schedule</span>
+                    </div>
+                    <div class="flex items-center gap-1 shrink-0 ml-2">
+                      <button v-if="dayStatus(date) !== 'skipped'" type="button"
+                        class="text-xs font-medium text-primary hover:underline px-2 py-1"
+                        @click="startDayOverride(date)">
+                        {{ dayStatus(date) === 'overridden' ? (expandedDayOverride === date ? 'Collapse' : 'Edit') : 'Customise' }}
+                      </button>
+                      <button v-if="dayStatus(date) === 'overridden'" type="button"
+                        class="text-xs text-muted-foreground hover:text-destructive hover:underline px-2 py-1"
+                        @click="collapseDayOverride(date)">
+                        Reset
+                      </button>
+                      <button type="button"
+                        class="h-7 w-7 flex items-center justify-center rounded-lg transition-colors"
+                        :class="dayStatus(date) === 'skipped' ? 'text-primary bg-primary/10' : 'text-muted-foreground hover:text-destructive'"
+                        :title="dayStatus(date) === 'skipped' ? 'Restore day' : 'Skip this day'"
+                        @click="toggleDayExcluded(date)">
+                        <RotateCcw v-if="dayStatus(date) === 'skipped'" class="size-3.5" />
+                        <Ban v-else class="size-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Expanded override editor -->
+                  <div v-if="expandedDayOverride === date && dayStatus(date) === 'overridden'" class="p-4 flex flex-col gap-3">
+                    <div v-for="(s, si) in overrideSessions(date)" :key="si" class="rounded-lg border overflow-hidden">
+                      <div class="flex items-center justify-between px-4 py-2.5 bg-muted/30">
+                        <span class="text-sm font-semibold">{{ sessionLabel(s, si) }}</span>
+                        <button type="button" :disabled="overrideSessions(date).length === 1"
+                          class="rounded p-1 transition-colors"
+                          :class="overrideSessions(date).length === 1 ? 'text-muted-foreground/30 cursor-not-allowed' : 'text-muted-foreground hover:text-destructive'"
+                          @click="removeOverrideSession(date, si)">
+                          <Trash2 class="size-3.5" />
+                        </button>
+                      </div>
+                      <div class="p-4 flex flex-col gap-3">
+                        <div class="grid grid-cols-2 gap-3">
+                          <div class="col-span-2">
+                            <Label class="text-xs">Session Name</Label>
+                            <Input v-model="s.name" placeholder="e.g. Keynote, Breakout, Gala Dinner" class="mt-1.5" />
+                          </div>
+                          <div>
+                            <Label class="text-xs">Event Type</Label>
+                            <Select v-model="s.event_type">
+                              <SelectTrigger class="mt-1.5">
+                                <SelectValue placeholder="Select event type…" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem v-for="et in EVENT_TYPES" :key="et.value" :value="et.value">{{ et.label }}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label class="text-xs">Room Setup</Label>
+                            <Select v-model="s.setup_type">
+                              <SelectTrigger class="mt-1.5">
+                                <SelectValue placeholder="Select setup…" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem v-for="st in SETUP_TYPES" :key="st.value" :value="st.value">{{ st.label }}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label class="text-xs">Start Time</Label>
+                            <Input v-model="s.start_time" type="time" class="mt-1.5" />
+                          </div>
+                          <div>
+                            <Label class="text-xs">End Time</Label>
+                            <Input v-model="s.end_time" type="time" class="mt-1.5" />
+                          </div>
+                        </div>
+
+                        <!-- Venue picker (override) -->
+                        <div class="rounded-lg border overflow-hidden"
+                          :class="expandedOverrideVenue === `${date}::${si}` && 'ring-1 ring-primary/30 border-primary/40'">
+                          <div class="flex items-center justify-between gap-3 px-3 py-2.5 bg-muted/20">
+                            <div v-if="s.venue_id && venueById(s.venue_id)" class="flex items-center gap-2 min-w-0">
+                              <MapPin class="size-4 text-primary shrink-0" />
+                              <p class="text-sm font-semibold truncate">{{ venueById(s.venue_id)?.name }}</p>
+                            </div>
+                            <p v-else class="text-sm text-muted-foreground">No preference / TBC</p>
+                            <div class="flex items-center gap-1.5 shrink-0">
+                              <button v-if="s.venue_id" type="button"
+                                class="text-muted-foreground hover:text-destructive transition-colors rounded p-1"
+                                @click="clearVenueFromSession(s)">
+                                <Trash2 class="size-3.5" />
+                              </button>
+                              <Button type="button" size="sm" variant="outline"
+                                @click="expandedOverrideVenue = expandedOverrideVenue === `${date}::${si}` ? null : `${date}::${si}`">
+                                {{ expandedOverrideVenue === `${date}::${si}` ? 'Close' : (s.venue_id ? 'Change' : 'Browse venues') }}
+                              </Button>
+                            </div>
+                          </div>
+                          <div v-if="expandedOverrideVenue === `${date}::${si}`" class="border-t p-3">
+                            <div v-if="venuesLoading" class="flex items-center gap-2 text-xs text-muted-foreground rounded-lg border border-dashed px-4 py-4">
+                              <Loader2 class="size-3.5 animate-spin" /> Loading available venues…
+                            </div>
+                            <div v-else-if="venues.length === 0" class="text-xs text-amber-600 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 px-4 py-4 text-center">
+                              No venues available for these dates.
+                            </div>
+                            <div v-else class="flex flex-col gap-2 max-h-52 overflow-y-auto">
+                              <button v-for="venue in venues" :key="venue.id" type="button"
+                                class="flex items-center justify-between gap-3 rounded-lg border px-3 py-3 text-left text-sm transition-colors"
+                                :class="s.venue_id === venue.id ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'hover:bg-muted/40'"
+                                @click="selectVenueForOverrideSession(s, venue)">
+                                <div class="flex items-center gap-2.5">
+                                  <MapPin class="size-4 text-muted-foreground shrink-0" />
+                                  <div>
+                                    <p class="font-semibold">{{ venue.name }}</p>
+                                    <p class="text-xs text-muted-foreground">{{ VENUE_TYPE_LABELS[venue.venue_type] ?? venue.venue_type }} · Capacity {{ venue.capacity }}</p>
+                                  </div>
+                                </div>
+                                <span class="text-xs font-semibold shrink-0">
+                                  ZMW {{ venue.base_rate.toLocaleString() }}<span class="font-normal text-muted-foreground">/{{ venue.rate_type === 'daily' ? 'day' : 'hr' }}</span>
+                                </span>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button type="button"
+                      class="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline w-fit"
+                      @click="addOverrideSession(date)">
+                      <UserPlus class="size-3.5" />
+                      Add Session to {{ fmtDayLabel(date) }}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
-            <div>
-              <Label class="text-xs">Total Attendees <span class="text-destructive">*</span></Label>
-              <Input v-model="evt.pax_count" type="number" min="1" placeholder="e.g. 50" class="mt-1.5 w-36" />
-            </div>
           </div>
 
-          <!-- ─── Catering & Requirements ─── -->
-          <div class="rounded-xl border p-5 flex flex-col gap-4">
+          <!-- ─── Additional Requests ─── -->
+          <div class="rounded-xl border p-5 flex flex-col gap-3">
             <div class="flex items-center gap-2.5">
-              <UtensilsCrossed class="size-4 text-muted-foreground" />
-              <p class="text-sm font-semibold">Catering &amp; Requirements</p>
+              <StickyNote class="size-4 text-muted-foreground" />
+              <p class="text-sm font-semibold">Additional Requests</p>
             </div>
-            <label class="flex items-start gap-3 cursor-pointer">
-              <Checkbox :checked="evt.catering_required" class="mt-0.5" @update:checked="evt.catering_required = $event" />
-              <div>
-                <p class="text-sm font-medium">Catering required</p>
-                <p class="text-xs text-muted-foreground mt-0.5">Include meal or refreshment service for this event</p>
-              </div>
-            </label>
-            <div>
-              <Label class="text-xs">Notes / Special Requirements</Label>
-              <Textarea v-model="evt.notes"
-                placeholder="Equipment needs, layout preferences, dietary requirements, AV setup, accessibility…"
-                class="mt-1.5 resize-none" rows="3" />
-            </div>
+            <Textarea v-model="evt.notes"
+              placeholder="Dietary requirements for catering, decoration preferences, branding guidelines, accessibility needs…"
+              class="resize-none" rows="3" />
           </div>
 
           <!-- Event estimate -->
