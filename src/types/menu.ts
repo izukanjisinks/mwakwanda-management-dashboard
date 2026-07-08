@@ -119,12 +119,6 @@ export interface CloseWalkInOrderPayload {
   client_email?: string
   client_phone?: string
   client_tpin?: string
-  client_branch?: string
-  client_department?: string
-  cost_center?: string
-  cost_center_type?: 'cost_center' | 'internal_order'
-  internal_order?: string
-  gl_code?: string
   due_date?: string
   notes?: string
 }
