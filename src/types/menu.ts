@@ -105,6 +105,7 @@ export interface Order {
   serving_time?: string
   type: 'in_house' | 'walk_in'
   status?: 'open' | 'closed'
+  kitchen_status?: 'new' | 'preparing' | 'ready'
   notes?: string
   total?: number
   items: OrderItem[]

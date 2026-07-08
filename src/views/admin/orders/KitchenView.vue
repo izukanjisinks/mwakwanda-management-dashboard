@@ -2,7 +2,6 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import {
   RefreshCw,
-  ChefHat,
   Clock,
   Flame,
   CheckCircle2,
@@ -14,6 +13,7 @@ import {
 import { menusApi } from '@/services/api/menus'
 import { useBranchFilterStore } from '@/stores/branchFilter'
 import type { Order } from '@/types/menu'
+import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -57,32 +57,39 @@ async function fetchOrders() {
         orders.value.push(o)
       }
     }
-    for (const [id] of kitchenStatus.value) {
-      if (!incomingMap.has(id)) kitchenStatus.value.delete(id)
-    }
   } finally {
     loading.value = false
   }
 }
 
-// ── Kitchen-local status ──────────────────────────────────────────────────────
+// ── Kitchen status ────────────────────────────────────────────────────────────
 
 type KitchenStatus = 'new' | 'preparing' | 'ready'
-const kitchenStatus = ref<Map<string, KitchenStatus>>(new Map())
 const servedIds = ref<Set<string>>(new Set())
+const advancing = ref<Set<string>>(new Set())
 
-function getStatus(orderId: string): KitchenStatus {
-  return kitchenStatus.value.get(orderId) ?? 'new'
+function getStatus(order: Order): KitchenStatus {
+  return order.kitchen_status ?? 'new'
 }
 
-function advance(orderId: string) {
-  const current = getStatus(orderId)
-  if (current === 'new') {
-    kitchenStatus.value = new Map(kitchenStatus.value).set(orderId, 'preparing')
-  } else if (current === 'preparing') {
-    kitchenStatus.value = new Map(kitchenStatus.value).set(orderId, 'ready')
-  } else if (current === 'ready') {
+async function advance(orderId: string) {
+  const order = orders.value.find(o => o.id === orderId)
+  if (!order) return
+  const current = getStatus(order)
+
+  if (current === 'ready') {
     servedIds.value = new Set(servedIds.value).add(orderId)
+    return
+  }
+
+  const next: KitchenStatus = current === 'new' ? 'preparing' : 'ready'
+  advancing.value = new Set(advancing.value).add(orderId)
+  try {
+    const updated = await menusApi.updateKitchenStatus(orderId, next)
+    const idx = orders.value.findIndex(o => o.id === orderId)
+    if (idx !== -1) orders.value[idx] = updated
+  } finally {
+    advancing.value = new Set([...advancing.value].filter(id => id !== orderId))
   }
 }
 
@@ -95,8 +102,10 @@ function requestAdvance(order: Order) {
 }
 
 function confirmAdvance() {
-  if (pendingOrder.value) advance(pendingOrder.value.id)
-  pendingOrder.value = null
+  if (pendingOrder.value) {
+    advance(pendingOrder.value.id)
+    pendingOrder.value = null
+  }
 }
 
 function cancelAdvance() {
@@ -105,7 +114,7 @@ function cancelAdvance() {
 
 const confirmTitle = computed(() => {
   if (!pendingOrder.value) return ''
-  const s = getStatus(pendingOrder.value.id)
+  const s = getStatus(pendingOrder.value)
   if (s === 'new')       return 'Start Preparing?'
   if (s === 'preparing') return 'Mark as Ready?'
   return 'Mark as Served?'
@@ -114,7 +123,7 @@ const confirmTitle = computed(() => {
 const confirmDescription = computed(() => {
   if (!pendingOrder.value) return ''
   const num = pendingOrder.value.order_number
-  const s = getStatus(pendingOrder.value.id)
+  const s = getStatus(pendingOrder.value)
   if (s === 'new')       return `Move order ${num} from New to Preparing?`
   if (s === 'preparing') return `Mark order ${num} as ready to serve?`
   return `Confirm order ${num} has been served and remove it from the board.`
@@ -122,7 +131,7 @@ const confirmDescription = computed(() => {
 
 const confirmLabel = computed(() => {
   if (!pendingOrder.value) return 'Confirm'
-  const s = getStatus(pendingOrder.value.id)
+  const s = getStatus(pendingOrder.value)
   if (s === 'new')       return 'Start Preparing'
   if (s === 'preparing') return 'Mark Ready'
   return 'Mark Served'
@@ -163,9 +172,9 @@ const visibleOrders = computed(() =>
     }),
 )
 
-const newOrders      = computed(() => visibleOrders.value.filter(o => getStatus(o.id) === 'new'))
-const preparingOrders = computed(() => visibleOrders.value.filter(o => getStatus(o.id) === 'preparing'))
-const readyOrders    = computed(() => visibleOrders.value.filter(o => getStatus(o.id) === 'ready'))
+const newOrders       = computed(() => visibleOrders.value.filter(o => getStatus(o) === 'new'))
+const preparingOrders = computed(() => visibleOrders.value.filter(o => getStatus(o) === 'preparing'))
+const readyOrders     = computed(() => visibleOrders.value.filter(o => getStatus(o) === 'ready'))
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -286,57 +295,52 @@ onUnmounted(() => {
 
 <template>
 <div>
+  <DashboardHeader title="Kitchen Display">
+    <template #actions>
+      <div class="flex gap-1">
+        <button
+          v-for="tf in typeFilters"
+          :key="tf.value"
+          class="px-3 py-1 rounded-full text-xs font-medium transition-colors"
+          :class="typeFilter === tf.value
+            ? 'bg-primary text-primary-foreground'
+            : 'bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80'"
+          @click="typeFilter = tf.value"
+        >
+          {{ tf.label }}
+        </button>
+      </div>
+    </template>
+  </DashboardHeader>
+
   <div class="flex flex-col h-[calc(100vh-4rem)] overflow-hidden">
 
-    <!-- ── Top bar ─────────────────────────────────────────────────────────── -->
-    <div class="flex items-center justify-between px-5 py-3 border-b bg-card shrink-0 gap-4">
-      <div class="flex items-center gap-4 min-w-0">
-        <div class="flex items-center gap-2 shrink-0">
-          <ChefHat class="size-5 text-primary" />
-          <h1 class="text-base font-bold tracking-tight">Kitchen Display</h1>
-        </div>
-
-        <div class="flex gap-1">
-          <button
-            v-for="tf in typeFilters"
-            :key="tf.value"
-            class="px-3 py-1 rounded-full text-xs font-medium transition-colors"
-            :class="typeFilter === tf.value
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80'"
-            @click="typeFilter = tf.value"
-          >
-            {{ tf.label }}
-          </button>
-        </div>
+    <!-- ── Status bar ──────────────────────────────────────────────────────── -->
+    <div class="flex items-center justify-end px-5 py-2.5 border-b bg-card shrink-0 gap-4 text-sm text-muted-foreground">
+      <div class="hidden sm:flex items-center gap-3">
+        <span class="flex items-center gap-1.5">
+          <span class="size-2 rounded-full bg-sky-500 inline-block" />
+          {{ newOrders.length }} new
+        </span>
+        <span class="flex items-center gap-1.5">
+          <span class="size-2 rounded-full bg-amber-500 inline-block" />
+          {{ preparingOrders.length }} preparing
+        </span>
+        <span class="flex items-center gap-1.5">
+          <span class="size-2 rounded-full bg-green-500 inline-block" />
+          {{ readyOrders.length }} ready
+        </span>
       </div>
-
-      <div class="flex items-center gap-4 shrink-0 text-sm text-muted-foreground">
-        <div class="hidden sm:flex items-center gap-3">
-          <span class="flex items-center gap-1.5">
-            <span class="size-2 rounded-full bg-sky-500 inline-block" />
-            {{ newOrders.length }} new
-          </span>
-          <span class="flex items-center gap-1.5">
-            <span class="size-2 rounded-full bg-amber-500 inline-block" />
-            {{ preparingOrders.length }} preparing
-          </span>
-          <span class="flex items-center gap-1.5">
-            <span class="size-2 rounded-full bg-green-500 inline-block" />
-            {{ readyOrders.length }} ready
-          </span>
-        </div>
-        <div class="h-4 w-px bg-border hidden sm:block" />
-        <span class="font-mono tabular-nums text-foreground font-medium">{{ currentTime }}</span>
-        <div class="flex items-center gap-1.5">
-          <span class="text-xs">{{ countdown }}s</span>
-          <button
-            class="size-7 flex items-center justify-center rounded-md hover:bg-muted transition-colors"
-            @click="manualRefresh"
-          >
-            <RefreshCw class="size-3.5" :class="loading ? 'animate-spin' : ''" />
-          </button>
-        </div>
+      <div class="h-4 w-px bg-border hidden sm:block" />
+      <span class="font-mono tabular-nums text-foreground font-medium">{{ currentTime }}</span>
+      <div class="flex items-center gap-1.5">
+        <span class="text-xs">{{ countdown }}s</span>
+        <button
+          class="size-7 flex items-center justify-center rounded-md hover:bg-muted transition-colors"
+          @click="manualRefresh"
+        >
+          <RefreshCw class="size-3.5" :class="loading ? 'animate-spin' : ''" />
+        </button>
       </div>
     </div>
 

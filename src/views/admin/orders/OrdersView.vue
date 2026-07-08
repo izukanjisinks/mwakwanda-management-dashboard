@@ -289,12 +289,13 @@ async function updateQuantity(itemId: string, newQty: number) {
       <!-- Rows -->
       <Table v-else class="table-fixed w-full">
         <colgroup>
-          <col class="w-[14%]" />
+          <col class="w-[13%]" />
           <col class="w-[12%]" />
-          <col class="w-[20%]" />
-          <col class="w-[14%]" />
-          <col class="w-[18%]" />
           <col class="w-[22%]" />
+          <col class="w-[13%]" />
+          <col class="w-[12%]" />
+          <col class="w-[12%]" />
+          <col class="w-[16%]" />
         </colgroup>
         <TableHeader>
           <TableRow class="bg-muted/30">
@@ -302,6 +303,7 @@ async function updateQuantity(itemId: string, newQty: number) {
             <TableHead>Type</TableHead>
             <TableHead>Guest</TableHead>
             <TableHead>Booking #</TableHead>
+            <TableHead>Kitchen</TableHead>
             <TableHead>Total</TableHead>
             <TableHead>Placed</TableHead>
           </TableRow>
@@ -327,6 +329,14 @@ async function updateQuantity(itemId: string, newQty: number) {
               <div v-if="!order.attendee_name && !order.client_name && !order.room_name" class="text-sm text-muted-foreground">—</div>
             </TableCell>
             <TableCell class="font-mono text-sm text-muted-foreground">{{ order.booking_number ?? '—' }}</TableCell>
+            <TableCell>
+              <template v-if="order.status === 'open'">
+                <span v-if="order.kitchen_status === 'preparing'" class="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">Preparing</span>
+                <span v-else-if="order.kitchen_status === 'ready'" class="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300">Ready</span>
+                <span v-else class="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">New</span>
+              </template>
+              <span v-else class="text-sm text-muted-foreground">—</span>
+            </TableCell>
             <TableCell class="font-semibold text-sm">ZMW {{ (order.total ?? 0).toLocaleString() }}</TableCell>
             <TableCell class="text-sm text-muted-foreground">{{ formatDate(order.created_at) }}</TableCell>
           </TableRow>

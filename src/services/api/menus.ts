@@ -74,6 +74,9 @@ export const menusApi = {
   removeOrderItem: (orderId: string, itemId: string) =>
     apiClient.delete<Order>(`/orders/${orderId}/items/${itemId}`),
 
+  updateKitchenStatus: (orderId: string, status: 'new' | 'preparing' | 'ready') =>
+    apiClient.patch<Order>(`/orders/${orderId}/kitchen-status`, { kitchen_status: status }),
+
   closeAllOrders: () =>
     apiClient.patch<void>('/orders/close-all'),
 
