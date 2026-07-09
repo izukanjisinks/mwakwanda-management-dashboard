@@ -243,6 +243,7 @@ interface DisplayItem {
   unit_price: number
   total: number
   created_at: string
+  context?: string // e.g. "Package · for 20 guests" for buffet/headcount meal lines
 }
 
 interface BookingTypeGroup {
@@ -300,13 +301,30 @@ const groupedLineItems = computed(() => {
   for (const item of props.invoice.line_items) {
     itemNo++
     let attendeeKey: string, attendeeName: string, reference: string, description: string, bookingType: string
+    let context: string | undefined
+
+    const isMeal = item.line_type === 'meal' || !!item.service_type
+    const isBuffetOrShared = isMeal && !item.attendee_name
 
     if (item.attendee_name) {
+      // Individual diner line — group under that person.
       attendeeKey  = item.attendee_id ?? item.attendee_passport ?? item.attendee_name
       attendeeName = item.attendee_name
       reference    = item.attendee_passport ?? item.attendee_id ?? ''
       description  = item.description
-      bookingType  = item.booking_type ?? 'general'
+      bookingType  = item.booking_type ?? 'meals'
+    } else if (isBuffetOrShared) {
+      // Buffet / headcount meal — shared, no per-plate attribution. Bill as a flat
+      // package; show the cover count as context ("for N guests") only.
+      attendeeKey  = '__shared_meals__'
+      attendeeName = 'Buffet & Shared Meals'
+      reference    = ''
+      description  = item.description
+      bookingType  = 'meals'
+      const parts: string[] = []
+      if (item.service_type === 'buffet') parts.push('Package')
+      if (item.pax_count) parts.push(`for ${item.pax_count} guest${item.pax_count === 1 ? '' : 's'}`)
+      context = parts.join(' · ') || undefined
     } else {
       const parsed = parseDescription(item.description)
       if (parsed.name) {
@@ -336,7 +354,7 @@ const groupedLineItems = computed(() => {
       group.bookingTypes.push(typeGroup)
     }
     typeGroup.subtotal += item.total
-    typeGroup.items.push({ id: item.id, itemNo, description, quantity: item.quantity, unit_price: item.unit_price, total: item.total, created_at: item.created_at })
+    typeGroup.items.push({ id: item.id, itemNo, description, quantity: item.quantity, unit_price: item.unit_price, total: item.total, created_at: item.created_at, context })
   }
 
   return [...attendeeMap.values()]
@@ -690,7 +708,10 @@ const invoiceScenario = computed<'accommodation' | 'meals' | 'event' | 'general'
                   class="flex items-center text-xs px-4 py-2 border-t hover:bg-muted/20 gap-2"
                 >
                   <span class="w-6 shrink-0 text-muted-foreground font-mono">{{ item.itemNo }}</span>
-                  <span class="flex-1 min-w-0 truncate">{{ item.description }}</span>
+                  <span class="flex-1 min-w-0">
+                    <span class="block truncate">{{ item.description }}</span>
+                    <span v-if="item.context" class="block text-[10px] text-muted-foreground truncate">{{ item.context }}</span>
+                  </span>
                   <span class="w-24 shrink-0 text-muted-foreground">{{ formatDate(item.created_at) }}</span>
                   <span class="w-8 text-right shrink-0 text-muted-foreground">{{ item.quantity }}</span>
                   <span class="w-20 text-right shrink-0 text-muted-foreground">{{ item.unit_price.toLocaleString() }}</span>

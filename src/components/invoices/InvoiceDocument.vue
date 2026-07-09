@@ -59,6 +59,7 @@ interface DisplayItem {
   quantity: number
   unit_price: number
   total: number
+  context?: string // buffet/headcount meal context, e.g. "Package · for 20 guests"
 }
 
 interface BookingTypeGroup {
@@ -103,13 +104,28 @@ const groupedLineItems = computed((): AttendeeGroup[] => {
   for (const item of props.invoice.line_items) {
     itemNo++
     let attendeeKey: string, attendeeName: string, reference: string, description: string, bookingType: string
+    let context: string | undefined
+
+    const isMeal = item.line_type === 'meal' || !!item.service_type
+    const isBuffetOrShared = isMeal && !item.attendee_name
 
     if (item.attendee_name) {
       attendeeKey  = item.attendee_id ?? item.attendee_passport ?? item.attendee_name
       attendeeName = item.attendee_name
       reference    = item.attendee_passport ?? item.attendee_id ?? ''
       description  = item.description
-      bookingType  = item.booking_type ?? 'general'
+      bookingType  = item.booking_type ?? 'meals'
+    } else if (isBuffetOrShared) {
+      // Buffet / headcount meal — shared, flat package. Cover count is context only.
+      attendeeKey  = '__shared_meals__'
+      attendeeName = 'Buffet & Shared Meals'
+      reference    = ''
+      description  = item.description
+      bookingType  = 'meals'
+      const parts: string[] = []
+      if (item.service_type === 'buffet') parts.push('Package')
+      if (item.pax_count) parts.push(`for ${item.pax_count} guest${item.pax_count === 1 ? '' : 's'}`)
+      context = parts.join(' · ') || undefined
     } else {
       const parsed = parseDescription(item.description)
       if (parsed.name) {
@@ -140,7 +156,7 @@ const groupedLineItems = computed((): AttendeeGroup[] => {
       group.bookingTypes.push(typeGroup)
     }
     typeGroup.subtotal += item.total
-    typeGroup.items.push({ id: item.id, itemNo, description, quantity: item.quantity, unit_price: item.unit_price, total: item.total })
+    typeGroup.items.push({ id: item.id, itemNo, description, quantity: item.quantity, unit_price: item.unit_price, total: item.total, context })
   }
 
   return [...attendeeMap.values()]
@@ -245,6 +261,7 @@ const s = {
   itemNoText:  { fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#a8a29e' } as Style,
   itemDescCol: { flex: 1 } as Style,
   itemDescText:{ fontSize: 9, color: '#1a1a1a' } as Style,
+  itemContextText:{ fontSize: 7, color: '#78716c', marginTop: 1 } as Style,
   itemTypeText:{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: '#92400e', textTransform: 'uppercase', letterSpacing: 0.4, marginTop: 2 } as Style,
   itemQtyCol:  { width: 40, textAlign: 'right', paddingTop: 1 } as Style,
   itemQtyText: { fontSize: 9, color: '#57534e' } as Style,
@@ -534,6 +551,7 @@ const s = {
             </View>
             <View :style="s.itemDescCol">
               <Text :style="s.itemDescText">{{ item.description }}</Text>
+              <Text v-if="item.context" :style="s.itemContextText">{{ item.context }}</Text>
             </View>
             <View :style="s.itemQtyCol">
               <Text :style="s.itemQtyText">{{ item.quantity }}</Text>
