@@ -639,15 +639,15 @@ const invoiceScenario = computed<'accommodation' | 'meals' | 'event' | 'general'
         <div class="flex items-center justify-between gap-3">
           <span class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Charge Breakdown</span>
           <span
+            v-if="invoiceScenario !== 'general'"
             class="text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded"
             :class="{
               'bg-stone-800 text-amber-400 dark:bg-stone-700': invoiceScenario === 'accommodation',
               'bg-orange-100 text-orange-700 border border-orange-200 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-800': invoiceScenario === 'meals',
               'bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800': invoiceScenario === 'event',
-              'bg-muted text-muted-foreground': invoiceScenario === 'general',
             }"
           >
-            {{ invoiceScenario === 'accommodation' ? 'Accommodation & Meals' : invoiceScenario === 'meals' ? 'Meals' : invoiceScenario === 'event' ? 'Event' : 'General' }}
+            {{ invoiceScenario === 'accommodation' ? 'Accommodation & Meals' : invoiceScenario === 'meals' ? 'Meals' : 'Event' }}
           </span>
         </div>
 
@@ -685,7 +685,7 @@ const invoiceScenario = computed<'accommodation' | 'meals' | 'event' | 'general'
                     class="size-3 text-muted-foreground shrink-0"
                   />
                   <ChevronRight v-else class="size-3 text-muted-foreground shrink-0" />
-                  <span class="text-xs font-semibold uppercase tracking-wide">{{ bt.label }}</span>
+                  <span v-if="bt.typeKey !== 'general'" class="text-xs font-semibold uppercase tracking-wide">{{ bt.label }}</span>
                   <span class="text-xs text-muted-foreground">{{ bt.items.length }} item{{ bt.items.length !== 1 ? 's' : '' }}</span>
                 </div>
                 <span class="text-xs font-semibold shrink-0">ZMW {{ bt.subtotal.toLocaleString() }}</span>
