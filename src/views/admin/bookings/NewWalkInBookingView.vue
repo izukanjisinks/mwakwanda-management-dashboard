@@ -1,20 +1,22 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { CalendarDate, type DateValue } from '@internationalized/date'
 import {
   CalendarIcon, Loader2, BedDouble, MapPin, Users, Clock,
   User, UserPlus, Trash2, ChevronDown, List, Building2, ShieldCheck,
-  ArrowLeft, StickyNote, CalendarRange, CalendarClock, Ban, RotateCcw,
+  ArrowLeft, StickyNote, CalendarRange, CalendarClock, Ban, RotateCcw, UtensilsCrossed,
 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { bookingApi } from '@/services/api/bookings'
 import { roomApi } from '@/services/api/room'
 import { venueApi } from '@/services/api/venue'
+import { menusApi } from '@/services/api/menus'
 import { getApiError } from '@/utils/errors'
 import type { Room } from '@/types/room'
 import type { Venue } from '@/types/venue'
 import type { Booking } from '@/types/booking'
+import type { MenuItem } from '@/types/menu'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -34,7 +36,7 @@ function goBack() {
 }
 
 // ── Booking type & context ────────────────────────────────────────────────────
-type BookingType    = 'accommodation' | 'event'
+type BookingType    = 'accommodation' | 'event' | 'meals'
 type BookingContext = 'individual' | 'corporate'
 
 const bookingType  = ref<BookingType>('accommodation')
@@ -82,6 +84,20 @@ const PRICING_BASIS = [
   { value: 'flat_rate', label: 'Flat Rate' },
 ]
 
+const MEAL_PERIODS = [
+  { value: 'breakfast', label: 'Breakfast' },
+  { value: 'brunch',    label: 'Brunch' },
+  { value: 'lunch',     label: 'Lunch' },
+  { value: 'dinner',    label: 'Dinner' },
+  { value: 'supper',    label: 'Supper' },
+]
+
+const SERVICE_TYPES = [
+  { value: 'buffet',           label: 'Buffet' },
+  { value: 'individual_order', label: 'Individual Orders' },
+  { value: 'mixed',            label: 'Mixed (Buffet + Exceptions)' },
+]
+
 const VENUE_TYPE_LABELS: Record<string, string> = {
   conference_hall: 'Conference Hall',
   event_space:     'Event Space',
@@ -122,14 +138,17 @@ const approver = ref({ name: '', title: '', email: '', phone: '' })
 // ── Attendants / Delegates / Guests ──────────────────────────────────────────
 // For individual: always starts with 1 lead contact (index 0, can't be removed).
 // For corporate:  starts empty; delegates added as needed.
-type Attendant = { name: string; email: string; phone: string; id_number: string; job_title: string }
+type Attendant = { name: string; email: string; phone: string; id_number: string; job_title: string; dietary_notes: string }
+function blankAttendant(): Attendant {
+  return { name: '', email: '', phone: '', id_number: '', job_title: '', dietary_notes: '' }
+}
 const attendants = ref<Attendant[]>(
-  isCorporate.value ? [] : [{ name: '', email: '', phone: '', id_number: '', job_title: '' }],
+  isCorporate.value ? [] : [blankAttendant()],
 )
 const attendantsExpanded = ref(!isCorporate.value)
 
 function addAttendant() {
-  attendants.value.push({ name: '', email: '', phone: '', id_number: '', job_title: '' })
+  attendants.value.push(blankAttendant())
   attendantsExpanded.value = true
 }
 function removeAttendant(i: number) {
@@ -158,7 +177,7 @@ const delegateMode = ref<'headcount' | 'detailed'>('headcount')
 // Re-initialise attendants when context switches
 watch(context, (ctx) => {
   if (ctx === 'individual') {
-    attendants.value = [{ name: '', email: '', phone: '', id_number: '', job_title: '' }]
+    attendants.value = [blankAttendant()]
     attendantsExpanded.value = true
   } else {
     attendants.value = []
@@ -440,6 +459,173 @@ const eventTotal = computed(() => {
   return total
 })
 
+// ── Meal form ──────────────────────────────────────────────────────────────────
+const meal = ref({ start_date: '', end_date: '', reason: '', notes: '' })
+const mealStartOpen = ref(false)
+const mealEndOpen   = ref(false)
+
+const mealStartDateVal = computed({
+  get: () => toCalDate(meal.value.start_date),
+  set: (dv) => { if (dv) { meal.value.start_date = fromCalDate(dv); mealStartOpen.value = false } },
+})
+const mealEndDateVal = computed({
+  get: () => toCalDate(meal.value.end_date),
+  set: (dv) => { if (dv) { meal.value.end_date = fromCalDate(dv); mealEndOpen.value = false } },
+})
+
+const mealDays = computed(() => {
+  if (!meal.value.start_date || !meal.value.end_date) return 0
+  return Math.max(1, Math.round(
+    (new Date(meal.value.end_date).getTime() - new Date(meal.value.start_date).getTime()) / 86400000,
+  ) + 1)
+})
+
+// ── Menu catalog (buffet selection / individual order line items) ─────────────
+const menuItems    = ref<MenuItem[]>([])
+const menuLoading  = ref(false)
+async function loadMenuItems() {
+  menuLoading.value = true
+  try {
+    const res = await menusApi.getMenu({ page_size: 200 })
+    menuItems.value = res.items?.data ?? []
+  } catch (err) {
+    toast.error(getApiError(err, 'Failed to load menu items.'))
+  } finally {
+    menuLoading.value = false
+  }
+}
+onMounted(loadMenuItems)
+
+const buffetMenuItems = computed(() => menuItems.value.filter(m => m.category === 'buffet'))
+// Individual/mixed order assignments pick a specific dish, not a buffet package
+const individualOrderMenuItems = computed(() => menuItems.value.filter(m => m.category !== 'buffet'))
+function menuItemById(id: string) {
+  return menuItems.value.find(m => m.id === id)
+}
+
+// ── Meal sessions ───────────────────────────────────────────────────────────────
+type MealOrderLine = { attendant_idx: number; menu_item_id: string; quantity: number; notes: string }
+type MealSession = {
+  name: string
+  meal_period: string
+  serving_time: string
+  service_type: 'buffet' | 'individual_order' | 'mixed'
+  buffet_item_id: string
+  dietary_notes: string
+  arrangements_notes: string
+  individual_orders: MealOrderLine[]
+}
+function emptyMealSession(): MealSession {
+  return {
+    name: '', meal_period: 'lunch', serving_time: '', service_type: 'buffet',
+    buffet_item_id: '', dietary_notes: '', arrangements_notes: '', individual_orders: [],
+  }
+}
+const masterMeals = ref<MealSession[]>([emptyMealSession()])
+function addMasterMeal() { masterMeals.value.push(emptyMealSession()) }
+function removeMasterMeal(i: number) {
+  if (masterMeals.value.length <= 1) return
+  masterMeals.value.splice(i, 1)
+}
+function mealSessionLabel(s: MealSession, i: number) {
+  return s.name.trim() || (s.meal_period ? `${MEAL_PERIODS.find(p => p.value === s.meal_period)?.label} Session` : `Meal ${i + 1}`)
+}
+
+// Diner slots for per-guest order assignment — real attendant records in detailed
+// mode, or anonymous numbered seats sized to the headcount otherwise.
+type OrderSlot = { name: string }
+const dinerSlots = computed<OrderSlot[]>(() => {
+  const detailed = isCorporate.value ? delegateMode.value === 'detailed' : participantMode.value === 'detailed'
+  if (detailed) return attendants.value.map(a => ({ name: a.name }))
+  const count = Math.max(1, Number(evt.value.pax_count) || 1)
+  return Array.from({ length: count }, () => ({ name: '' }))
+})
+
+function orderLinesFor(session: MealSession, attendantIdx: number) {
+  return session.individual_orders.filter(o => o.attendant_idx === attendantIdx)
+}
+function addOrderLine(session: MealSession, attendantIdx: number) {
+  session.individual_orders.push({ attendant_idx: attendantIdx, menu_item_id: '', quantity: 1, notes: '' })
+}
+function removeOrderLine(session: MealSession, line: MealOrderLine) {
+  const idx = session.individual_orders.indexOf(line)
+  if (idx !== -1) session.individual_orders.splice(idx, 1)
+}
+function applyToAllDiners(session: MealSession, menuItemId: string, quantity: number) {
+  if (!menuItemId) return
+  session.individual_orders = dinerSlots.value.map((_, i) => ({
+    attendant_idx: i, menu_item_id: menuItemId, quantity: quantity || 1, notes: '',
+  }))
+}
+const quickFillItemId = ref('')
+const quickFillQty    = ref(1)
+
+// ── Multi-day scheduling for meals: uniform vs per-day (mirrors events) ───────
+const mealScheduleMode = ref<'uniform' | 'per_day'>('uniform')
+type MealDayOverride = { excluded: boolean; sessions: MealSession[] }
+const mealDayOverrides        = ref<Record<string, MealDayOverride>>({})
+const expandedMealDayOverride = ref<string | null>(null)
+
+const mealDayRange = computed(() => {
+  const sd = meal.value.start_date
+  const ed = meal.value.end_date
+  if (!sd || !ed || ed < sd) return [] as string[]
+  const [sy, sm, sdd] = sd.split('-').map(Number)
+  const [ey, em, edd] = ed.split('-').map(Number)
+  const start = new Date(Date.UTC(sy!, sm! - 1, sdd!))
+  const end   = new Date(Date.UTC(ey!, em! - 1, edd!))
+  const dates: string[] = []
+  for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1))
+    dates.push(d.toISOString().slice(0, 10))
+  return dates
+})
+
+watch(mealDayRange, (range) => { if (range.length <= 1) mealScheduleMode.value = 'uniform' })
+
+const mealDaySummary = computed(() => {
+  const total      = mealDayRange.value.length
+  const skipped    = Object.values(mealDayOverrides.value).filter(o =>  o.excluded).length
+  const customised = Object.values(mealDayOverrides.value).filter(o => !o.excluded).length
+  return { total, skipped, customised, defaultCount: total - skipped - customised }
+})
+
+function mealDayStatus(date: string): 'default' | 'skipped' | 'overridden' {
+  const ov = mealDayOverrides.value[date]
+  if (!ov) return 'default'
+  return ov.excluded ? 'skipped' : 'overridden'
+}
+function setMealDayOverride(date: string) {
+  if (!mealDayOverrides.value[date]) {
+    mealDayOverrides.value[date] = {
+      excluded: false,
+      sessions: masterMeals.value.map(s => ({ ...s, individual_orders: s.individual_orders.map(o => ({ ...o })) })),
+    }
+  }
+}
+function startMealDayOverride(date: string) {
+  setMealDayOverride(date)
+  expandedMealDayOverride.value = expandedMealDayOverride.value === date ? null : date
+}
+function collapseMealDayOverride(date: string) {
+  delete mealDayOverrides.value[date]
+  if (expandedMealDayOverride.value === date) expandedMealDayOverride.value = null
+}
+function toggleMealDayExcluded(date: string) {
+  const ov = mealDayOverrides.value[date]
+  if (!ov) mealDayOverrides.value[date] = { excluded: true, sessions: [] }
+  else ov.excluded = !ov.excluded
+}
+function addOverrideMeal(date: string) {
+  mealDayOverrides.value[date]?.sessions.push(emptyMealSession())
+}
+function removeOverrideMeal(date: string, i: number) {
+  const ov = mealDayOverrides.value[date]
+  if (ov && ov.sessions.length > 1) ov.sessions.splice(i, 1)
+}
+function overrideMeals(date: string): MealSession[] {
+  return mealDayOverrides.value[date]?.sessions ?? []
+}
+
 // ── Validation ────────────────────────────────────────────────────────────────
 const saving = ref(false)
 
@@ -453,6 +639,18 @@ const canSubmit = computed(() => {
     return isCorporate.value
       ? Object.keys(delegateRooms.value).length > 0
       : acc.value.room_id !== ''
+  }
+  if (bookingType.value === 'meals') {
+    const m0 = masterMeals.value[0]
+    return (
+      !!m0 && m0.meal_period !== '' &&
+      (m0.service_type !== 'buffet' || m0.buffet_item_id !== '') &&
+      meal.value.start_date !== '' && meal.value.end_date !== '' &&
+      meal.value.end_date >= meal.value.start_date &&
+      (isCorporate.value || (participantMode.value === 'detailed'
+        ? attendants.value.some(a => a.name.trim())
+        : Number(evt.value.pax_count) > 0))
+    )
   }
   const s0 = sessions.value[0]
   return (
@@ -519,7 +717,7 @@ function buildNotes(baseNotes: string) {
       const room = bookingType.value === 'accommodation' ? getDelegateRoom(d._idx) : null
       lines.push(`  ${i + 1}. ${d.name}${d.job_title ? ` — ${d.job_title}` : ''}${d.id_number ? ` (ID: ${d.id_number})` : ''}${d.phone ? ` · ${d.phone}` : ''}${room ? ` · Room: ${room.room_name}` : ''}`)
     })
-  } else if (bookingType.value === 'event' && delegateMode.value === 'headcount' && Number(evt.value.pax_count) > 0) {
+  } else if (bookingType.value !== 'accommodation' && delegateMode.value === 'headcount' && Number(evt.value.pax_count) > 0) {
     lines.push(`\nDelegates: ${evt.value.pax_count} (headcount only)`)
   }
 
@@ -576,6 +774,61 @@ function buildSessionNotes() {
   return lines.join('\n')
 }
 
+function mealSummaryLine(s: MealSession, i: number, indent: string) {
+  const label = s.name.trim() || `Meal ${i + 1}`
+  const parts = [
+    MEAL_PERIODS.find(p => p.value === s.meal_period)?.label,
+    s.serving_time || null,
+    SERVICE_TYPES.find(t => t.value === s.service_type)?.label,
+    s.service_type === 'buffet' && s.buffet_item_id ? menuItemById(s.buffet_item_id)?.name : null,
+  ].filter(Boolean).join(' · ')
+  const lines = [`${indent}${i + 1}. ${label}${parts ? ` — ${parts}` : ''}`]
+  if (s.dietary_notes.trim()) lines.push(`${indent}   Dietary: ${s.dietary_notes.trim()}`)
+  if (s.arrangements_notes.trim()) lines.push(`${indent}   Arrangements: ${s.arrangements_notes.trim()}`)
+  if (s.individual_orders.length) {
+    lines.push(`${indent}   Orders:`)
+    s.individual_orders.forEach(o => {
+      const item      = menuItemById(o.menu_item_id)
+      const dinerName = dinerSlots.value[o.attendant_idx]?.name || `Guest ${o.attendant_idx + 1}`
+      lines.push(`${indent}     ${dinerName}: ${o.quantity}× ${item?.name ?? 'item'}${o.notes ? ` (${o.notes})` : ''}`)
+    })
+  }
+  return lines
+}
+
+// The API payload only holds one meal slot (session 1), so the full meal plan —
+// including any per-day customisations — is serialized into special_requests.
+function buildMealNotes() {
+  const withData = masterMeals.value.filter(s => s.name.trim() || s.meal_period || s.individual_orders.length)
+  const multiDay  = mealDayRange.value.length > 1
+  const perDay    = multiDay && mealScheduleMode.value === 'per_day'
+  const hasOverrides = perDay && Object.keys(mealDayOverrides.value).length > 0
+
+  if (withData.length === 0 && !hasOverrides) return ''
+
+  const lines: string[] = []
+  if (multiDay) lines.push(`Schedule: ${perDay ? 'Per-Day' : 'Uniform'} (${mealDayRange.value.length} days)`)
+
+  if (withData.length) {
+    lines.push(`${perDay ? 'Default Meals' : 'Meals'} (${withData.length}):`)
+    withData.forEach((s, i) => lines.push(...mealSummaryLine(s, i, '  ')))
+  }
+
+  if (hasOverrides) {
+    lines.push('', 'Day-by-Day:')
+    mealDayRange.value.forEach(date => {
+      const ov    = mealDayOverrides.value[date]
+      const label = fmtDayLabel(date)
+      if (!ov)             { lines.push(`  ${label}: Using default plan`); return }
+      if (ov.excluded)     { lines.push(`  ${label}: No meals`); return }
+      lines.push(`  ${label}: ${ov.sessions.length} custom meal${ov.sessions.length !== 1 ? 's' : ''}`)
+      ov.sessions.forEach((s, i) => lines.push(...mealSummaryLine(s, i, '    ')))
+    })
+  }
+
+  return lines.join('\n')
+}
+
 // ── Submit ────────────────────────────────────────────────────────────────────
 async function handleSubmit() {
   if (!canSubmit.value) return
@@ -605,6 +858,32 @@ async function handleSubmit() {
         check_in:            acc.value.check_in,
         check_out:           acc.value.check_out,
         special_requests:    buildNotes(acc.value.special_requests),
+      })
+    } else if (bookingType.value === 'meals') {
+      const pax = isCorporate.value
+        ? (attendants.value.filter(a => a.name.trim()).length || Number(evt.value.pax_count) || 1)
+        : (participantMode.value === 'detailed'
+            ? (attendants.value.filter(a => a.name.trim()).length || 1)
+            : Number(evt.value.pax_count))
+      const m0 = masterMeals.value[0]!
+      const combinedNotes = [
+        meal.value.reason.trim() ? `Reason: ${meal.value.reason.trim()}` : '',
+        buildMealNotes(),
+        meal.value.notes.trim(),
+      ].filter(Boolean).join('\n\n')
+      booking = await bookingApi.createIndividualMeal({
+        booker_name:         bookerName,
+        booker_email:        bookerEmail,
+        booker_phone:        bookerPhone,
+        identification_card: bookerId,
+        start_date:          meal.value.start_date,
+        end_date:            meal.value.end_date,
+        meal_period:         m0.meal_period,
+        service_type:        m0.service_type,
+        serving_time:        m0.serving_time || undefined,
+        menu_item_id:        m0.service_type === 'buffet' ? (m0.buffet_item_id || undefined) : undefined,
+        pax_count:           pax,
+        special_requests:    buildNotes(combinedNotes),
       })
     } else {
       const pax = isCorporate.value
@@ -683,7 +962,7 @@ async function handleSubmit() {
         </div>
 
         <!-- ── Booking type ────────────────────────────────────────────── -->
-        <div class="grid grid-cols-2 gap-2">
+        <div class="grid grid-cols-3 gap-2">
           <button type="button"
             class="flex items-center gap-3 rounded-xl border-2 px-5 py-4 text-left transition-all"
             :class="bookingType === 'accommodation' ? 'border-primary bg-primary/5 text-primary' : 'border-border text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground'"
@@ -702,6 +981,16 @@ async function handleSubmit() {
             <div>
               <p class="text-sm font-semibold">Event / Venue</p>
               <p class="text-xs opacity-70 mt-0.5">Function or venue booking</p>
+            </div>
+          </button>
+          <button type="button"
+            class="flex items-center gap-3 rounded-xl border-2 px-5 py-4 text-left transition-all"
+            :class="bookingType === 'meals' ? 'border-primary bg-primary/5 text-primary' : 'border-border text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground'"
+            @click="bookingType = 'meals'">
+            <UtensilsCrossed class="size-5 shrink-0" />
+            <div>
+              <p class="text-sm font-semibold">Meals</p>
+              <p class="text-xs opacity-70 mt-0.5">Catering / meal plan booking</p>
             </div>
           </button>
         </div>
@@ -873,15 +1162,15 @@ async function handleSubmit() {
             </div>
           </div>
 
-          <!-- ─── Attendees (individual event — corporate uses delegates) ─── -->
-          <div v-if="bookingType === 'event'" class="rounded-xl border overflow-hidden">
+          <!-- ─── Attendees (individual event/meals — corporate uses delegates) ─── -->
+          <div v-if="bookingType === 'event' || bookingType === 'meals'" class="rounded-xl border overflow-hidden">
             <button type="button"
               class="w-full flex items-center justify-between gap-3 px-5 py-4 hover:bg-muted/30 transition-colors text-left"
               @click="attendeesExpanded = !attendeesExpanded">
               <div class="flex items-center gap-2.5">
                 <Users class="size-4 text-muted-foreground shrink-0" />
                 <div>
-                  <p class="text-sm font-semibold">Attendees</p>
+                  <p class="text-sm font-semibold">{{ bookingType === 'meals' ? 'Guests / Diners' : 'Attendees' }}</p>
                   <p v-if="!attendeesExpanded" class="text-xs text-muted-foreground">
                     {{ participantMode === 'headcount'
                       ? `Party of ${Number(evt.pax_count) || 0}`
@@ -919,11 +1208,16 @@ async function handleSubmit() {
 
               <!-- Total attendees -->
               <div>
-                <Label class="text-xs uppercase tracking-wide">Total Attendees <span v-if="participantMode === 'headcount'" class="text-destructive">*</span></Label>
+                <Label class="text-xs uppercase tracking-wide">
+                  {{ bookingType === 'meals' ? 'Total Diners' : 'Total Attendees' }}
+                  <span v-if="participantMode === 'headcount'" class="text-destructive">*</span>
+                </Label>
                 <div class="flex items-center gap-3 mt-1.5">
                   <Input v-model="evt.pax_count" type="number" min="1" placeholder="e.g. 50"
                     class="w-28 text-center" :disabled="participantMode === 'detailed'" />
-                  <p v-if="participantMode === 'detailed'" class="text-xs text-muted-foreground">Set to number of attendees</p>
+                  <p v-if="participantMode === 'detailed'" class="text-xs text-muted-foreground">
+                    {{ bookingType === 'meals' ? 'Set to number of diners' : 'Set to number of attendees' }}
+                  </p>
                 </div>
               </div>
 
@@ -966,6 +1260,10 @@ async function handleSubmit() {
                       <Label class="text-xs uppercase tracking-wide">Passport / ID <span class="text-destructive">*</span></Label>
                       <Input v-model="att.id_number" placeholder="ID number" class="mt-1 h-8 text-sm" />
                     </div>
+                    <div v-if="bookingType === 'meals'" class="col-span-4">
+                      <Label class="text-xs uppercase tracking-wide">Dietary Notes</Label>
+                      <Input v-model="att.dietary_notes" placeholder="e.g. Vegetarian, halal, nut allergy" class="mt-1 h-8 text-sm" />
+                    </div>
                   </div>
                 </div>
 
@@ -973,7 +1271,7 @@ async function handleSubmit() {
                   class="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline w-fit"
                   @click="addAttendant">
                   <UserPlus class="size-3.5" />
-                  Add Attendee
+                  {{ bookingType === 'meals' ? 'Add Guest' : 'Add Attendee' }}
                 </button>
               </template>
             </div>
@@ -1060,7 +1358,7 @@ async function handleSubmit() {
                 <div>
                   <p class="text-sm font-semibold">Delegates</p>
                   <p class="text-xs text-muted-foreground">
-                    {{ bookingType === 'event' && delegateMode === 'headcount'
+                    {{ bookingType !== 'accommodation' && delegateMode === 'headcount'
                       ? `${Number(evt.pax_count) || 0} delegate${Number(evt.pax_count) !== 1 ? 's' : ''} — headcount only`
                       : attendants.length === 0
                         ? 'No delegates added — click to register'
@@ -1069,7 +1367,7 @@ async function handleSubmit() {
                 </div>
               </div>
               <div class="flex items-center gap-2 shrink-0">
-                <span v-if="bookingType === 'event' && delegateMode === 'headcount' && Number(evt.pax_count) > 0"
+                <span v-if="bookingType !== 'accommodation' && delegateMode === 'headcount' && Number(evt.pax_count) > 0"
                   class="inline-flex items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold px-2 py-0.5 min-w-[1.5rem]">
                   {{ evt.pax_count }}
                 </span>
@@ -1082,8 +1380,8 @@ async function handleSubmit() {
             </button>
 
             <div v-if="attendantsExpanded" class="px-5 pb-5 border-t flex flex-col gap-3 pt-4">
-              <!-- Mode selector (event only — accommodation always needs individual records to assign rooms) -->
-              <template v-if="bookingType === 'event'">
+              <!-- Mode selector (event/meals only — accommodation always needs individual records to assign rooms) -->
+              <template v-if="bookingType !== 'accommodation'">
                 <div class="grid grid-cols-2 gap-3">
                   <button type="button"
                     class="flex items-start gap-3 rounded-xl border-2 p-4 text-left transition-all"
@@ -1111,7 +1409,9 @@ async function handleSubmit() {
                   <Input v-model="evt.pax_count" type="number" min="1" placeholder="e.g. 50"
                     class="w-28 text-center" :disabled="delegateMode === 'detailed'" />
                   <p class="text-sm text-muted-foreground">
-                    {{ delegateMode === 'detailed' ? 'Set to number of registered delegates' : 'Total delegates attending across all sessions' }}
+                    {{ delegateMode === 'detailed'
+                      ? 'Set to number of registered delegates'
+                      : bookingType === 'meals' ? 'Total delegates dining' : 'Total delegates attending across all sessions' }}
                   </p>
                 </div>
               </template>
@@ -1155,6 +1455,10 @@ async function handleSubmit() {
                     <div>
                       <Label class="text-xs">Job Title</Label>
                       <Input v-model="att.job_title" placeholder="e.g. Engineer" class="mt-1 h-8 text-sm" />
+                    </div>
+                    <div v-if="bookingType === 'meals'" class="col-span-2">
+                      <Label class="text-xs">Dietary Notes</Label>
+                      <Input v-model="att.dietary_notes" placeholder="e.g. Vegetarian, halal, nut allergy" class="mt-1 h-8 text-sm" />
                     </div>
                   </div>
                 </div>
@@ -1350,7 +1654,7 @@ async function handleSubmit() {
         </template>
 
         <!-- ═══════════════════ EVENT FIELDS ══════════════════════════════ -->
-        <template v-else>
+        <template v-else-if="bookingType === 'event'">
 
           <!-- ─── Event Schedule ─── -->
           <div class="rounded-xl border p-5 flex flex-col gap-4">
@@ -1815,6 +2119,451 @@ async function handleSubmit() {
               <span class="font-semibold">ZMW {{ eventTotal.toLocaleString() }}</span>
             </div>
             <p class="text-xs text-muted-foreground">Estimate only — final price confirmed at approval.</p>
+          </div>
+
+        </template>
+
+        <!-- ═══════════════════ MEAL FIELDS ════════════════════════════════ -->
+        <template v-else>
+
+          <!-- ─── Meal Plan ─── -->
+          <div class="rounded-xl border p-5 flex flex-col gap-4">
+            <div class="flex items-center gap-2.5">
+              <UtensilsCrossed class="size-4 text-muted-foreground" />
+              <div>
+                <p class="text-sm font-semibold">Meal Plan</p>
+                <p class="text-xs text-muted-foreground">Catering dates determine which meal sessions apply</p>
+              </div>
+            </div>
+
+            <div>
+              <Label class="text-xs">Reason / Occasion</Label>
+              <Input v-model="meal.reason" placeholder="e.g. Conference catering, gala dinner, working lunch" class="mt-1.5" />
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <Label class="text-xs">Start Date <span class="text-destructive">*</span></Label>
+                <Popover v-model:open="mealStartOpen">
+                  <PopoverTrigger as-child>
+                    <button type="button"
+                      class="mt-1.5 h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-left flex items-center gap-2 hover:bg-muted/40 transition-colors"
+                      :class="!meal.start_date && 'text-muted-foreground'">
+                      <CalendarIcon class="size-4 shrink-0" />
+                      {{ meal.start_date ? displayDate(meal.start_date) : 'Select date' }}
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent class="w-auto p-0" align="start">
+                    <Calendar v-model="mealStartDateVal" layout="month-and-year" :max-value="mealEndDateVal ?? maxDate" />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div>
+                <Label class="text-xs">End Date <span class="text-destructive">*</span></Label>
+                <Popover v-model:open="mealEndOpen">
+                  <PopoverTrigger as-child>
+                    <button type="button"
+                      class="mt-1.5 h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-left flex items-center gap-2 hover:bg-muted/40 transition-colors"
+                      :class="!meal.end_date && 'text-muted-foreground'"
+                      :disabled="!meal.start_date">
+                      <CalendarIcon class="size-4 shrink-0" />
+                      {{ meal.end_date ? displayDate(meal.end_date) : 'Select date' }}
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent class="w-auto p-0" align="start">
+                    <Calendar v-model="mealEndDateVal" layout="month-and-year" :min-value="mealStartDateVal" :max-value="maxDate" />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+
+            <div v-if="mealDays > 0 && meal.start_date && meal.end_date"
+              class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/5 border border-primary/20 w-fit text-xs font-semibold text-primary">
+              <UtensilsCrossed class="size-3" />
+              {{ mealDays }} day{{ mealDays !== 1 ? 's' : '' }} · {{ displayDate(meal.start_date) }} – {{ displayDate(meal.end_date) }}
+            </div>
+
+            <!-- Schedule mode (multi-day only) -->
+            <div v-if="mealDayRange.length > 1" class="grid grid-cols-2 gap-3">
+              <button type="button"
+                class="flex items-start gap-3 rounded-xl border-2 p-4 text-left transition-all"
+                :class="mealScheduleMode === 'uniform' ? 'border-primary bg-primary/5' : 'border-border hover:border-muted-foreground/40'"
+                @click="mealScheduleMode = 'uniform'">
+                <CalendarRange class="size-5 shrink-0 mt-0.5" :class="mealScheduleMode === 'uniform' ? 'text-primary' : 'text-muted-foreground'" />
+                <div>
+                  <p class="text-sm font-semibold">Uniform Plan</p>
+                  <p class="text-xs text-muted-foreground mt-0.5">Same meals served every day</p>
+                </div>
+              </button>
+              <button type="button"
+                class="flex items-start gap-3 rounded-xl border-2 p-4 text-left transition-all"
+                :class="mealScheduleMode === 'per_day' ? 'border-primary bg-primary/5' : 'border-border hover:border-muted-foreground/40'"
+                @click="mealScheduleMode = 'per_day'">
+                <CalendarClock class="size-5 shrink-0 mt-0.5" :class="mealScheduleMode === 'per_day' ? 'text-primary' : 'text-muted-foreground'" />
+                <div>
+                  <p class="text-sm font-semibold">Per-Day Plan</p>
+                  <p class="text-xs text-muted-foreground mt-0.5">Customise or skip individual days</p>
+                </div>
+              </button>
+            </div>
+
+            <!-- Scope banner -->
+            <div v-if="mealDayRange.length > 1" class="rounded-lg border px-4 py-3 bg-primary/5 border-primary/20">
+              <p class="text-sm font-semibold">{{ mealScheduleMode === 'per_day' ? 'Default Daily Plan' : 'Daily Meal Plan' }}</p>
+              <p v-if="mealScheduleMode === 'uniform'" class="text-xs text-muted-foreground mt-0.5">
+                Applied to all <strong class="text-foreground">{{ mealDayRange.length }} days</strong>
+                · {{ displayDate(meal.start_date) }} – {{ displayDate(meal.end_date) }}.
+              </p>
+              <p v-else class="text-xs text-muted-foreground mt-0.5">
+                Fallback for days without a custom plan — covering
+                <strong class="text-foreground">{{ mealDaySummary.defaultCount }} of {{ mealDaySummary.total }}</strong> days.
+              </p>
+            </div>
+          </div>
+
+          <!-- ─── Meals ─── -->
+          <div class="rounded-xl border p-5 flex flex-col gap-4">
+            <div class="flex items-center gap-2.5">
+              <Clock class="size-4 text-muted-foreground" />
+              <div>
+                <p class="text-sm font-semibold">Meals</p>
+                <p class="text-xs text-muted-foreground">
+                  {{ mealDayRange.length > 1 && mealScheduleMode === 'per_day'
+                    ? 'Default plan — used for days without a custom menu. Meal 1 is the main session.'
+                    : 'Each meal runs on every catering day. Meal 1 is the main session.' }}
+                </p>
+              </div>
+            </div>
+
+            <div v-for="(session, si) in masterMeals" :key="si" class="rounded-lg border overflow-hidden">
+              <div class="flex items-center justify-between px-4 py-3 bg-muted/30">
+                <span class="text-sm font-semibold">{{ mealSessionLabel(session, si) }}</span>
+                <div class="flex items-center gap-2">
+                  <span v-if="mealDayRange.length > 1 && mealScheduleMode === 'uniform'"
+                    class="inline-flex items-center px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-semibold">
+                    × {{ mealDayRange.length }} days
+                  </span>
+                  <span v-else-if="mealDayRange.length > 1 && mealScheduleMode === 'per_day'"
+                    class="inline-flex items-center px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-xs font-semibold">
+                    default
+                  </span>
+                  <button type="button" :disabled="masterMeals.length === 1"
+                    class="rounded p-1 transition-colors"
+                    :class="masterMeals.length === 1 ? 'text-muted-foreground/30 cursor-not-allowed' : 'text-muted-foreground hover:text-destructive'"
+                    @click="removeMasterMeal(si)">
+                    <Trash2 class="size-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              <div class="p-4 flex flex-col gap-3">
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="col-span-2">
+                    <Label class="text-xs">Session Name</Label>
+                    <Input v-model="session.name" placeholder="e.g. Morning Tea, Working Lunch, Networking Dinner" class="mt-1.5" />
+                  </div>
+                  <div>
+                    <Label class="text-xs">Meal Period <span v-if="si === 0" class="text-destructive">*</span></Label>
+                    <Select v-model="session.meal_period">
+                      <SelectTrigger class="mt-1.5">
+                        <SelectValue placeholder="Select meal period…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem v-for="p in MEAL_PERIODS" :key="p.value" :value="p.value">{{ p.label }}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label class="text-xs flex items-center gap-1"><Clock class="size-3" /> Serving Time</Label>
+                    <Input v-model="session.serving_time" type="time" class="mt-1.5" />
+                  </div>
+                  <div>
+                    <Label class="text-xs">Service Style</Label>
+                    <Select v-model="session.service_type">
+                      <SelectTrigger class="mt-1.5">
+                        <SelectValue placeholder="Select service style…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem v-for="t in SERVICE_TYPES" :key="t.value" :value="t.value">{{ t.label }}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div v-if="session.service_type === 'buffet'">
+                    <Label class="text-xs">Buffet Selection <span v-if="si === 0" class="text-destructive">*</span></Label>
+                    <Select v-if="buffetMenuItems.length > 0" v-model="session.buffet_item_id">
+                      <SelectTrigger class="mt-1.5">
+                        <SelectValue placeholder="Select buffet package…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem v-for="mi in buffetMenuItems" :key="mi.id" :value="mi.id">{{ mi.name }} — ZMW {{ mi.price.toLocaleString() }}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p v-else class="mt-1.5 text-xs text-amber-600 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 px-3 py-2.5">
+                      No buffet options available for this lodge.
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <Label class="text-xs">Dietary Requirements</Label>
+                  <Textarea v-model="session.dietary_notes" placeholder="Halal, vegetarian, nut-free, diabetic…" class="mt-1.5 resize-none" rows="2" />
+                </div>
+                <div v-if="isCorporate">
+                  <Label class="text-xs">Arrangements Notes</Label>
+                  <Textarea v-model="session.arrangements_notes" placeholder="Table layout, decor, branded napkins, presentation style…" class="mt-1.5 resize-none" rows="2" />
+                </div>
+
+                <!-- Individual Meal Assignments -->
+                <div v-if="session.service_type === 'individual_order' || session.service_type === 'mixed'"
+                  class="rounded-lg border p-3 flex flex-col gap-3 bg-muted/10">
+                  <div>
+                    <p class="text-sm font-semibold">{{ session.service_type === 'mixed' ? 'Buffet Exceptions / Individual Orders' : 'Individual Meal Assignments' }}</p>
+                    <p class="text-xs text-muted-foreground mt-0.5">
+                      {{ session.service_type === 'mixed'
+                        ? 'Assign specific items to diners who need something different from the buffet.'
+                        : 'Assign menu items directly to each diner.' }}
+                    </p>
+                  </div>
+
+                  <div v-if="menuLoading" class="text-xs text-muted-foreground flex items-center gap-2 py-2">
+                    <Loader2 class="size-3.5 animate-spin" /> Loading menu items…
+                  </div>
+                  <div v-else-if="individualOrderMenuItems.length === 0" class="text-xs text-muted-foreground text-center py-2">
+                    No menu items available for this lodge.
+                  </div>
+                  <div v-else-if="(isCorporate ? delegateMode === 'detailed' : participantMode === 'detailed') && !attendants.some(a => a.name.trim())"
+                    class="text-xs text-muted-foreground rounded-lg border border-dashed px-3 py-3 text-center">
+                    Register guests in the Guests / Diners section first.
+                  </div>
+                  <template v-else>
+                    <div class="flex items-center gap-2">
+                      <Select v-model="quickFillItemId">
+                        <SelectTrigger class="flex-1"><SelectValue placeholder="Quick-fill all diners…" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem v-for="mi in individualOrderMenuItems" :key="mi.id" :value="mi.id">{{ mi.name }} — ZMW {{ mi.price.toLocaleString() }}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input v-model.number="quickFillQty" type="number" min="1" class="w-16" />
+                      <Button type="button" size="sm" variant="outline"
+                        @click="applyToAllDiners(session, quickFillItemId, quickFillQty); quickFillItemId = ''">
+                        Apply to All
+                      </Button>
+                    </div>
+
+                    <div v-for="(diner, di) in dinerSlots" :key="di" class="rounded-lg border bg-background p-2.5 flex flex-col gap-2">
+                      <div class="flex items-center justify-between">
+                        <span class="text-xs font-semibold">{{ di + 1 }}. {{ diner.name || `Guest ${di + 1}` }}</span>
+                        <button type="button" class="text-xs text-primary hover:underline flex items-center gap-1" @click="addOrderLine(session, di)">
+                          <UserPlus class="size-3" /> Add item
+                        </button>
+                      </div>
+                      <p v-if="orderLinesFor(session, di).length === 0" class="text-xs text-muted-foreground">No items assigned yet</p>
+                      <div v-for="(line, li) in orderLinesFor(session, di)" :key="li" class="grid grid-cols-[1fr_4.5rem_1fr_auto] gap-1.5 items-center">
+                        <Select v-model="line.menu_item_id">
+                          <SelectTrigger class="h-8 text-xs"><SelectValue placeholder="Select menu item…" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem v-for="mi in individualOrderMenuItems" :key="mi.id" :value="mi.id">{{ mi.name }} — ZMW {{ mi.price.toLocaleString() }}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Input v-model.number="line.quantity" type="number" min="1" class="h-8 text-xs" />
+                        <Input v-model="line.notes" placeholder="Notes…" class="h-8 text-xs" />
+                        <button type="button" class="text-muted-foreground hover:text-destructive rounded p-1" @click="removeOrderLine(session, line)">
+                          <Trash2 class="size-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </div>
+
+            <button type="button"
+              class="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline w-fit"
+              @click="addMasterMeal">
+              <UserPlus class="size-3.5" />
+              {{ mealDayRange.length > 1 && mealScheduleMode === 'per_day' ? 'Add Meal to Default Plan' : 'Add Another Meal' }}
+            </button>
+
+            <!-- ── Day-by-day overrides ── -->
+            <div v-if="mealScheduleMode === 'per_day' && mealDayRange.length > 0" class="mt-2 pt-4 border-t flex flex-col gap-3">
+              <div>
+                <p class="text-xs font-semibold uppercase tracking-wide">
+                  Day-by-Day Plan <span class="text-muted-foreground font-normal normal-case">({{ mealDayRange.length }} days)</span>
+                </p>
+                <p class="text-xs text-muted-foreground mt-0.5">Skip days with no catering, or adjust the menu for individual days.</p>
+              </div>
+
+              <!-- Status strip -->
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted text-xs font-semibold text-muted-foreground">
+                  <span class="w-1.5 h-1.5 rounded-full bg-muted-foreground inline-block"></span>
+                  {{ mealDaySummary.defaultCount }} using default
+                </span>
+                <span v-if="mealDaySummary.customised > 0"
+                  class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                  <span class="w-1.5 h-1.5 rounded-full bg-primary inline-block"></span>
+                  {{ mealDaySummary.customised }} customised
+                </span>
+                <span v-if="mealDaySummary.skipped > 0"
+                  class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted text-xs font-semibold text-muted-foreground">
+                  {{ mealDaySummary.skipped }} no meals
+                </span>
+              </div>
+
+              <div class="flex flex-col gap-2">
+                <div v-for="date in mealDayRange" :key="date" class="rounded-lg border overflow-hidden"
+                  :class="mealDayStatus(date) === 'skipped' && 'opacity-60'">
+                  <div class="flex items-center justify-between px-4 py-3 bg-muted/30">
+                    <div class="flex items-center gap-2 min-w-0">
+                      <span class="text-sm font-semibold shrink-0">{{ fmtDayLabel(date) }}</span>
+                      <span v-if="mealDayStatus(date) === 'overridden'"
+                        class="inline-flex items-center px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-semibold shrink-0">
+                        {{ overrideMeals(date).length }} custom meal{{ overrideMeals(date).length !== 1 ? 's' : '' }}
+                      </span>
+                      <span v-else-if="mealDayStatus(date) === 'skipped'"
+                        class="inline-flex items-center px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-xs font-semibold shrink-0">
+                        No meals
+                      </span>
+                      <span v-else class="text-xs text-muted-foreground hidden sm:inline">Using default plan</span>
+                    </div>
+                    <div class="flex items-center gap-1 shrink-0 ml-2">
+                      <button v-if="mealDayStatus(date) !== 'skipped'" type="button"
+                        class="text-xs font-medium text-primary hover:underline px-2 py-1"
+                        @click="startMealDayOverride(date)">
+                        {{ mealDayStatus(date) === 'overridden' ? (expandedMealDayOverride === date ? 'Collapse' : 'Edit') : 'Customise' }}
+                      </button>
+                      <button v-if="mealDayStatus(date) === 'overridden'" type="button"
+                        class="text-xs text-muted-foreground hover:text-destructive hover:underline px-2 py-1"
+                        @click="collapseMealDayOverride(date)">
+                        Reset
+                      </button>
+                      <button type="button"
+                        class="h-7 w-7 flex items-center justify-center rounded-lg transition-colors"
+                        :class="mealDayStatus(date) === 'skipped' ? 'text-primary bg-primary/10' : 'text-muted-foreground hover:text-destructive'"
+                        :title="mealDayStatus(date) === 'skipped' ? 'Restore meals' : 'No meals this day'"
+                        @click="toggleMealDayExcluded(date)">
+                        <RotateCcw v-if="mealDayStatus(date) === 'skipped'" class="size-3.5" />
+                        <Ban v-else class="size-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div v-if="expandedMealDayOverride === date && mealDayStatus(date) === 'overridden'" class="p-4 flex flex-col gap-3">
+                    <div v-for="(s, si) in overrideMeals(date)" :key="si" class="rounded-lg border overflow-hidden">
+                      <div class="flex items-center justify-between px-4 py-2.5 bg-muted/30">
+                        <span class="text-sm font-semibold">{{ mealSessionLabel(s, si) }}</span>
+                        <button type="button" :disabled="overrideMeals(date).length === 1"
+                          class="rounded p-1 transition-colors"
+                          :class="overrideMeals(date).length === 1 ? 'text-muted-foreground/30 cursor-not-allowed' : 'text-muted-foreground hover:text-destructive'"
+                          @click="removeOverrideMeal(date, si)">
+                          <Trash2 class="size-3.5" />
+                        </button>
+                      </div>
+                      <div class="p-4 flex flex-col gap-3">
+                        <div class="grid grid-cols-2 gap-3">
+                          <div class="col-span-2">
+                            <Label class="text-xs">Session Name</Label>
+                            <Input v-model="s.name" placeholder="e.g. Keynote Lunch, Farewell Dinner" class="mt-1.5" />
+                          </div>
+                          <div>
+                            <Label class="text-xs">Meal Period</Label>
+                            <Select v-model="s.meal_period">
+                              <SelectTrigger class="mt-1.5"><SelectValue placeholder="Select meal period…" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem v-for="p in MEAL_PERIODS" :key="p.value" :value="p.value">{{ p.label }}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label class="text-xs">Serving Time</Label>
+                            <Input v-model="s.serving_time" type="time" class="mt-1.5" />
+                          </div>
+                          <div>
+                            <Label class="text-xs">Service Style</Label>
+                            <Select v-model="s.service_type">
+                              <SelectTrigger class="mt-1.5"><SelectValue placeholder="Select service style…" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem v-for="t in SERVICE_TYPES" :key="t.value" :value="t.value">{{ t.label }}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div v-if="s.service_type === 'buffet'">
+                            <Label class="text-xs">Buffet Selection</Label>
+                            <Select v-if="buffetMenuItems.length > 0" v-model="s.buffet_item_id">
+                              <SelectTrigger class="mt-1.5"><SelectValue placeholder="Select buffet package…" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem v-for="mi in buffetMenuItems" :key="mi.id" :value="mi.id">{{ mi.name }} — ZMW {{ mi.price.toLocaleString() }}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <p v-else class="mt-1.5 text-xs text-amber-600 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 px-3 py-2.5">
+                              No buffet options available.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div>
+                          <Label class="text-xs">Dietary Notes</Label>
+                          <Textarea v-model="s.dietary_notes" placeholder="e.g. Halal, vegan, allergens" class="mt-1.5 resize-none" rows="2" />
+                        </div>
+
+                        <!-- Individual Meal Assignments (override) -->
+                        <div v-if="s.service_type === 'individual_order' || s.service_type === 'mixed'"
+                          class="rounded-lg border p-3 flex flex-col gap-3 bg-muted/10">
+                          <p class="text-xs text-muted-foreground">
+                            {{ s.service_type === 'mixed'
+                              ? 'Assign items to diners who need something different from the buffet.'
+                              : 'Assign menu items directly to each diner.' }}
+                          </p>
+                          <div v-if="individualOrderMenuItems.length === 0" class="text-xs text-muted-foreground text-center py-2">No menu items available.</div>
+                          <template v-else>
+                            <div v-for="(diner, di) in dinerSlots" :key="di" class="rounded-lg border bg-background p-2.5 flex flex-col gap-2">
+                              <div class="flex items-center justify-between">
+                                <span class="text-xs font-semibold">{{ di + 1 }}. {{ diner.name || `Guest ${di + 1}` }}</span>
+                                <button type="button" class="text-xs text-primary hover:underline flex items-center gap-1" @click="addOrderLine(s, di)">
+                                  <UserPlus class="size-3" /> Add item
+                                </button>
+                              </div>
+                              <p v-if="orderLinesFor(s, di).length === 0" class="text-xs text-muted-foreground">No items assigned yet</p>
+                              <div v-for="(line, li) in orderLinesFor(s, di)" :key="li" class="grid grid-cols-[1fr_4.5rem_1fr_auto] gap-1.5 items-center">
+                                <Select v-model="line.menu_item_id">
+                                  <SelectTrigger class="h-8 text-xs"><SelectValue placeholder="Select menu item…" /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem v-for="mi in individualOrderMenuItems" :key="mi.id" :value="mi.id">{{ mi.name }} — ZMW {{ mi.price.toLocaleString() }}</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <Input v-model.number="line.quantity" type="number" min="1" class="h-8 text-xs" />
+                                <Input v-model="line.notes" placeholder="Notes…" class="h-8 text-xs" />
+                                <button type="button" class="text-muted-foreground hover:text-destructive rounded p-1" @click="removeOrderLine(s, line)">
+                                  <Trash2 class="size-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          </template>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button type="button"
+                      class="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline w-fit"
+                      @click="addOverrideMeal(date)">
+                      <UserPlus class="size-3.5" />
+                      Add Meal to {{ fmtDayLabel(date) }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ─── Additional Requests ─── -->
+          <div class="rounded-xl border p-5 flex flex-col gap-3">
+            <div class="flex items-center gap-2.5">
+              <StickyNote class="size-4 text-muted-foreground" />
+              <p class="text-sm font-semibold">Additional Requests</p>
+            </div>
+            <Textarea v-model="meal.notes"
+              placeholder="Service timing, table configuration, themed decor, alcohol preferences, children's menu…"
+              class="resize-none" rows="3" />
           </div>
 
         </template>

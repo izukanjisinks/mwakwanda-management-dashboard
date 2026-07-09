@@ -31,7 +31,8 @@
       "WebFetch(domain:localhost)",
       "Bash(curl -s \"http://localhost:5173/management-dashboard/src/main.js\" -o /tmp/main.js -w \"HTTP %{http_code}\\\\n\")",
       "Read(//tmp/**)",
-      "Bash(curl -s -D - \"http://localhost:5173/management-dashboard/src/views/admin/bookings/NewWalkInBookingView.vue\" -o /dev/null)"
+      "Bash(curl -s -D - \"http://localhost:5173/management-dashboard/src/views/admin/bookings/NewWalkInBookingView.vue\" -o /dev/null)",
+      "Bash(powershell -Command \"\\(Get-Content 'C:\\\\Users\\\\SYNC\\\\Documents\\\\GitHub\\\\mwakwanda-website\\\\src\\\\views\\\\MealBookingView.vue' | Measure-Object -Line\\).Lines\")"
     ]
   }
 }

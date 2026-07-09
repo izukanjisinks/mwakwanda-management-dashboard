@@ -124,6 +124,22 @@ export interface CreateIndividualEventBookingPayload {
   special_requests?: string
 }
 
+// Walk-in meal booking created by staff — POST /api/v1/bookings/individual/meal
+export interface CreateIndividualMealBookingPayload {
+  booker_name: string
+  booker_email?: string
+  booker_phone?: string
+  identification_card?: string
+  start_date: string    // YYYY-MM-DD
+  end_date: string      // YYYY-MM-DD
+  meal_period: string
+  service_type: string  // 'buffet' | 'individual_order' | 'mixed'
+  serving_time?: string // HH:MM
+  menu_item_id?: string // buffet selection, when service_type === 'buffet'
+  pax_count: number
+  special_requests?: string
+}
+
 export interface BookingStatusUpdate {
   status: BookingStatus
 }
