@@ -4,6 +4,8 @@ import type {
   Booking, BookingStatusUpdate, PaginatedBookings,
   BookingRoomAssignment, BookingAttendee, CreateIndividualBookingPayload,
   CreateIndividualEventBookingPayload, CreateIndividualMealBookingPayload,
+  WalkInMealBookingPayload, WalkInEventBookingPayload, WalkInAccommodationBookingPayload,
+  WalkInIndividualAccommodationPayload,
 } from '@/types/booking'
 
 export interface BookingListParams extends Record<string, string | number | boolean | undefined> {
@@ -47,6 +49,19 @@ export const bookingApi = {
 
   createIndividualMeal: (payload: CreateIndividualMealBookingPayload) =>
     apiClient.post<Booking>('/bookings/individual/meal', payload),
+
+  // Walk-in / staff bookings — full envelope, confirmed immediately (no approval).
+  // Handles both individual and corporate via booking_context in the payload.
+  createMeal: (payload: WalkInMealBookingPayload) =>
+    apiClient.post<Booking>('/bookings/meal', payload),
+
+  createEvent: (payload: WalkInEventBookingPayload) =>
+    apiClient.post<Booking>('/bookings/event', payload),
+
+  // Accommodation walk-in — one room per guest. Corporate sends assignments;
+  // individual sends accommodation.rooms. The server branches on booking_context.
+  createAccommodation: (payload: WalkInAccommodationBookingPayload | WalkInIndividualAccommodationPayload) =>
+    apiClient.post<Booking>('/bookings/accommodation', payload),
 
   updateStatus: (id: string, payload: BookingStatusUpdate) =>
     apiClient.put<Booking>(`/bookings/${id}/status`, payload),

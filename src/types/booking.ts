@@ -363,3 +363,192 @@ export interface MealsRequestSummary {
   buffet_items?: MealsSummaryItem[]
   estimated_total: number
 }
+
+// ── Walk-in booking envelopes (staff, materialise-immediately) ────────────────
+// Mirror the website's Flow-B envelopes (SubmitMealBookingRequest /
+// SubmitEventBookingRequest) so the staff endpoints reuse the same materialisation.
+
+export interface WalkInBookedBy {
+  name: string
+  email?: string
+  phone?: string
+  job_title?: string
+  man_number?: string
+}
+
+export interface WalkInAttendant {
+  full_name?: string | null
+  email?: string | null
+  phone?: string | null
+  id_number?: string | null
+  dietary_notes?: string | null
+  company?: string | null
+  is_lead_contact: boolean
+}
+
+export interface WalkInCompany {
+  name: string
+  tpin?: string
+  industry?: string
+  email?: string
+  phone?: string
+  city?: string
+  street_address?: string
+  country?: string
+  branch_name?: string
+  department_name?: string
+  cost_center?: string
+  cost_center_type?: 'cost_center' | 'internal_order'
+  gl_code?: string
+}
+
+export interface WalkInApprover {
+  name?: string
+  email?: string
+  phone?: string
+  title?: string
+}
+
+export interface WalkInMealOrder {
+  attendant_idx: number
+  menu_item_id: string
+  quantity: number
+  notes?: string
+}
+
+export interface WalkInMealSession {
+  session_name?: string
+  meal_date?: string
+  meal_period: string
+  serving_time?: string
+  service_type: string
+  menu_item_id?: string
+  pax_count?: number
+  dietary_notes?: string
+  arrangements_notes?: string
+  individual_orders?: WalkInMealOrder[]
+}
+
+export interface WalkInMealBlock {
+  reason_for_booking?: string
+  meal_mode: 'standalone'
+  start_date?: string
+  end_date?: string
+  schedule_mode: 'uniform' | 'per_day'
+  notes?: string
+  sessions: WalkInMealSession[]
+}
+
+export interface WalkInMealBookingPayload {
+  booking_type: 'meal'
+  source: 'backoffice'
+  currency: 'ZMW'
+  booking_context: 'individual' | 'corporate'
+  participant_mode: 'headcount' | 'detailed'
+  participant_count?: number | null
+  booked_by: WalkInBookedBy
+  attendants: WalkInAttendant[]
+  company?: WalkInCompany | null
+  approver?: WalkInApprover | null
+  meal: WalkInMealBlock
+  documents?: string[]
+}
+
+export interface WalkInEventSession {
+  event_name?: string
+  event_date?: string
+  event_type: string
+  venue_id: string
+  start_time?: string
+  end_time?: string
+  setup_type?: string
+  pricing_basis?: string
+  expected_attendees?: number
+  special_requirements?: string
+}
+
+export interface WalkInEventBlock {
+  reason_for_booking?: string
+  start_date?: string
+  end_date?: string
+  schedule_mode: 'uniform' | 'per_day'
+  notes?: string
+  sessions: WalkInEventSession[]
+}
+
+export interface WalkInEventBookingPayload {
+  booking_type: 'event'
+  source: 'backoffice'
+  currency: 'ZMW'
+  booking_context: 'individual' | 'corporate'
+  participant_mode: 'headcount' | 'detailed'
+  participant_count?: number | null
+  booked_by: WalkInBookedBy
+  attendants: WalkInAttendant[]
+  company?: WalkInCompany | null
+  approver?: WalkInApprover | null
+  event: WalkInEventBlock
+  documents?: string[]
+}
+
+export interface WalkInAccommodationBlock {
+  check_in?: string
+  check_out?: string
+  notes?: string
+  room_count?: number
+  room_type_preference?: string
+}
+
+export interface WalkInRoomAssignment {
+  guest_index: number
+  room_id: string
+  room_name?: string
+  room_type?: string
+}
+
+// Corporate accommodation walk-in: the envelope plus per-delegate room assignments.
+// Materialised immediately server-side (POST /bookings/accommodation).
+export interface WalkInAccommodationBookingPayload {
+  booking_type: 'accommodation'
+  source: 'backoffice'
+  currency: 'ZMW'
+  booking_context: 'corporate'
+  participant_mode: 'detailed'
+  booked_by: WalkInBookedBy
+  attendants: WalkInAttendant[]
+  company?: WalkInCompany | null
+  approver?: WalkInApprover | null
+  accommodation: WalkInAccommodationBlock
+  assignments: WalkInRoomAssignment[]
+  documents?: string[]
+}
+
+export interface WalkInIndivRoomSlot {
+  slot_index: number
+  attendant_idx: number
+  room_id: string
+  room_name?: string
+  room_type?: string
+  rate_per_night?: number
+}
+
+export interface WalkInIndivAccommodationBlock {
+  check_in: string
+  check_out: string
+  notes?: string
+  rooms: WalkInIndivRoomSlot[]
+}
+
+// Individual accommodation walk-in: multiple named guests, each with their own room.
+// Materialised immediately server-side (POST /bookings/accommodation, context=individual).
+export interface WalkInIndividualAccommodationPayload {
+  booking_type: 'accommodation'
+  source: 'backoffice'
+  currency: 'ZMW'
+  booking_context: 'individual'
+  participant_mode: 'detailed'
+  booked_by: WalkInBookedBy
+  attendants: WalkInAttendant[]
+  accommodation: WalkInIndivAccommodationBlock
+  documents?: string[]
+}

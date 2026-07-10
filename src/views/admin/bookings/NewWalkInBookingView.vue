@@ -636,9 +636,10 @@ const canSubmit = computed(() => {
   if (!isCorporate.value && !booker.value.name.trim()) return false
   if (bookingType.value === 'accommodation') {
     if (acc.value.check_in === '' || acc.value.check_out === '' || acc.value.check_out <= acc.value.check_in) return false
-    return isCorporate.value
-      ? Object.keys(delegateRooms.value).length > 0
-      : acc.value.room_id !== ''
+    // Both individual and corporate: at least one guest with a room assigned, and
+    // every registered guest must have a name.
+    if (!attendants.value.some(a => a.name.trim())) return false
+    return Object.keys(delegateRooms.value).length > 0
   }
   if (bookingType.value === 'meals') {
     const m0 = masterMeals.value[0]
@@ -829,6 +830,253 @@ function buildMealNotes() {
   return lines.join('\n')
 }
 
+// ── Envelope builders (walk-in meal / event) ─────────────────────────────────
+// Mirror the website's Flow-B envelopes: expand the master sessions across every
+// day in the range, honouring per-day overrides (skip / custom sessions).
+
+function dateRange(start: string, end: string): string[] {
+  if (!start || !end || end < start) return []
+  const [sy, sm, sd] = start.split('-').map(Number)
+  const [ey, em, ed] = end.split('-').map(Number)
+  const s = new Date(Date.UTC(sy!, sm! - 1, sd!))
+  const e = new Date(Date.UTC(ey!, em! - 1, ed!))
+  const out: string[] = []
+  for (const d = new Date(s); d <= e; d.setUTCDate(d.getUTCDate() + 1)) out.push(d.toISOString().slice(0, 10))
+  return out
+}
+
+function buildAttendants(): import('@/types/booking').WalkInAttendant[] {
+  const detailed = isCorporate.value ? delegateMode.value === 'detailed' : participantMode.value === 'detailed'
+  if (!isCorporate.value && !detailed) {
+    // Individual headcount: a single synthetic lead (the booker).
+    return [{
+      full_name: booker.value.name.trim() || null,
+      email: booker.value.email.trim() || null,
+      phone: booker.value.phone.trim() || null,
+      id_number: null, dietary_notes: null, company: null, is_lead_contact: true,
+    }]
+  }
+  const named = attendants.value.filter(a => a.name.trim())
+  return named.map((a, i) => ({
+    full_name: a.name.trim() || null,
+    email: a.email.trim() || null,
+    phone: a.phone.trim() || null,
+    id_number: a.id_number.trim() || null,
+    dietary_notes: a.dietary_notes.trim() || null,
+    company: null,
+    is_lead_contact: i === 0,
+  }))
+}
+
+function buildCompany(): import('@/types/booking').WalkInCompany | null {
+  if (!isCorporate.value) return null
+  const c = company.value
+  return {
+    name: c.name.trim(), tpin: c.tpin.trim() || undefined, industry: c.industry || undefined,
+    email: c.email.trim() || undefined, phone: c.phone.trim() || undefined,
+    country: c.country.trim() || undefined, branch_name: c.branch.trim() || undefined,
+    department_name: c.department.trim() || undefined,
+    cost_center: c.cost_center.trim() || undefined, cost_center_type: c.cost_center_type,
+    gl_code: c.gl_code.trim() || undefined,
+  }
+}
+
+function buildApprover(): import('@/types/booking').WalkInApprover | null {
+  if (!isCorporate.value) return null
+  const a = approver.value
+  return { name: a.name.trim() || undefined, email: a.email.trim() || undefined, phone: a.phone.trim() || undefined, title: a.title.trim() || undefined }
+}
+
+function participantModeValue(): 'headcount' | 'detailed' {
+  return (isCorporate.value ? delegateMode.value : participantMode.value)
+}
+
+function buildMealEnvelope(): import('@/types/booking').WalkInMealBookingPayload {
+  const mode = participantModeValue()
+  const pax = mode === 'detailed'
+    ? (attendants.value.filter(a => a.name.trim()).length || 1)
+    : (Number(evt.value.pax_count) || 1)
+
+  // Flatten master meals across the day range, honouring per-day overrides.
+  const flat: import('@/types/booking').WalkInMealSession[] = []
+  const range = dateRange(meal.value.start_date, meal.value.end_date)
+  for (const date of range) {
+    const ov = mealDayOverrides.value[date]
+    if (ov?.excluded) continue
+    const daySessions = ov?.sessions ?? masterMeals.value
+    for (const s of daySessions) {
+      flat.push({
+        session_name: s.name.trim() || undefined,
+        meal_date: date,
+        meal_period: s.meal_period,
+        serving_time: s.serving_time || undefined,
+        service_type: s.service_type,
+        menu_item_id: s.service_type === 'buffet' ? (s.buffet_item_id || undefined) : undefined,
+        pax_count: pax,
+        dietary_notes: s.dietary_notes.trim() || undefined,
+        arrangements_notes: s.arrangements_notes.trim() || undefined,
+        individual_orders: mode === 'detailed' && s.individual_orders.filter(o => o.menu_item_id).length
+          ? s.individual_orders.filter(o => o.menu_item_id).map(o => ({
+              attendant_idx: o.attendant_idx, menu_item_id: o.menu_item_id, quantity: o.quantity, notes: o.notes || undefined,
+            }))
+          : undefined,
+      })
+    }
+  }
+
+  return {
+    booking_type: 'meal', source: 'backoffice', currency: 'ZMW',
+    booking_context: context.value,
+    participant_mode: mode,
+    participant_count: mode === 'headcount' ? pax : null,
+    booked_by: {
+      name: booker.value.name.trim() || company.value.name.trim(),
+      email: booker.value.email.trim() || undefined,
+      phone: booker.value.phone.trim() || undefined,
+      job_title: booker.value.job_title.trim() || undefined,
+      man_number: booker.value.man_number.trim() || undefined,
+    },
+    attendants: buildAttendants(),
+    company: buildCompany(),
+    approver: buildApprover(),
+    meal: {
+      reason_for_booking: meal.value.reason.trim() || undefined,
+      meal_mode: 'standalone',
+      start_date: meal.value.start_date || undefined,
+      end_date: meal.value.end_date || undefined,
+      schedule_mode: mealScheduleMode.value,
+      notes: meal.value.notes.trim() || undefined,
+      sessions: flat,
+    },
+  }
+}
+
+function buildEventEnvelope(): import('@/types/booking').WalkInEventBookingPayload {
+  const mode = participantModeValue()
+  const pax = mode === 'detailed'
+    ? (attendants.value.filter(a => a.name.trim()).length || 1)
+    : (Number(evt.value.pax_count) || 1)
+
+  const flat: import('@/types/booking').WalkInEventSession[] = []
+  const range = dateRange(evt.value.start_date, evt.value.end_date)
+  for (const date of range) {
+    const ov = dayOverrides.value[date]
+    if (ov?.excluded) continue
+    const daySessions = ov?.sessions ?? sessions.value
+    for (const s of daySessions) {
+      flat.push({
+        event_name: s.name.trim() || undefined,
+        event_date: date,
+        event_type: s.event_type,
+        venue_id: s.venue_id,
+        start_time: s.start_time || undefined,
+        end_time: s.end_time || undefined,
+        setup_type: s.setup_type || undefined,
+        pricing_basis: s.pricing_basis || undefined,
+        expected_attendees: pax,
+        special_requirements: s.special_requirements.trim() || undefined,
+      })
+    }
+  }
+
+  return {
+    booking_type: 'event', source: 'backoffice', currency: 'ZMW',
+    booking_context: context.value,
+    participant_mode: mode,
+    participant_count: mode === 'headcount' ? pax : null,
+    booked_by: {
+      name: booker.value.name.trim() || company.value.name.trim(),
+      email: booker.value.email.trim() || undefined,
+      phone: booker.value.phone.trim() || undefined,
+      job_title: booker.value.job_title.trim() || undefined,
+      man_number: booker.value.man_number.trim() || undefined,
+    },
+    attendants: buildAttendants(),
+    company: buildCompany(),
+    approver: buildApprover(),
+    event: {
+      reason_for_booking: evt.value.notes.trim() || undefined,
+      start_date: evt.value.start_date || undefined,
+      end_date: evt.value.end_date || undefined,
+      schedule_mode: scheduleMode.value,
+      notes: evt.value.notes.trim() || undefined,
+      sessions: flat,
+    },
+  }
+}
+
+function buildAccommodationEnvelope(): import('@/types/booking').WalkInAccommodationBookingPayload {
+  // Corporate accommodation: each named delegate gets a room. Assignments map by
+  // the delegate's index in the attendants array (guest_index).
+  const named = attendants.value.filter(a => a.name.trim())
+  const assignments: import('@/types/booking').WalkInRoomAssignment[] = []
+  named.forEach((_, i) => {
+    const room = delegateRooms.value[i]
+    if (room) assignments.push({ guest_index: i, room_id: room.room_id, room_name: room.room_name, room_type: room.room_type })
+  })
+
+  return {
+    booking_type: 'accommodation', source: 'backoffice', currency: 'ZMW',
+    booking_context: 'corporate',
+    participant_mode: 'detailed',
+    booked_by: {
+      name: booker.value.name.trim() || company.value.name.trim(),
+      email: booker.value.email.trim() || undefined,
+      phone: booker.value.phone.trim() || undefined,
+      job_title: booker.value.job_title.trim() || undefined,
+      man_number: booker.value.man_number.trim() || undefined,
+    },
+    attendants: buildAttendants(),
+    company: buildCompany(),
+    approver: buildApprover(),
+    accommodation: {
+      check_in: acc.value.check_in || undefined,
+      check_out: acc.value.check_out || undefined,
+      notes: acc.value.special_requests.trim() || undefined,
+      room_count: assignments.length,
+    },
+    assignments,
+  }
+}
+
+function buildIndividualAccommodationEnvelope(): import('@/types/booking').WalkInIndividualAccommodationPayload {
+  // Each named guest gets a room. rooms[] slots map to the guest by attendant_idx.
+  const named = attendants.value.filter(a => a.name.trim())
+  const rooms: import('@/types/booking').WalkInIndivRoomSlot[] = []
+  named.forEach((_, i) => {
+    const room = delegateRooms.value[i]
+    if (room) rooms.push({ slot_index: rooms.length, attendant_idx: i, room_id: room.room_id, room_name: room.room_name, room_type: room.room_type, rate_per_night: room.rate_per_night })
+  })
+
+  const attendantsList: import('@/types/booking').WalkInAttendant[] = named.map((a, i) => ({
+    full_name: a.name.trim() || null,
+    email: a.email.trim() || null,
+    phone: a.phone.trim() || null,
+    id_number: a.id_number.trim() || null,
+    dietary_notes: null,
+    company: null,
+    is_lead_contact: i === 0,
+  }))
+
+  return {
+    booking_type: 'accommodation', source: 'backoffice', currency: 'ZMW',
+    booking_context: 'individual',
+    participant_mode: 'detailed',
+    booked_by: {
+      name: booker.value.name.trim(),
+      email: booker.value.email.trim() || undefined,
+      phone: booker.value.phone.trim() || undefined,
+    },
+    attendants: attendantsList,
+    accommodation: {
+      check_in: acc.value.check_in,
+      check_out: acc.value.check_out,
+      notes: acc.value.special_requests.trim() || undefined,
+      rooms,
+    },
+  }
+}
+
 // ── Submit ────────────────────────────────────────────────────────────────────
 async function handleSubmit() {
   if (!canSubmit.value) return
@@ -843,72 +1091,17 @@ async function handleSubmit() {
   try {
     let booking: Booking
     if (bookingType.value === 'accommodation') {
-      // The booking API reserves a single room per booking — for corporate stays with
-      // several delegate room assignments, the first assigned room anchors the booking
-      // and the full delegate → room breakdown is captured in special_requests below.
-      const roomId = isCorporate.value
-        ? (Object.values(delegateRooms.value)[0]?.room_id ?? '')
-        : acc.value.room_id
-      booking = await bookingApi.createIndividual({
-        booker_name:         bookerName,
-        booker_email:        bookerEmail,
-        booker_phone:        bookerPhone,
-        identification_card: bookerId,
-        room_id:             roomId,
-        check_in:            acc.value.check_in,
-        check_out:           acc.value.check_out,
-        special_requests:    buildNotes(acc.value.special_requests),
-      })
+      // Both contexts: one room per guest, confirmed & materialised server-side
+      // (attendees + room assignments in one transaction).
+      booking = isCorporate.value
+        ? await bookingApi.createAccommodation(buildAccommodationEnvelope())
+        : await bookingApi.createAccommodation(buildIndividualAccommodationEnvelope())
     } else if (bookingType.value === 'meals') {
-      const pax = isCorporate.value
-        ? (attendants.value.filter(a => a.name.trim()).length || Number(evt.value.pax_count) || 1)
-        : (participantMode.value === 'detailed'
-            ? (attendants.value.filter(a => a.name.trim()).length || 1)
-            : Number(evt.value.pax_count))
-      const m0 = masterMeals.value[0]!
-      const combinedNotes = [
-        meal.value.reason.trim() ? `Reason: ${meal.value.reason.trim()}` : '',
-        buildMealNotes(),
-        meal.value.notes.trim(),
-      ].filter(Boolean).join('\n\n')
-      booking = await bookingApi.createIndividualMeal({
-        booker_name:         bookerName,
-        booker_email:        bookerEmail,
-        booker_phone:        bookerPhone,
-        identification_card: bookerId,
-        start_date:          meal.value.start_date,
-        end_date:            meal.value.end_date,
-        meal_period:         m0.meal_period,
-        service_type:        m0.service_type,
-        serving_time:        m0.serving_time || undefined,
-        menu_item_id:        m0.service_type === 'buffet' ? (m0.buffet_item_id || undefined) : undefined,
-        pax_count:           pax,
-        special_requests:    buildNotes(combinedNotes),
-      })
+      // Full envelope — all sessions across the date range, attendants, and (for
+      // corporate) company + approver. Confirmed & materialised server-side.
+      booking = await bookingApi.createMeal(buildMealEnvelope())
     } else {
-      const pax = isCorporate.value
-        ? (attendants.value.filter(a => a.name.trim()).length || Number(evt.value.pax_count) || 1)
-        : (participantMode.value === 'detailed'
-            ? (attendants.value.filter(a => a.name.trim()).length || 1)
-            : Number(evt.value.pax_count))
-      const s0 = sessions.value[0]!
-      const combinedNotes = [buildSessionNotes(), evt.value.notes.trim()].filter(Boolean).join('\n\n')
-      booking = await bookingApi.createIndividualEvent({
-        booker_name:         bookerName,
-        booker_email:        bookerEmail,
-        booker_phone:        bookerPhone,
-        identification_card: bookerId,
-        event_type:          s0.event_type,
-        venue_id:            s0.venue_id,
-        start_date:          evt.value.start_date,
-        end_date:            evt.value.end_date,
-        start_time:          s0.start_time || undefined,
-        end_time:            s0.end_time   || undefined,
-        setup_type:          s0.setup_type || undefined,
-        pax_count:           pax,
-        catering_required:   evt.value.catering_required,
-        special_requests:    buildNotes(combinedNotes),
-      })
+      booking = await bookingApi.createEvent(buildEventEnvelope())
     }
     toast.success(`Booking created for ${booking.booker_name}.`)
     router.push({ name: 'admin-bookings' })
@@ -1526,39 +1719,8 @@ async function handleSubmit() {
               {{ nights }} night{{ nights !== 1 ? 's' : '' }} · {{ displayDate(acc.check_in) }} – {{ displayDate(acc.check_out) }}
             </div>
 
-            <!-- Room picker (individual: single room for the booking) -->
-            <div v-if="!isCorporate">
-              <Label class="text-xs">Room <span class="text-destructive">*</span></Label>
-              <div v-if="!acc.check_in || !acc.check_out" class="mt-1.5 text-xs text-muted-foreground rounded-lg border border-dashed px-4 py-4 text-center">
-                Select check-in and check-out dates to see available rooms.
-              </div>
-              <div v-else-if="roomsLoading" class="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground rounded-lg border border-dashed px-4 py-4">
-                <Loader2 class="size-3.5 animate-spin" /> Checking room availability…
-              </div>
-              <div v-else-if="rooms.length === 0" class="mt-1.5 text-xs text-amber-600 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 px-4 py-4 text-center">
-                No rooms available for these dates.
-              </div>
-              <div v-else class="mt-1.5 flex flex-col gap-2 max-h-52 overflow-y-auto">
-                <button v-for="room in rooms" :key="room.id" type="button"
-                  class="flex items-center justify-between gap-3 rounded-lg border px-3 py-3 text-left text-sm transition-colors"
-                  :class="acc.room_id === room.id ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'hover:bg-muted/40'"
-                  @click="acc.room_id = room.id">
-                  <div class="flex items-center gap-2.5">
-                    <BedDouble class="size-4 text-muted-foreground shrink-0" />
-                    <div>
-                      <p class="font-semibold">{{ room.name }}</p>
-                      <p class="text-xs text-muted-foreground capitalize">{{ room.type }} · Capacity {{ room.capacity }}</p>
-                    </div>
-                  </div>
-                  <span class="text-xs font-semibold shrink-0">
-                    ZMW {{ room.price_per_night.toLocaleString() }}<span class="font-normal text-muted-foreground">/night</span>
-                  </span>
-                </button>
-              </div>
-            </div>
-
-            <!-- Room assignments (corporate: one room per delegate) -->
-            <div v-else>
+            <!-- Room assignments — one room per guest (both individual and corporate) -->
+            <div>
               <div class="flex items-center justify-between">
                 <Label class="text-xs">Room Assignments <span class="text-destructive">*</span></Label>
                 <span v-if="attendants.length > 0" class="text-xs text-muted-foreground">
@@ -1570,7 +1732,7 @@ async function handleSubmit() {
                 Select check-in and check-out dates to see available rooms.
               </div>
               <div v-else-if="attendants.length === 0" class="mt-1.5 text-xs text-muted-foreground rounded-lg border border-dashed px-4 py-4 text-center">
-                Add delegates in the section above to assign rooms.
+                {{ isCorporate ? 'Add delegates in the section above to assign rooms.' : 'Add guests in the section above to assign rooms.' }}
               </div>
               <div v-else-if="roomsLoading" class="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground rounded-lg border border-dashed px-4 py-4">
                 <Loader2 class="size-3.5 animate-spin" /> Checking room availability…
