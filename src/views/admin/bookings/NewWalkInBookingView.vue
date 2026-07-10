@@ -165,6 +165,40 @@ function removeAttendant(i: number) {
   delegateRooms.value = reindexed
 }
 
+// ── Duplicate detection across guest/delegate/diner/attendant records ────────
+// Applies to whichever record list is currently in view (Guests, Attendees,
+// Delegates) since they all share the same underlying `attendants` array.
+type DupField = 'email' | 'phone' | 'id_number'
+const DUP_NORMALIZE: Record<DupField, (v: string) => string> = {
+  email:     v => v.trim().toLowerCase(),
+  phone:     v => v.replace(/[\s()-]+/g, ''),
+  id_number: v => v.trim().toUpperCase(),
+}
+const attendantDuplicates = computed(() => {
+  const errors: Record<string, string> = {}
+  const seen: Record<DupField, Map<string, number>> = { email: new Map(), phone: new Map(), id_number: new Map() }
+  attendants.value.forEach((att, i) => {
+    (['email', 'phone', 'id_number'] as DupField[]).forEach(field => {
+      const raw = att[field]
+      if (!raw.trim()) return
+      const key = DUP_NORMALIZE[field](raw)
+      const map = seen[field]
+      const prev = map.get(key)
+      if (prev !== undefined) {
+        errors[`${prev}_${field}`] = `Duplicate — same as #${i + 1}`
+        errors[`${i}_${field}`]    = `Duplicate — same as #${prev + 1}`
+      } else {
+        map.set(key, i)
+      }
+    })
+  })
+  return errors
+})
+function attendantError(i: number, field: DupField) {
+  return attendantDuplicates.value[`${i}_${field}`]
+}
+const hasAttendantDuplicates = computed(() => Object.keys(attendantDuplicates.value).length > 0)
+
 // ── Attendee registration mode (individual events) ───────────────────────────
 // 'headcount' = expected pax only; 'detailed' = register each attendee record.
 const participantMode   = ref<'headcount' | 'detailed'>('headcount')
@@ -288,13 +322,12 @@ type Session = {
   end_time: string
   setup_type: string
   pricing_basis: string
-  expected_attendees: string
   special_requirements: string
 }
 function emptySession(): Session {
   return {
     name: '', event_type: '', venue_id: '', start_time: '', end_time: '',
-    setup_type: '', pricing_basis: 'full_day', expected_attendees: '', special_requirements: '',
+    setup_type: '', pricing_basis: 'full_day', special_requirements: '',
   }
 }
 const sessions = ref<Session[]>([emptySession()])
@@ -634,6 +667,7 @@ const primaryName = computed(() => isCorporate.value ? company.value.name.trim()
 const canSubmit = computed(() => {
   if (!primaryName.value || saving.value) return false
   if (!isCorporate.value && !booker.value.name.trim()) return false
+  if (hasAttendantDuplicates.value) return false
   if (bookingType.value === 'accommodation') {
     if (acc.value.check_in === '' || acc.value.check_out === '' || acc.value.check_out <= acc.value.check_in) return false
     // Both individual and corporate: at least one guest with a room assigned, and
@@ -734,7 +768,6 @@ function sessionSummaryLine(s: Session, i: number, indent: string) {
     s.start_time && s.end_time ? `${s.start_time}–${s.end_time}` : null,
     SETUP_TYPES.find(t => t.value === s.setup_type)?.label,
     PRICING_BASIS.find(p => p.value === s.pricing_basis)?.label,
-    s.expected_attendees ? `${s.expected_attendees} pax` : null,
   ].filter(Boolean).join(' · ')
   const lines = [`${indent}${i + 1}. ${label}${parts ? ` — ${parts}` : ''}`]
   if (s.special_requirements.trim()) lines.push(`${indent}   Requirements: ${s.special_requirements.trim()}`)
@@ -1443,15 +1476,21 @@ async function handleSubmit() {
                     </div>
                     <div>
                       <Label class="text-xs uppercase tracking-wide">Email <span v-if="i === 0" class="text-destructive">*</span></Label>
-                      <Input v-model="att.email" type="email" placeholder="email@example.com" class="mt-1 h-8 text-sm" />
+                      <Input v-model="att.email" type="email" placeholder="email@example.com" class="mt-1 h-8 text-sm"
+                        :class="attendantError(i, 'email') && 'border-destructive'" />
+                      <p v-if="attendantError(i, 'email')" class="text-xs text-destructive mt-0.5">{{ attendantError(i, 'email') }}</p>
                     </div>
                     <div>
                       <Label class="text-xs uppercase tracking-wide">Phone <span v-if="i === 0" class="text-destructive">*</span></Label>
-                      <Input v-model="att.phone" placeholder="+260 977 000 000" class="mt-1 h-8 text-sm" />
+                      <Input v-model="att.phone" placeholder="+260 977 000 000" class="mt-1 h-8 text-sm"
+                        :class="attendantError(i, 'phone') && 'border-destructive'" />
+                      <p v-if="attendantError(i, 'phone')" class="text-xs text-destructive mt-0.5">{{ attendantError(i, 'phone') }}</p>
                     </div>
                     <div>
                       <Label class="text-xs uppercase tracking-wide">Passport / ID <span class="text-destructive">*</span></Label>
-                      <Input v-model="att.id_number" placeholder="ID number" class="mt-1 h-8 text-sm" />
+                      <Input v-model="att.id_number" placeholder="ID number" class="mt-1 h-8 text-sm"
+                        :class="attendantError(i, 'id_number') && 'border-destructive'" />
+                      <p v-if="attendantError(i, 'id_number')" class="text-xs text-destructive mt-0.5">{{ attendantError(i, 'id_number') }}</p>
                     </div>
                     <div v-if="bookingType === 'meals'" class="col-span-4">
                       <Label class="text-xs uppercase tracking-wide">Dietary Notes</Label>
@@ -1516,15 +1555,21 @@ async function handleSubmit() {
                   </div>
                   <div>
                     <Label class="text-xs uppercase tracking-wide">Email <span class="text-destructive">*</span></Label>
-                    <Input v-model="att.email" type="email" placeholder="email@example.com" class="mt-1 h-8 text-sm" />
+                    <Input v-model="att.email" type="email" placeholder="email@example.com" class="mt-1 h-8 text-sm"
+                      :class="attendantError(i, 'email') && 'border-destructive'" />
+                    <p v-if="attendantError(i, 'email')" class="text-xs text-destructive mt-0.5">{{ attendantError(i, 'email') }}</p>
                   </div>
                   <div>
                     <Label class="text-xs uppercase tracking-wide">Phone <span class="text-destructive">*</span></Label>
-                    <Input v-model="att.phone" placeholder="+260 977 000 000" class="mt-1 h-8 text-sm" />
+                    <Input v-model="att.phone" placeholder="+260 977 000 000" class="mt-1 h-8 text-sm"
+                      :class="attendantError(i, 'phone') && 'border-destructive'" />
+                    <p v-if="attendantError(i, 'phone')" class="text-xs text-destructive mt-0.5">{{ attendantError(i, 'phone') }}</p>
                   </div>
                   <div>
                     <Label class="text-xs uppercase tracking-wide">Passport / ID <span class="text-destructive">*</span></Label>
-                    <Input v-model="att.id_number" placeholder="ID number" class="mt-1 h-8 text-sm" />
+                    <Input v-model="att.id_number" placeholder="ID number" class="mt-1 h-8 text-sm"
+                      :class="attendantError(i, 'id_number') && 'border-destructive'" />
+                    <p v-if="attendantError(i, 'id_number')" class="text-xs text-destructive mt-0.5">{{ attendantError(i, 'id_number') }}</p>
                   </div>
                 </div>
               </div>
@@ -1635,15 +1680,21 @@ async function handleSubmit() {
                     </div>
                     <div>
                       <Label class="text-xs">Email</Label>
-                      <Input v-model="att.email" type="email" placeholder="Email" class="mt-1 h-8 text-sm" />
+                      <Input v-model="att.email" type="email" placeholder="Email" class="mt-1 h-8 text-sm"
+                        :class="attendantError(i, 'email') && 'border-destructive'" />
+                      <p v-if="attendantError(i, 'email')" class="text-xs text-destructive mt-0.5">{{ attendantError(i, 'email') }}</p>
                     </div>
                     <div>
                       <Label class="text-xs">Phone</Label>
-                      <Input v-model="att.phone" placeholder="Phone" class="mt-1 h-8 text-sm" />
+                      <Input v-model="att.phone" placeholder="Phone" class="mt-1 h-8 text-sm"
+                        :class="attendantError(i, 'phone') && 'border-destructive'" />
+                      <p v-if="attendantError(i, 'phone')" class="text-xs text-destructive mt-0.5">{{ attendantError(i, 'phone') }}</p>
                     </div>
                     <div>
                       <Label class="text-xs">Passport / NRC <span class="text-destructive">*</span></Label>
-                      <Input v-model="att.id_number" placeholder="ID number" class="mt-1 h-8 text-sm" />
+                      <Input v-model="att.id_number" placeholder="ID number" class="mt-1 h-8 text-sm"
+                        :class="attendantError(i, 'id_number') && 'border-destructive'" />
+                      <p v-if="attendantError(i, 'id_number')" class="text-xs text-destructive mt-0.5">{{ attendantError(i, 'id_number') }}</p>
                     </div>
                     <div>
                       <Label class="text-xs">Job Title</Label>
@@ -2063,15 +2114,9 @@ async function handleSubmit() {
                   </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label class="text-xs">Expected Attendees</Label>
-                    <Input v-model="session.expected_attendees" type="number" min="1" placeholder="e.g. 50" class="mt-1.5" />
-                  </div>
-                  <div>
-                    <Label class="text-xs">Special Requirements</Label>
-                    <Input v-model="session.special_requirements" placeholder="AV equipment, branding, signage…" class="mt-1.5" />
-                  </div>
+                <div>
+                  <Label class="text-xs">Special Requirements</Label>
+                  <Input v-model="session.special_requirements" placeholder="AV equipment, branding, signage…" class="mt-1.5" />
                 </div>
               </div>
             </div>
@@ -2189,6 +2234,17 @@ async function handleSubmit() {
                             </Select>
                           </div>
                           <div>
+                            <Label class="text-xs">Pricing Basis</Label>
+                            <Select v-model="s.pricing_basis">
+                              <SelectTrigger class="mt-1.5">
+                                <SelectValue placeholder="Select pricing basis…" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem v-for="p in PRICING_BASIS" :key="p.value" :value="p.value">{{ p.label }}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
                             <Label class="text-xs">Start Time</Label>
                             <Input v-model="s.start_time" type="time" class="mt-1.5" />
                           </div>
@@ -2244,6 +2300,11 @@ async function handleSubmit() {
                               </button>
                             </div>
                           </div>
+                        </div>
+
+                        <div>
+                          <Label class="text-xs">Special Requirements</Label>
+                          <Input v-model="s.special_requirements" placeholder="AV equipment, branding, signage…" class="mt-1.5" />
                         </div>
                       </div>
                     </div>
