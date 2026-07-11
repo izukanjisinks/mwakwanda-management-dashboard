@@ -71,7 +71,7 @@ watch(() => props.open, (open) => {
   selectedRole.value = props.mode === 'edit' ? (props.card?.role ?? 'resident') : 'resident'
   if (props.mode === 'assign' || props.mode === 'edit') loadGuestsFor(props.roomId)
   else guests.value = []
-})
+}, { immediate: true })
 
 watch(selectedRoomId, (roomId) => {
   if (props.mode !== 'reassign') return
