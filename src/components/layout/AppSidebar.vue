@@ -22,6 +22,7 @@ import {
   CreditCard,
   ChefHat,
   IdCard,
+  Martini,
 } from 'lucide-vue-next'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -96,6 +97,7 @@ const adminNav = [
       { title: 'Menus', icon: UtensilsCrossed, routeName: 'menus' },
       { title: 'Orders', icon: BookOpen, routeName: 'orders' },
       { title: 'Kitchen', icon: ChefHat, routeName: 'kitchen' },
+      { title: 'Bar', icon: Martini, routeName: 'bar' },
       { title: 'Resident Meal Collection', icon: CreditCard, routeName: 'meal-sessions' },
       { title: 'Card Management', icon: IdCard, routeName: 'card-management' },
       { title: 'Invoices', icon: ReceiptText, routeName: 'admin-invoices' },

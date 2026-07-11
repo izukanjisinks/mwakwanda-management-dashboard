@@ -77,6 +77,12 @@ export const menusApi = {
   updateKitchenStatus: (orderId: string, status: 'new' | 'preparing' | 'ready') =>
     apiClient.patch<Order>(`/orders/${orderId}/kitchen-status`, { kitchen_status: status }),
 
+  // Mirrors updateKitchenStatus but tracks the bar's own progress on an
+  // order independently, so a drink isn't marked "ready" just because the
+  // kitchen finished the food on the same ticket. New backend endpoint.
+  updateBarStatus: (orderId: string, status: 'new' | 'preparing' | 'ready') =>
+    apiClient.patch<Order>(`/orders/${orderId}/bar-status`, { bar_status: status }),
+
   closeAllOrders: () =>
     apiClient.patch<void>('/orders/close-all'),
 

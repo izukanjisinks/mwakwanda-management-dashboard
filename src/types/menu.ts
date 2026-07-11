@@ -106,6 +106,15 @@ export interface Order {
   type: 'in_house' | 'walk_in'
   status?: 'open' | 'closed'
   kitchen_status?: 'new' | 'preparing' | 'ready'
+  bar_status?: 'new' | 'preparing' | 'ready'
+  // Whether this order has any items for that station — needed on list views
+  // like OrdersView.vue that don't fetch full item detail, so they can tell
+  // "nothing for the bar to do" apart from "the bar hasn't touched it yet"
+  // (both look identical from bar_status alone). Kitchen/BarView compute
+  // this client-side instead, from items they already have — see
+  // utils/orders.ts.
+  has_kitchen_items?: boolean
+  has_bar_items?: boolean
   notes?: string
   total?: number
   items: OrderItem[]
