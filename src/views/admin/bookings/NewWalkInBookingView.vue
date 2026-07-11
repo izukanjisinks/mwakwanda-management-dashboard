@@ -13,6 +13,7 @@ import { roomApi } from '@/services/api/room'
 import { venueApi } from '@/services/api/venue'
 import { menusApi } from '@/services/api/menus'
 import { getApiError } from '@/utils/errors'
+import { MEAL_PERIODS, SERVICE_TYPES } from '@/constants/meals'
 import type { Room } from '@/types/room'
 import type { Venue } from '@/types/venue'
 import type { Booking } from '@/types/booking'
@@ -82,20 +83,6 @@ const PRICING_BASIS = [
   { value: 'full_day',  label: 'Full Day' },
   { value: 'hourly',    label: 'Hourly' },
   { value: 'flat_rate', label: 'Flat Rate' },
-]
-
-const MEAL_PERIODS = [
-  { value: 'breakfast', label: 'Breakfast' },
-  { value: 'brunch',    label: 'Brunch' },
-  { value: 'lunch',     label: 'Lunch' },
-  { value: 'dinner',    label: 'Dinner' },
-  { value: 'supper',    label: 'Supper' },
-]
-
-const SERVICE_TYPES = [
-  { value: 'buffet',           label: 'Buffet' },
-  { value: 'individual_order', label: 'Individual Orders' },
-  { value: 'mixed',            label: 'Mixed (Buffet + Exceptions)' },
 ]
 
 const VENUE_TYPE_LABELS: Record<string, string> = {

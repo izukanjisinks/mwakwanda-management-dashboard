@@ -5,8 +5,9 @@ import type {
   BookingRoomAssignment, BookingAttendee, CreateIndividualBookingPayload,
   CreateIndividualEventBookingPayload, CreateIndividualMealBookingPayload,
   WalkInMealBookingPayload, WalkInEventBookingPayload, WalkInAccommodationBookingPayload,
-  WalkInIndividualAccommodationPayload,
+  WalkInIndividualAccommodationPayload, PostBookingChargePayload,
 } from '@/types/booking'
+import type { Invoice } from '@/types/invoice'
 
 export interface BookingListParams extends Record<string, string | number | boolean | undefined> {
   page?: number
@@ -88,4 +89,11 @@ export const bookingApi = {
   // ── Attendees ─────────────────────────────────────────────────────────────
   listAttendees: (bookingId: string) =>
     apiClient.get<BookingAttendee[]>(`/bookings/${bookingId}/attendees`),
+
+  // ── Charges ──────────────────────────────────────────────────────────────
+  // General-purpose "post a line item to this booking's invoice" primitive.
+  // Used internally by resident meal collection's /collect endpoint; also
+  // usable directly for future manual-charge UIs.
+  postCharge: (bookingId: string, payload: PostBookingChargePayload) =>
+    apiClient.post<Invoice>(`/bookings/${bookingId}/charges`, payload),
 }

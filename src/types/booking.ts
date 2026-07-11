@@ -552,3 +552,17 @@ export interface WalkInIndividualAccommodationPayload {
   accommodation: WalkInIndivAccommodationBlock
   documents?: string[]
 }
+
+// General-purpose "post a line item to this booking's invoice" primitive —
+// POST /bookings/{id}/charges. Used by resident meal collection's /collect
+// endpoint internally, and documented for reuse by future manual-charge UIs.
+export interface PostBookingChargePayload {
+  description: string
+  amount: number
+  quantity?: number
+  line_type: 'meal' | 'room' | 'event' | 'general'
+  service_type?: 'buffet' | 'individual_order' | 'mixed'
+  attendee_id?: string
+  source?: string       // e.g. 'meal_collection'
+  source_id?: string    // e.g. the MealCollectionLogEntry id, for traceability
+}

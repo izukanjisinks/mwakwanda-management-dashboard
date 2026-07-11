@@ -34,6 +34,15 @@ const router = createRouter({
       component: () => import('@/views/auth/ChangePasswordView.vue'),
       meta: { requiresAuth: true },
     },
+    // Full-screen kiosk takeover for resident-facing meal collection — kept
+    // outside AuthenticatedLayout deliberately so it renders with no sidebar
+    // or header chrome for a resident to fiddle with.
+    {
+      path: '/meal-sessions/:sessionId/kiosk',
+      name: 'meal-session-kiosk',
+      component: () => import('@/views/admin/meals/MealCollectKioskView.vue'),
+      meta: { requiresAuth: true, roles: ['admin', 'branch_admin', 'manager', 'receptionist'] },
+    },
 
     // Authenticated — all share the sidebar layout
     {
@@ -112,9 +121,21 @@ const router = createRouter({
           meta: { roles: ['admin', 'branch_admin', 'manager', 'receptionist'] },
         },
         {
-          path: 'meal-tracking',
-          name: 'meal-tracking',
-          component: () => import('@/views/admin/meals/MealTrackingView.vue'),
+          path: 'meal-sessions',
+          name: 'meal-sessions',
+          component: () => import('@/views/admin/meals/MealSessionsView.vue'),
+          meta: { roles: ['admin', 'branch_admin', 'manager', 'receptionist'] },
+        },
+        {
+          path: 'meal-sessions/:sessionId/collect',
+          name: 'meal-session-collect',
+          component: () => import('@/views/admin/meals/MealCollectView.vue'),
+          meta: { roles: ['admin', 'branch_admin', 'manager', 'receptionist'] },
+        },
+        {
+          path: 'cards',
+          name: 'card-management',
+          component: () => import('@/views/admin/meals/CardManagementView.vue'),
           meta: { roles: ['admin', 'branch_admin', 'manager', 'receptionist'] },
         },
         {
