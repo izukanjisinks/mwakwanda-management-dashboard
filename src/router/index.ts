@@ -85,12 +85,6 @@ const router = createRouter({
           meta: { roles: ['admin', 'branch_admin', 'manager', 'receptionist'] },
         },
         {
-          path: 'front-desk',
-          name: 'front-desk',
-          component: () => import('@/views/admin/frontdesk/FrontDeskView.vue'),
-          meta: { roles: ['admin', 'branch_admin', 'manager', 'receptionist'] },
-        },
-        {
           path: 'bookings',
           name: 'admin-bookings',
           component: () => import('@/views/admin/bookings/BookingsView.vue'),

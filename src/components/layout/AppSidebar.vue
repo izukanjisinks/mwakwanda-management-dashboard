@@ -2,7 +2,6 @@
 import { computed, ref } from 'vue'
 import {
   LayoutDashboard,
-  Monitor,
   Hotel,
   Theater,
   CalendarDays,
@@ -86,7 +85,6 @@ const adminNav = [
     label: 'Overview',
     items: [
       { title: 'Dashboard', icon: LayoutDashboard, routeName: 'dashboard' },
-      { title: 'Front Desk', icon: Monitor, routeName: 'front-desk' },
     ],
   },
   {
