@@ -121,6 +121,12 @@ const router = createRouter({
           meta: { roles: ['admin', 'branch_admin', 'manager', 'receptionist'] },
         },
         {
+          path: 'bar',
+          name: 'bar',
+          component: () => import('@/views/admin/orders/BarView.vue'),
+          meta: { roles: ['admin', 'branch_admin', 'manager', 'receptionist'] },
+        },
+        {
           path: 'meal-sessions',
           name: 'meal-sessions',
           component: () => import('@/views/admin/meals/MealSessionsView.vue'),

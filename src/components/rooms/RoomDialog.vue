@@ -132,8 +132,19 @@ const roomTypes: { value: RoomType; label: string }[] = [
   { value: 'double', label: 'Double' },
   { value: 'suite', label: 'Suite' },
   { value: 'cabin', label: 'Cabin' },
-  { value: 'conference', label: 'Conference' },
 ]
+
+// Single/double rooms have a fixed capacity; suite/cabin stay user-editable.
+const FIXED_CAPACITY_BY_TYPE: Partial<Record<RoomType, number>> = {
+  single: 1,
+  double: 2,
+}
+const capacityLocked = computed(() => form.value.type in FIXED_CAPACITY_BY_TYPE)
+
+watch(() => form.value.type, (type) => {
+  const fixed = FIXED_CAPACITY_BY_TYPE[type]
+  if (fixed !== undefined) form.value.capacity = fixed
+})
 
 </script>
 
@@ -193,7 +204,8 @@ const roomTypes: { value: RoomType; label: string }[] = [
         <div class="grid grid-cols-2 gap-4">
           <div class="grid gap-2">
             <Label for="capacity">Capacity (guests) *</Label>
-            <Input id="capacity" v-model.number="form.capacity" type="number" min="1" placeholder="2" />
+            <Input id="capacity" v-model.number="form.capacity" type="number" min="1" placeholder="2" :disabled="capacityLocked" />
+            <p v-if="capacityLocked" class="text-xs text-muted-foreground">Fixed by room type.</p>
           </div>
 
           <div class="grid gap-2">

@@ -15,6 +15,7 @@ const ROUTE_PERMISSIONS: Record<string, UserRole[]> = {
   menus:                ['admin', 'branch_admin', 'manager', 'receptionist'],
   orders:               ['admin', 'branch_admin', 'manager', 'receptionist'],
   kitchen:              ['admin', 'branch_admin', 'manager', 'receptionist'],
+  bar:                  ['admin', 'branch_admin', 'manager', 'receptionist'],
   'meal-sessions':          ['admin', 'branch_admin', 'manager', 'receptionist'],
   'meal-session-collect':   ['admin', 'branch_admin', 'manager', 'receptionist'],
   'meal-session-kiosk':     ['admin', 'branch_admin', 'manager', 'receptionist'],

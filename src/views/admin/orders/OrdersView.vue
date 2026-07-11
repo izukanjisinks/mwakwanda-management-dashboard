@@ -289,13 +289,14 @@ async function updateQuantity(itemId: string, newQty: number) {
       <!-- Rows -->
       <Table v-else class="table-fixed w-full">
         <colgroup>
-          <col class="w-[13%]" />
           <col class="w-[12%]" />
-          <col class="w-[22%]" />
-          <col class="w-[13%]" />
+          <col class="w-[10%]" />
+          <col class="w-[19%]" />
           <col class="w-[12%]" />
-          <col class="w-[12%]" />
-          <col class="w-[16%]" />
+          <col class="w-[11%]" />
+          <col class="w-[11%]" />
+          <col class="w-[11%]" />
+          <col class="w-[14%]" />
         </colgroup>
         <TableHeader>
           <TableRow class="bg-muted/30">
@@ -304,6 +305,7 @@ async function updateQuantity(itemId: string, newQty: number) {
             <TableHead>Guest</TableHead>
             <TableHead>Booking #</TableHead>
             <TableHead>Kitchen</TableHead>
+            <TableHead>Bar</TableHead>
             <TableHead>Total</TableHead>
             <TableHead>Placed</TableHead>
           </TableRow>
@@ -329,10 +331,23 @@ async function updateQuantity(itemId: string, newQty: number) {
               <div v-if="!order.attendee_name && !order.client_name && !order.room_name" class="text-sm text-muted-foreground">—</div>
             </TableCell>
             <TableCell class="font-mono text-sm text-muted-foreground">{{ order.booking_number ?? '—' }}</TableCell>
+            <!-- Kitchen was the only station before Bar existed, so an order
+                 with no has_kitchen_items flag yet (older data, or a backend
+                 that hasn't shipped it) is still assumed kitchen-relevant. -->
             <TableCell>
-              <template v-if="order.status === 'open'">
+              <template v-if="order.status === 'open' && order.has_kitchen_items !== false">
                 <span v-if="order.kitchen_status === 'preparing'" class="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">Preparing</span>
                 <span v-else-if="order.kitchen_status === 'ready'" class="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300">Ready</span>
+                <span v-else class="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">New</span>
+              </template>
+              <span v-else class="text-sm text-muted-foreground">—</span>
+            </TableCell>
+            <!-- Bar is the new station, so — unlike Kitchen — an order only
+                 shows a status once has_bar_items is explicitly true. -->
+            <TableCell>
+              <template v-if="order.status === 'open' && order.has_bar_items === true">
+                <span v-if="order.bar_status === 'preparing'" class="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">Preparing</span>
+                <span v-else-if="order.bar_status === 'ready'" class="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300">Ready</span>
                 <span v-else class="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">New</span>
               </template>
               <span v-else class="text-sm text-muted-foreground">—</span>

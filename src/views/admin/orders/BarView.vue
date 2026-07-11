@@ -3,7 +3,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import {
   RefreshCw,
   Clock,
-  Flame,
+  Martini,
   CheckCircle2,
   ArrowRight,
   BedDouble,
@@ -12,7 +12,7 @@ import {
 } from 'lucide-vue-next'
 import { menusApi } from '@/services/api/menus'
 import { useBranchFilterStore } from '@/stores/branchFilter'
-import { buildCategoryMap, hasNonBarItems, isBarItem } from '@/utils/orders'
+import { buildCategoryMap, hasBarItems, isBarItem } from '@/utils/orders'
 import type { Order, MenuCategory } from '@/types/menu'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import { Badge } from '@/components/ui/badge'
@@ -33,7 +33,7 @@ const branchFilter = useBranchFilterStore()
 const orders = ref<Order[]>([])
 const loading = ref(false)
 
-// menu_item_id → category, used to tell kitchen items apart from bar items.
+// menu_item_id → category, used to tell bar items apart from kitchen items.
 // order.items[].menu_item isn't always populated, so this is a fallback
 // looked up once rather than trusted per-item — see utils/orders.ts.
 const categoryById = ref<Map<string, MenuCategory>>(new Map())
@@ -73,14 +73,16 @@ async function fetchOrders() {
   }
 }
 
-// ── Kitchen status ────────────────────────────────────────────────────────────
+// ── Bar status ───────────────────────────────────────────────────────────────
+// Tracked independently from kitchen_status on the same order — finishing
+// the food doesn't finish the drink, and vice versa. See utils/orders.ts.
 
-type KitchenStatus = 'new' | 'preparing' | 'ready'
+type BarStatus = 'new' | 'preparing' | 'ready'
 const servedIds = ref<Set<string>>(new Set())
 const advancing = ref<Set<string>>(new Set())
 
-function getStatus(order: Order): KitchenStatus {
-  return order.kitchen_status ?? 'new'
+function getStatus(order: Order): BarStatus {
+  return order.bar_status ?? 'new'
 }
 
 async function advance(orderId: string) {
@@ -93,10 +95,10 @@ async function advance(orderId: string) {
     return
   }
 
-  const next: KitchenStatus = current === 'new' ? 'preparing' : 'ready'
+  const next: BarStatus = current === 'new' ? 'preparing' : 'ready'
   advancing.value = new Set(advancing.value).add(orderId)
   try {
-    const updated = await menusApi.updateKitchenStatus(orderId, next)
+    const updated = await menusApi.updateBarStatus(orderId, next)
     const idx = orders.value.findIndex(o => o.id === orderId)
     if (idx !== -1) orders.value[idx] = updated
   } finally {
@@ -176,9 +178,9 @@ const visibleOrders = computed(() =>
   orders.value
     .filter(o => !servedIds.value.has(o.id))
     .filter(o => typeFilter.value === 'all' || o.type === typeFilter.value)
-    // Orders that are drinks-only have nothing for the kitchen to do —
-    // they belong on the bar's board instead.
-    .filter(o => hasNonBarItems(o, categoryById.value))
+    // Orders with nothing for the bar to pour have no business on this board —
+    // they belong on the kitchen's instead.
+    .filter(o => hasBarItems(o, categoryById.value))
     .sort((a, b) => {
       const diff = orderSortKey(a) - orderSortKey(b)
       if (diff !== 0) return diff
@@ -310,7 +312,7 @@ onUnmounted(() => {
 
 <template>
 <div>
-  <DashboardHeader title="Kitchen Display">
+  <DashboardHeader title="Bar Display">
     <template #actions>
       <div class="flex gap-1">
         <button
@@ -412,7 +414,7 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <!-- Allergy warning — always above items so chef sees it first -->
+            <!-- Allergy warning — always above items so the bartender sees it first -->
             <div
               v-if="order.notes && hasAllergyNote(order.notes)"
               class="mx-4 mb-2 rounded-md px-3 py-2 text-xs flex gap-2 items-start bg-red-50 border border-red-300 text-red-800 dark:bg-red-950/40 dark:border-red-700 dark:text-red-300"
@@ -428,13 +430,13 @@ onUnmounted(() => {
                   v-for="ai in aggregateItems(order.items ?? [])"
                   :key="ai.key"
                   class="flex gap-3 items-start"
-                  :class="ai.isBar && 'opacity-40'"
+                  :class="!ai.isBar && 'opacity-40'"
                 >
                   <span class="text-2xl font-black tabular-nums leading-none text-primary w-8 text-right shrink-0 mt-0.5">{{ ai.quantity }}</span>
                   <div class="min-w-0 flex-1 pt-0.5">
                     <p class="font-semibold text-sm leading-snug flex items-center gap-1.5">
                       {{ ai.name }}
-                      <span v-if="ai.isBar" class="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground border rounded px-1 py-0.5 shrink-0">Bar</span>
+                      <span v-if="!ai.isBar" class="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground border rounded px-1 py-0.5 shrink-0">Kitchen</span>
                     </p>
                     <p v-if="ai.notes" class="text-xs text-muted-foreground italic mt-0.5">↳ {{ ai.notes }}</p>
                   </div>
@@ -452,7 +454,7 @@ onUnmounted(() => {
             <!-- Action -->
             <div class="px-4 pb-4 pt-0">
               <Button size="sm" class="w-full gap-1.5" @click="requestAdvance(order)">
-                <Flame class="size-3.5" />
+                <Martini class="size-3.5" />
                 Start Preparing
                 <ArrowRight class="size-3.5 ml-auto" />
               </Button>
@@ -469,7 +471,7 @@ onUnmounted(() => {
           </div>
 
           <div v-if="preparingOrders.length === 0" class="flex flex-col items-center justify-center gap-2 py-10 text-muted-foreground/60">
-            <Flame class="size-8" />
+            <Martini class="size-8" />
             <p class="text-xs">Nothing in progress</p>
           </div>
 
@@ -521,13 +523,13 @@ onUnmounted(() => {
                   v-for="ai in aggregateItems(order.items ?? [])"
                   :key="ai.key"
                   class="flex gap-3 items-start"
-                  :class="ai.isBar && 'opacity-40'"
+                  :class="!ai.isBar && 'opacity-40'"
                 >
                   <span class="text-2xl font-black tabular-nums leading-none text-amber-600 dark:text-amber-400 w-8 text-right shrink-0 mt-0.5">{{ ai.quantity }}</span>
                   <div class="min-w-0 flex-1 pt-0.5">
                     <p class="font-semibold text-sm leading-snug flex items-center gap-1.5">
                       {{ ai.name }}
-                      <span v-if="ai.isBar" class="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground border rounded px-1 py-0.5 shrink-0">Bar</span>
+                      <span v-if="!ai.isBar" class="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground border rounded px-1 py-0.5 shrink-0">Kitchen</span>
                     </p>
                     <p v-if="ai.notes" class="text-xs text-muted-foreground italic mt-0.5">↳ {{ ai.notes }}</p>
                   </div>
@@ -604,13 +606,13 @@ onUnmounted(() => {
                   v-for="ai in aggregateItems(order.items ?? [])"
                   :key="ai.key"
                   class="flex gap-3 items-start"
-                  :class="ai.isBar && 'opacity-40'"
+                  :class="!ai.isBar && 'opacity-40'"
                 >
                   <span class="text-2xl font-black tabular-nums leading-none text-green-600 dark:text-green-400 w-8 text-right shrink-0 mt-0.5 line-through">{{ ai.quantity }}</span>
                   <div class="min-w-0 flex-1 pt-0.5">
                     <p class="font-semibold text-sm leading-snug line-through text-muted-foreground flex items-center gap-1.5">
                       {{ ai.name }}
-                      <span v-if="ai.isBar" class="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground border rounded px-1 py-0.5 shrink-0 no-underline">Bar</span>
+                      <span v-if="!ai.isBar" class="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground border rounded px-1 py-0.5 shrink-0 no-underline">Kitchen</span>
                     </p>
                     <p v-if="ai.notes" class="text-xs text-muted-foreground/60 italic mt-0.5">↳ {{ ai.notes }}</p>
                   </div>
