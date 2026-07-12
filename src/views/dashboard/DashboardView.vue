@@ -10,7 +10,7 @@ import StatCard from '@/components/dashboard/StatCard.vue'
 import RoomAvailability from '@/components/dashboard/RoomAvailability.vue'
 import RevenueChart from '@/components/dashboard/RevenueChart.vue'
 import BookingTable from '@/components/dashboard/BookingTable.vue'
-import OverallRating from '@/components/dashboard/OverallRating.vue'
+// import OverallRating from '@/components/dashboard/OverallRating.vue'
 import ActivityFeed from '@/components/dashboard/ActivityFeed.vue'
 
 const authStore = useAuthStore()
@@ -72,7 +72,7 @@ const recentBookings = computed(() => dashboardStore.stats?.recent_bookings ?? [
 
       <!-- Right sidebar -->
       <aside class="hidden w-80 shrink-0 flex-col gap-6 xl:flex self-stretch">
-        <OverallRating />
+        <!-- <OverallRating /> -->
         <ActivityFeed />
       </aside>
     </div>
