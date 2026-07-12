@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog'
 import {
   Table,
@@ -163,11 +163,11 @@ function fmt(date: string) {
     <DialogContent class="max-w-md gap-0 p-0 overflow-hidden">
       <DialogHeader class="px-6 py-4 border-b">
         <DialogTitle class="text-lg font-semibold">Delete Workflow</DialogTitle>
+        <DialogDescription>
+          Deleting this workflow may lead to loss of ongoing booking instances. Are you sure you want to proceed?
+        </DialogDescription>
       </DialogHeader>
       <div class="px-6 py-5 flex flex-col gap-4">
-        <p class="text-sm text-muted-foreground">
-          Deleting this workflow may lead to loss of ongoing booking instances. Are you sure you want to proceed?
-        </p>
         <p class="text-sm text-muted-foreground">
           Type <strong class="text-foreground font-mono">{{ CONFIRM_KEYWORD }}</strong> to confirm.
         </p>

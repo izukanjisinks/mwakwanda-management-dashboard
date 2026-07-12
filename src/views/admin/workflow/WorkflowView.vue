@@ -19,7 +19,7 @@ import TransitionEditDialog from '@/components/workflow/TransitionEditDialog.vue
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/core/dist/theme-default.css'
@@ -308,11 +308,11 @@ function openAddTransition() {
     <DialogContent class="max-w-md gap-0 p-0 overflow-hidden">
       <DialogHeader class="px-6 py-4 border-b">
         <DialogTitle class="text-lg font-semibold">Delete Step</DialogTitle>
+        <DialogDescription>
+          Deleting this step may lead to loss of ongoing booking instances. Are you sure you want to proceed?
+        </DialogDescription>
       </DialogHeader>
       <div class="px-6 py-5 flex flex-col gap-4">
-        <p class="text-sm text-muted-foreground">
-          Deleting this step may lead to loss of ongoing booking instances. Are you sure you want to proceed?
-        </p>
         <p class="text-sm text-muted-foreground">
           Type <strong class="text-foreground font-mono">{{ CONFIRM_KEYWORD }}</strong> to confirm.
         </p>
@@ -336,12 +336,10 @@ function openAddTransition() {
     <DialogContent class="max-w-md gap-0 p-0 overflow-hidden">
       <DialogHeader class="px-6 py-4 border-b">
         <DialogTitle class="text-lg font-semibold">Delete Transition</DialogTitle>
-      </DialogHeader>
-      <div class="px-6 py-5 flex flex-col gap-4">
-        <p class="text-sm text-muted-foreground">
+        <DialogDescription>
           Delete the <strong>"{{ deletingTransition?.action_name }}"</strong> transition? This may affect ongoing workflow instances.
-        </p>
-      </div>
+        </DialogDescription>
+      </DialogHeader>
       <div class="px-6 pb-6 pt-2 grid grid-cols-2 gap-3">
         <Button variant="outline" @click="deletingTransition = null">Cancel</Button>
         <Button variant="destructive" @click="confirmDeleteTransition">Delete</Button>

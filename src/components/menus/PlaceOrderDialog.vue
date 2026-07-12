@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -212,6 +213,7 @@ const canProceedFromItems = computed(() => cart.value.size > 0)
     <DialogContent class="max-w-lg">
       <DialogHeader>
         <DialogTitle>Place Order — {{ stepLabels[step] }}</DialogTitle>
+        <DialogDescription>Follow the steps below to place a new order.</DialogDescription>
       </DialogHeader>
 
       <!-- Step: Order Type -->

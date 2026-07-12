@@ -24,3 +24,19 @@ export function hasBarItems(order: Order): boolean {
 export function hasNonBarItems(order: Order): boolean {
   return (order.items ?? []).some(oi => !isBarItem(oi))
 }
+
+// True once the station a category routes to has already been marked ready
+// — new items of that category shouldn't be silently folded in after that,
+// since they'd bypass its prep tracking. 'new'/'preparing'/undefined (the
+// station hasn't touched this order yet) all still count as open.
+export function isCategoryLocked(order: Order, category?: MenuCategory): boolean {
+  return isBarCategory(category) ? order.bar_status === 'ready' : order.kitchen_status === 'ready'
+}
+
+// Whether there's any station left that could still take a new item —
+// drives whether "Add Items" is reachable at all. Only false once both
+// stations are ready, since e.g. a drink can always be added to a
+// kitchen-ready order as long as the bar hasn't wrapped up too.
+export function canAddAnyItems(order: Order): boolean {
+  return order.kitchen_status !== 'ready' || order.bar_status !== 'ready'
+}

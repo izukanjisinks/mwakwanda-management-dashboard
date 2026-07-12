@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { Loader2, Minus, Plus, Search, ShoppingCart } from 'lucide-vue-next'
+import { Loader2, Minus, Plus, Search, ShoppingCart, Lock } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { getApiError } from '@/utils/errors'
+import { isCategoryLocked } from '@/utils/orders'
 import { useMenusStore } from '@/stores/menus'
-import type { MenuItem } from '@/types/menu'
+import { menusApi } from '@/services/api/menus'
+import type { MenuItem, Order } from '@/types/menu'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -18,8 +20,7 @@ import {
 
 const props = defineProps<{
   open: boolean
-  orderId: string
-  orderNumber: string
+  order: Order
 }>()
 
 const emit = defineEmits<{
@@ -33,18 +34,42 @@ const itemSearch = ref('')
 const cart = ref<Map<string, { item: MenuItem; qty: number }>>(new Map())
 const adding = ref(false)
 
+// Fetched directly (not through the store's paginated fetchMenu, which is
+// sized for the admin Menu Management table) — this dialog needs the whole
+// catalog to pick from, not one page of it.
+const availableMenuItems = ref<MenuItem[]>([])
+const menuLoading = ref(false)
+
 watch(
   () => props.open,
   async (val) => {
     if (!val) return
     cart.value = new Map()
     itemSearch.value = ''
-    await store.fetchMenu(1)
+    menuLoading.value = true
+    try {
+      const menu = await menusApi.getMenu({ page_size: 500 })
+      availableMenuItems.value = menu.items?.data ?? []
+    } catch (err) {
+      availableMenuItems.value = []
+      toast.error(getApiError(err, 'Failed to load menu items.'))
+    } finally {
+      menuLoading.value = false
+    }
   },
 )
 
 // ── Cart helpers ────────────────────────────────────────────────────────────
+
+// Once a category's station (kitchen or bar) has marked its side of this
+// order ready, new items of that category shouldn't be folded in — the
+// other station's items stay addable independently. See utils/orders.ts.
+function isLocked(item: MenuItem): boolean {
+  return isCategoryLocked(props.order, item.category)
+}
+
 function addToCart(item: MenuItem) {
+  if (isLocked(item)) return
   const existing = cart.value.get(item.id)
   cart.value.set(item.id, { item, qty: (existing?.qty ?? 0) + 1 })
   cart.value = new Map(cart.value)
@@ -77,7 +102,7 @@ const cartTotal = computed(() => {
 // ── Item list grouped by category ───────────────────────────────────────────
 const itemsByCategory = computed(() => {
   const q = itemSearch.value.toLowerCase().trim()
-  const available = (store.menu?.items?.data ?? []).filter(i => i.is_available)
+  const available = availableMenuItems.value.filter(i => i.is_available)
   const filtered = available.filter(
     i => !q || i.name.toLowerCase().includes(q) || (i.description ?? '').toLowerCase().includes(q),
   )
@@ -98,7 +123,7 @@ function formatCategory(cat: string) {
 async function handleAdd() {
   adding.value = true
   try {
-    await store.addOrderItems(props.orderId, {
+    await store.addOrderItems(props.order.id, {
       items: Array.from(cart.value.values()).map(({ item, qty }) => ({
         menu_item_id: item.id,
         quantity: qty,
@@ -119,7 +144,7 @@ async function handleAdd() {
   <Dialog :open="open" @update:open="emit('update:open', $event)">
     <DialogContent class="max-w-lg">
       <DialogHeader>
-        <DialogTitle>Add Items to {{ orderNumber }}</DialogTitle>
+        <DialogTitle>Add Items to {{ order.order_number }}</DialogTitle>
         <DialogDescription>Select additional items to append to this order.</DialogDescription>
       </DialogHeader>
 
@@ -136,7 +161,7 @@ async function handleAdd() {
       </div>
 
       <!-- Item list -->
-      <div v-if="store.menuLoading" class="flex flex-col gap-2">
+      <div v-if="menuLoading" class="flex flex-col gap-2">
         <div v-for="i in 4" :key="i" class="h-14 rounded-lg bg-muted animate-pulse" />
       </div>
 
@@ -154,9 +179,15 @@ async function handleAdd() {
               v-for="item in group.items"
               :key="item.id"
               class="rounded-lg border bg-card px-4 py-3 flex items-center gap-3"
+              :class="isLocked(item) && 'opacity-50'"
             >
               <div class="flex-1 min-w-0">
-                <p class="text-sm font-medium truncate">{{ item.name }}</p>
+                <p class="text-sm font-medium truncate flex items-center gap-1.5">
+                  {{ item.name }}
+                  <span v-if="isLocked(item)" class="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground border rounded px-1 py-0.5 shrink-0">
+                    <Lock class="size-2.5" /> Ready
+                  </span>
+                </p>
                 <p class="text-xs text-muted-foreground">ZMW {{ item.price.toLocaleString() }}</p>
               </div>
               <div class="flex items-center gap-2 shrink-0">
@@ -172,7 +203,14 @@ async function handleAdd() {
                 <span v-if="qtyFor(item.id) > 0" class="w-5 text-center text-sm font-semibold">
                   {{ qtyFor(item.id) }}
                 </span>
-                <Button variant="outline" size="icon" class="size-7" @click="addToCart(item)">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  class="size-7"
+                  :disabled="isLocked(item)"
+                  :title="isLocked(item) ? 'That station has already marked this order ready.' : undefined"
+                  @click="addToCart(item)"
+                >
                   <Plus class="size-3" />
                 </Button>
               </div>

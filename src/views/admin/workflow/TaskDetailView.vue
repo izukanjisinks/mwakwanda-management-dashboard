@@ -19,7 +19,7 @@ import PersonHistoryDialog, { type PersonRef } from '@/components/workflow/Perso
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle,
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from '@/components/ui/sheet'
 import {
   ArrowLeft, FileText, ImageIcon, ExternalLink,
@@ -1835,6 +1835,7 @@ onMounted(async () => {
     <SheetContent side="right" class="w-full sm:max-w-2xl flex flex-col gap-0 p-0 overflow-hidden">
       <SheetHeader class="px-6 pt-5 pb-4 border-b pr-14">
         <SheetTitle>Document Preview</SheetTitle>
+        <SheetDescription class="sr-only">Preview of the selected document</SheetDescription>
       </SheetHeader>
       <div class="flex-1 min-h-0 overflow-hidden bg-muted/30">
         <iframe v-if="isPdf(selectedDoc)" :src="selectedDoc" class="w-full h-full border-0" />

@@ -23,7 +23,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle,
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from '@/components/ui/sheet'
 
 const router = useRouter()
@@ -548,6 +548,7 @@ function syncRowStatus(id: string, status: BookingStatus) {
     <SheetContent side="right" class="w-full sm:max-w-xl flex flex-col gap-0 p-0 overflow-hidden">
       <SheetHeader class="px-6 pt-5 pb-4 border-b pr-14">
         <SheetTitle>{{ sheetBooking?.company_name || sheetBooking?.booker_name || 'Booking Details' }}</SheetTitle>
+        <SheetDescription class="sr-only">{{ sheetBooking?.booking_number ? `Booking ${sheetBooking.booking_number}` : 'Booking details' }}</SheetDescription>
         <div v-if="sheetBooking" class="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
           <span class="font-mono">{{ sheetBooking.booking_number }}</span>
           <Badge :variant="statusMeta(sheetBooking.status).variant" class="text-xs">
@@ -876,6 +877,7 @@ function syncRowStatus(id: string, status: BookingStatus) {
     <SheetContent side="right" class="w-full sm:max-w-xl flex flex-col gap-0 p-0 overflow-hidden">
       <SheetHeader class="px-6 pt-5 pb-4 border-b pr-14">
         <SheetTitle>{{ eventBooking?.company_name || eventBooking?.booker_name || 'Event Booking' }}</SheetTitle>
+        <SheetDescription class="sr-only">{{ eventBooking?.booking_number ? `Booking ${eventBooking.booking_number}` : 'Event booking details' }}</SheetDescription>
         <div v-if="eventBooking" class="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
           <span class="font-mono">{{ eventBooking.booking_number }}</span>
           <Badge :variant="statusMeta(eventBooking.status).variant" class="text-xs">

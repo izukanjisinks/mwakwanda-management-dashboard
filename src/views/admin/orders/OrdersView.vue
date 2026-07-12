@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { Plus, Minus, ChevronLeft, ChevronRight, ShoppingBag, Trash2, X, FileText, User, AlertTriangle, Clock } from 'lucide-vue-next'
 import { useMenusStore } from '@/stores/menus'
 import { useBranchFilterStore } from '@/stores/branchFilter'
+import { isCategoryLocked, canAddAnyItems } from '@/utils/orders'
 import type { Order } from '@/types/menu'
 import type { Invoice } from '@/types/invoice'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
@@ -25,6 +26,7 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
+  SheetDescription,
 } from '@/components/ui/sheet'
 import { menusApi } from '@/services/api/menus'
 
@@ -111,13 +113,6 @@ const sortedOrders = computed(() =>
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-}
-
-// Once either station has marked its side ready, new items shouldn't be
-// silently folded in — they'd bypass kitchen/bar prep tracking entirely and
-// could get served alongside food/drinks already staged to go out.
-function isOrderReady(order: Order): boolean {
-  return order.kitchen_status === 'ready' || order.bar_status === 'ready'
 }
 
 async function openSheet(order: Order) {
@@ -391,8 +386,7 @@ async function updateQuantity(itemId: string, newQty: number) {
   <AddOrderItemsDialog
     v-if="sheetOrder"
     v-model:open="addItemsOpen"
-    :order-id="sheetOrder.id"
-    :order-number="sheetOrder.order_number"
+    :order="sheetOrder"
     @added="refreshSheet"
   />
 
@@ -412,7 +406,7 @@ async function updateQuantity(itemId: string, newQty: number) {
         <div class="flex items-start gap-3 pr-8">
           <div class="flex-1 min-w-0">
             <SheetTitle class="font-mono text-lg">{{ sheetOrder?.order_number }}</SheetTitle>
-            <p class="text-sm text-muted-foreground mt-0.5">{{ sheetOrder ? formatDate(sheetOrder.created_at) : '' }}</p>
+            <SheetDescription class="mt-0.5">{{ sheetOrder ? formatDate(sheetOrder.created_at) : 'Order details' }}</SheetDescription>
           </div>
           <Badge v-if="sheetOrder" :variant="sheetOrder.type === 'in_house' ? 'default' : 'secondary'" class="mt-1 shrink-0">
             {{ sheetOrder.type === 'in_house' ? 'In-House' : 'Walk-In' }}
@@ -544,8 +538,8 @@ async function updateQuantity(itemId: string, newQty: number) {
                       <button
                         type="button"
                         class="size-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30"
-                        :disabled="updatingItemId === oi.id || removingItemId === oi.id || isOrderReady(sheetOrder)"
-                        :title="isOrderReady(sheetOrder) ? 'This order is marked ready — items can no longer be added.' : undefined"
+                        :disabled="updatingItemId === oi.id || removingItemId === oi.id || isCategoryLocked(sheetOrder, oi.category)"
+                        :title="isCategoryLocked(sheetOrder, oi.category) ? 'That station has already marked this order ready.' : undefined"
                         @click.stop="updateQuantity(oi.id, oi.quantity + 1)"
                       >
                         <Plus class="size-3" />
@@ -592,14 +586,14 @@ async function updateQuantity(itemId: string, newQty: number) {
         <Button
           :variant="sheetOrder.type === 'walk_in' && sheetOrder.status === 'open' ? 'outline' : 'default'"
           class="w-full"
-          :disabled="isOrderReady(sheetOrder)"
+          :disabled="!canAddAnyItems(sheetOrder)"
           @click="addItemsOpen = true"
         >
           <Plus class="size-4 mr-2" />
           Add More Items
         </Button>
-        <p v-if="isOrderReady(sheetOrder)" class="text-xs text-muted-foreground text-center">
-          This order is marked ready — items can no longer be added.
+        <p v-if="!canAddAnyItems(sheetOrder)" class="text-xs text-muted-foreground text-center">
+          Both kitchen and bar have marked this order ready — items can no longer be added.
         </p>
       </div>
     </SheetContent>
