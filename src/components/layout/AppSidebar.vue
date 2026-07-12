@@ -23,7 +23,9 @@ import {
   ChefHat,
   IdCard,
   Martini,
+  ChevronDown,
 } from 'lucide-vue-next'
+import { CollapsibleRoot, CollapsibleTrigger, CollapsibleContent } from 'reka-ui'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { usePermissions } from '@/composables/usePermissions'
@@ -41,6 +43,9 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarRail,
 } from '@/components/ui/sidebar'
 import {
@@ -89,17 +94,27 @@ const adminNav = [
     ],
   },
   {
-    label: 'Management',
+    label: 'Spaces & Bookings',
     items: [
       { title: 'Rooms', icon: Hotel, routeName: 'rooms' },
       { title: 'Venues', icon: Theater, routeName: 'venues' },
       { title: 'Bookings', icon: CalendarDays, routeName: 'admin-bookings' },
+    ],
+  },
+  {
+    label: 'Food & Beverage',
+    items: [
       { title: 'Menus', icon: UtensilsCrossed, routeName: 'menus' },
       { title: 'Orders', icon: BookOpen, routeName: 'orders' },
       { title: 'Kitchen', icon: ChefHat, routeName: 'kitchen' },
       { title: 'Bar', icon: Martini, routeName: 'bar' },
       { title: 'Resident Meal Collection', icon: CreditCard, routeName: 'meal-sessions' },
       { title: 'Card Management', icon: IdCard, routeName: 'card-management' },
+    ],
+  },
+  {
+    label: 'Billing',
+    items: [
       { title: 'Invoices', icon: ReceiptText, routeName: 'admin-invoices' },
     ],
   },
@@ -182,6 +197,31 @@ const navGroups = computed(() => {
     .filter(group => group.items.length > 0)
 })
 
+// Persisted open/closed state for collapsible sidebar groups, keyed by label.
+const COLLAPSE_KEY = 'lodge_sidebar_collapsed_groups'
+const collapsedGroups = ref<Set<string>>(loadCollapsedGroups())
+
+function loadCollapsedGroups(): Set<string> {
+  try {
+    const raw = localStorage.getItem(COLLAPSE_KEY)
+    return new Set(raw ? (JSON.parse(raw) as string[]) : [])
+  } catch {
+    return new Set()
+  }
+}
+
+function isGroupOpen(label: string): boolean {
+  return !collapsedGroups.value.has(label)
+}
+
+function setGroupOpen(label: string, open: boolean) {
+  const next = new Set(collapsedGroups.value)
+  if (open) next.delete(label)
+  else next.add(label)
+  collapsedGroups.value = next
+  localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...next]))
+}
+
 async function handleLogout() {
   await authStore.logout()
   router.push({ name: 'login' })
@@ -235,19 +275,44 @@ async function handleLogout() {
     </SidebarHeader>
 
     <SidebarContent>
-      <SidebarGroup v-for="group in navGroups" :key="group.label">
-        <SidebarGroupLabel>{{ group.label }}</SidebarGroupLabel>
-        <SidebarGroupContent>
-          <SidebarMenu>
-            <SidebarMenuItem v-for="item in group.items" :key="item.title">
-              <SidebarMenuButton :tooltip="item.title" :is-active="route.name === item.routeName" @click="navigate(item.routeName)">
-                <component :is="item.icon" />
-                <span>{{ item.title }}</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarGroupContent>
-      </SidebarGroup>
+      <!-- Every group is collapsible for a uniform look — items indented with a guide line -->
+      <CollapsibleRoot
+        v-for="group in navGroups"
+        :key="group.label"
+        :open="isGroupOpen(group.label)"
+        @update:open="(v: boolean) => setGroupOpen(group.label, v)"
+        as-child
+      >
+        <SidebarGroup>
+          <CollapsibleTrigger as-child>
+            <SidebarGroupLabel
+              class="group/label cursor-pointer text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md transition-colors"
+            >
+              {{ group.label }}
+              <ChevronDown
+                class="ml-auto size-4 transition-transform group-data-[state=closed]/label:-rotate-90"
+              />
+            </SidebarGroupLabel>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <SidebarGroupContent>
+              <SidebarMenuSub>
+                <SidebarMenuSubItem v-for="item in group.items" :key="item.title">
+                  <SidebarMenuSubButton
+                    as="button"
+                    class="w-full cursor-pointer"
+                    :is-active="route.name === item.routeName"
+                    @click="navigate(item.routeName)"
+                  >
+                    <component :is="item.icon" />
+                    <span>{{ item.title }}</span>
+                  </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+              </SidebarMenuSub>
+            </SidebarGroupContent>
+          </CollapsibleContent>
+        </SidebarGroup>
+      </CollapsibleRoot>
     </SidebarContent>
 
     <SidebarFooter>
