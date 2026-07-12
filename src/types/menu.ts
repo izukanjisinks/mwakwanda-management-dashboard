@@ -20,7 +20,6 @@ export type MenuCategory =
   | 'appetizer'
   | 'main_course'
   | 'dessert'
-  | 'beverage'
   | 'breakfast'
   | 'brunch'
   | 'soup'
@@ -37,7 +36,6 @@ export const MENU_CATEGORIES: { value: MenuCategory; label: string }[] = [
   { value: 'main_course', label: 'Main Course' },
   { value: 'side_dish', label: 'Side Dishes' },
   { value: 'dessert', label: 'Desserts' },
-  { value: 'beverage', label: 'Beverages' },
   { value: 'breakfast', label: 'Breakfast' },
   { value: 'brunch', label: 'Brunch' },
   { value: 'special', label: "Chef's Special" },
@@ -81,6 +79,10 @@ export interface OrderItem {
   attendee_name?: string
   menu_item?: MenuItem
   item_name?: string
+  // The linked menu item's category (e.g. "drinks"), sent directly by the
+  // backend now — no need to fall back to menu_item?.category or a
+  // separately-fetched category map.
+  category?: MenuCategory
   quantity: number
   unit_price?: number
   subtotal?: number
@@ -107,12 +109,10 @@ export interface Order {
   status?: 'open' | 'closed'
   kitchen_status?: 'new' | 'preparing' | 'ready'
   bar_status?: 'new' | 'preparing' | 'ready'
-  // Whether this order has any items for that station — needed on list views
-  // like OrdersView.vue that don't fetch full item detail, so they can tell
-  // "nothing for the bar to do" apart from "the bar hasn't touched it yet"
-  // (both look identical from bar_status alone). Kitchen/BarView compute
-  // this client-side instead, from items they already have — see
-  // utils/orders.ts.
+  // Whether this order has any items for that station, computed server-side.
+  // Needed on list views like OrdersView.vue that don't fetch full item detail,
+  // so they can tell "nothing for the bar to do" apart from "the bar hasn't
+  // touched it yet" (both look identical from bar_status alone).
   has_kitchen_items?: boolean
   has_bar_items?: boolean
   notes?: string

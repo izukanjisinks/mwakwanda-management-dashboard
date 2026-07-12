@@ -12,8 +12,8 @@ import {
 } from 'lucide-vue-next'
 import { menusApi } from '@/services/api/menus'
 import { useBranchFilterStore } from '@/stores/branchFilter'
-import { buildCategoryMap, hasBarItems, isBarItem } from '@/utils/orders'
-import type { Order, MenuCategory } from '@/types/menu'
+import { hasBarItems, isBarItem } from '@/utils/orders'
+import type { Order } from '@/types/menu'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -32,16 +32,6 @@ const branchFilter = useBranchFilterStore()
 
 const orders = ref<Order[]>([])
 const loading = ref(false)
-
-// menu_item_id → category, used to tell bar items apart from kitchen items.
-// order.items[].menu_item isn't always populated, so this is a fallback
-// looked up once rather than trusted per-item — see utils/orders.ts.
-const categoryById = ref<Map<string, MenuCategory>>(new Map())
-
-async function fetchMenuCategories() {
-  const menu = await menusApi.getMenu({ page_size: 500 })
-  categoryById.value = buildCategoryMap(menu)
-}
 
 async function fetchOrders() {
   loading.value = true
@@ -180,7 +170,7 @@ const visibleOrders = computed(() =>
     .filter(o => typeFilter.value === 'all' || o.type === typeFilter.value)
     // Orders with nothing for the bar to pour have no business on this board —
     // they belong on the kitchen's instead.
-    .filter(o => hasBarItems(o, categoryById.value))
+    .filter(o => hasBarItems(o))
     .sort((a, b) => {
       const diff = orderSortKey(a) - orderSortKey(b)
       if (diff !== 0) return diff
@@ -244,7 +234,7 @@ function aggregateItems(items: Order['items']): AggregatedItem[] {
     if (map.has(key)) {
       map.get(key)!.quantity += oi.quantity
     } else {
-      map.set(key, { key, name, notes: oi.notes, quantity: oi.quantity, isBar: isBarItem(oi, categoryById.value) })
+      map.set(key, { key, name, notes: oi.notes, quantity: oi.quantity, isBar: isBarItem(oi) })
     }
   }
   return [...map.values()]
@@ -298,7 +288,6 @@ function updateClock() {
 
 onMounted(() => {
   updateClock()
-  fetchMenuCategories()
   fetchOrders()
   startRefreshTimer()
   clockTimer = setInterval(updateClock, 1000)
