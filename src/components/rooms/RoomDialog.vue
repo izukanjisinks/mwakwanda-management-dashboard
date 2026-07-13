@@ -22,7 +22,10 @@ import { Badge } from '@/components/ui/badge'
 import { Loader2, X, Plus } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { useRoomsStore } from '@/stores/rooms'
+import { ROOM_AMENITIES } from '@/constants/rooms'
 import type { Room, RoomType } from '@/types/room'
+
+const OTHER_AMENITY = '__other__'
 
 const props = defineProps<{
   open: boolean
@@ -37,7 +40,8 @@ const emit = defineEmits<{
 const store = useRoomsStore()
 const saving = ref(false)
 const error = ref('')
-const amenityInput = ref('')
+const selectedAmenity = ref('')
+const customAmenityInput = ref('')
 
 const isEdit = computed(() => !!props.room)
 
@@ -59,7 +63,8 @@ const form = ref({
 watch(() => props.open, (open) => {
   if (!open) return
   error.value = ''
-  amenityInput.value = ''
+  selectedAmenity.value = ''
+  customAmenityInput.value = ''
   if (props.room) {
     form.value = {
       name: props.room.name,
@@ -83,24 +88,46 @@ watch(() => props.open, (open) => {
   }
 })
 
-function addAmenity() {
-  const val = amenityInput.value.trim()
+const isOtherSelected = computed(() => selectedAmenity.value === OTHER_AMENITY)
+
+// Predefined picks add immediately on selection; "Other" instead reveals a
+// text field and waits for confirmCustomAmenity().
+function onAmenitySelect(value: string) {
+  if (value === OTHER_AMENITY) {
+    selectedAmenity.value = OTHER_AMENITY
+    return
+  }
+  if (!form.value.amenities.includes(value)) {
+    form.value.amenities.push(value)
+  }
+  selectedAmenity.value = ''
+}
+
+function confirmCustomAmenity() {
+  const val = customAmenityInput.value.trim()
   if (val && !form.value.amenities.includes(val)) {
     form.value.amenities.push(val)
   }
-  amenityInput.value = ''
+  selectedAmenity.value = ''
+  customAmenityInput.value = ''
+}
+
+function handleCustomAmenityKeydown(e: KeyboardEvent) {
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    confirmCustomAmenity()
+  }
 }
 
 function removeAmenity(amenity: string) {
   form.value.amenities = form.value.amenities.filter(a => a !== amenity)
 }
 
-function handleAmenityKeydown(e: KeyboardEvent) {
-  if (e.key === 'Enter') {
-    e.preventDefault()
-    addAmenity()
-  }
-}
+// Amenities already added drop out of the picker so the same one can't be
+// selected twice; "Other" always stays available for further custom entries.
+const availableAmenities = computed(() =>
+  ROOM_AMENITIES.filter(a => !form.value.amenities.includes(a)),
+)
 
 async function handleSave() {
   error.value = ''
@@ -229,13 +256,23 @@ watch(() => form.value.type, (type) => {
         <!-- Amenities -->
         <div class="grid gap-2">
           <Label>Amenities</Label>
-          <div class="flex gap-2">
+          <Select :model-value="selectedAmenity" @update:model-value="(v) => onAmenitySelect(String(v))">
+            <SelectTrigger>
+              <SelectValue placeholder="Select an amenity to add…" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem v-for="a in availableAmenities" :key="a" :value="a">{{ a }}</SelectItem>
+              <SelectItem :value="OTHER_AMENITY">Other…</SelectItem>
+            </SelectContent>
+          </Select>
+          <div v-if="isOtherSelected" class="flex gap-2">
             <Input
-              v-model="amenityInput"
-              placeholder="e.g. Wi-Fi"
-              @keydown="handleAmenityKeydown"
+              v-model="customAmenityInput"
+              placeholder="Type a custom amenity…"
+              autofocus
+              @keydown="handleCustomAmenityKeydown"
             />
-            <Button type="button" variant="outline" size="icon" @click="addAmenity">
+            <Button type="button" variant="outline" size="icon" :disabled="!customAmenityInput.trim()" @click="confirmCustomAmenity">
               <Plus class="size-4" />
             </Button>
           </div>

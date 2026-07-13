@@ -3,7 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { Plus, Minus, ChevronLeft, ChevronRight, ShoppingBag, Trash2, X, FileText, User, AlertTriangle, Clock } from 'lucide-vue-next'
 import { useMenusStore } from '@/stores/menus'
 import { useBranchFilterStore } from '@/stores/branchFilter'
-import { isCategoryLocked, canAddAnyItems } from '@/utils/orders'
+import { isCategoryLocked, canAddAnyItems, isCategoryRemovalLocked } from '@/utils/orders'
 import type { Order } from '@/types/menu'
 import type { Invoice } from '@/types/invoice'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
@@ -142,11 +142,16 @@ async function refreshSheet() {
 const removingItemId = ref<string | null>(null)
 const updatingItemId = ref<string | null>(null)
 
-async function removeItem(itemId: string) {
+// The trash icon removes one unit at a time, same as tapping "−" — with
+// 2 Coca-Colas on the line, one click leaves 1, not zero. Only once the
+// last unit is being removed does this actually delete the line item.
+async function removeItem(itemId: string, quantity: number) {
   if (!sheetOrder.value) return
   removingItemId.value = itemId
   try {
-    const updated = await store.removeOrderItem(sheetOrder.value.id, itemId)
+    const updated = quantity > 1
+      ? await store.updateOrderItem(sheetOrder.value.id, itemId, quantity - 1)
+      : await store.removeOrderItem(sheetOrder.value.id, itemId)
     sheetOrder.value = updated
   } catch {
     // silently keep current state
@@ -523,7 +528,8 @@ async function updateQuantity(itemId: string, newQty: number) {
                       <button
                         type="button"
                         class="size-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30"
-                        :disabled="oi.quantity <= 1 || updatingItemId === oi.id || removingItemId === oi.id"
+                        :disabled="oi.quantity <= 1 || updatingItemId === oi.id || removingItemId === oi.id || isCategoryRemovalLocked(sheetOrder, oi.category)"
+                        :title="isCategoryRemovalLocked(sheetOrder, oi.category) ? 'That station has already started preparing this order.' : undefined"
                         @click.stop="updateQuantity(oi.id, oi.quantity - 1)"
                       >
                         <Minus class="size-3" />
@@ -549,9 +555,10 @@ async function updateQuantity(itemId: string, newQty: number) {
                     <!-- Delete -->
                     <button
                       type="button"
-                      class="shrink-0 size-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                      :disabled="removingItemId === oi.id || updatingItemId === oi.id"
-                      @click.stop="removeItem(oi.id)"
+                      class="shrink-0 size-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-30 disabled:hover:text-muted-foreground disabled:hover:bg-transparent"
+                      :disabled="removingItemId === oi.id || updatingItemId === oi.id || isCategoryRemovalLocked(sheetOrder, oi.category)"
+                      :title="isCategoryRemovalLocked(sheetOrder, oi.category) ? 'That station has already started preparing this order.' : undefined"
+                      @click.stop="removeItem(oi.id, oi.quantity)"
                     >
                       <Trash2 v-if="removingItemId !== oi.id" class="size-3.5" />
                       <svg v-else class="size-3.5 animate-spin" viewBox="0 0 24 24" fill="none">

@@ -40,3 +40,12 @@ export function isCategoryLocked(order: Order, category?: MenuCategory): boolean
 export function canAddAnyItems(order: Order): boolean {
   return order.kitchen_status !== 'ready' || order.bar_status !== 'ready'
 }
+
+// Once a station has started on an item (preparing or further), it can no
+// longer be removed or have its quantity reduced — pulling it out mid-prep
+// risks the station making it anyway. Removal only stays open while that
+// station hasn't started yet ('new', or hasn't touched the order at all).
+export function isCategoryRemovalLocked(order: Order, category?: MenuCategory): boolean {
+  const status = isBarCategory(category) ? order.bar_status : order.kitchen_status
+  return status === 'preparing' || status === 'ready'
+}
