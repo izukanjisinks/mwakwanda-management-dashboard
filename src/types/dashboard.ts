@@ -26,6 +26,7 @@ export interface DashboardRecentBooking {
   id: string
   booking_number: string
   client_name: string
+  booker_type: 'individual' | 'corporate'
   room_name: string
   room_type: string
   check_in: string

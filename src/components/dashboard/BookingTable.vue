@@ -53,6 +53,7 @@ const filtered = computed(() => props.bookings.filter(b => {
           <TableRow class="hover:bg-transparent">
             <TableHead class="pl-6">Booking #</TableHead>
             <TableHead>Guest</TableHead>
+            <TableHead>Type</TableHead>
             <TableHead>Room Type</TableHead>
             <TableHead>Room</TableHead>
             <TableHead>Check-In / Check-Out</TableHead>
@@ -63,6 +64,11 @@ const filtered = computed(() => props.bookings.filter(b => {
           <TableRow v-for="booking in filtered" :key="booking.id">
             <TableCell class="pl-6 font-mono font-medium">{{ booking.booking_number }}</TableCell>
             <TableCell>{{ booking.client_name }}</TableCell>
+            <TableCell>
+              <Badge :variant="booking.booker_type === 'corporate' ? 'default' : 'outline'" class="text-xs capitalize">
+                {{ booking.booker_type }}
+              </Badge>
+            </TableCell>
             <TableCell>
               <Badge variant="secondary" class="text-xs capitalize">
                 {{ booking.room_type }}
@@ -79,7 +85,7 @@ const filtered = computed(() => props.bookings.filter(b => {
             </TableCell>
           </TableRow>
           <TableRow v-if="filtered.length === 0">
-            <TableCell colspan="6" class="h-24 text-center text-muted-foreground">
+            <TableCell colspan="7" class="h-24 text-center text-muted-foreground">
               No bookings found.
             </TableCell>
           </TableRow>

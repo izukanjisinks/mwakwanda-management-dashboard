@@ -11,6 +11,12 @@ interface RequestOptions {
   params?: Record<string, string | number | boolean | undefined>
 }
 
+// UUID or plain numeric path segment — used to skip resource IDs when
+// deriving a human-readable resource name for the Access Denied screen.
+function isIdSegment(segment: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(segment) || /^\d+$/.test(segment)
+}
+
 async function request<T>(
   method: HttpMethod,
   path: string,
@@ -52,11 +58,16 @@ async function request<T>(
   })
 
   if (!response.ok) {
-    // Handle 403 Forbidden errors
-    if (response.status === 403 && method === 'GET') {
+    // Handle 403 Forbidden errors — regardless of HTTP method, so a blocked
+    // POST/PUT/PATCH/DELETE shows the same Access Denied screen a blocked
+    // GET does.
+    if (response.status === 403) {
       const { showForbidden } = useForbiddenHandler()
       const pathParts = path.split('/').filter(Boolean)
-      const resourceName = pathParts[pathParts.length - 1]
+      // Walk back from the end past ID-like segments (UUIDs, numeric IDs) so
+      // e.g. DELETE /users/{uuid} still resolves to "Users", not the id.
+      const resourceSegment = [...pathParts].reverse().find(p => !isIdSegment(p)) ?? pathParts[pathParts.length - 1]
+      const resourceName = resourceSegment
         ?.replace(/-/g, ' ')
         .replace(/\b\w/g, (char) => char.toUpperCase())
 

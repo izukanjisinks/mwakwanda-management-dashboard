@@ -9,6 +9,7 @@ import {
 import { toast } from 'vue-sonner'
 import { useBookingsStore } from '@/stores/bookings'
 import { useBranchFilterStore } from '@/stores/branchFilter'
+import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { bookingApi } from '@/services/api/bookings'
 import { getApiError } from '@/utils/errors'
 import type { Booking, BookingStatus, BookingRoomAssignment, BookingAttendee, BookingEvent } from '@/types/booking'
@@ -29,6 +30,7 @@ import {
 const router = useRouter()
 const store = useBookingsStore()
 const branchFilterStore = useBranchFilterStore()
+const confirmDialog = useConfirmDialog()
 
 type BookerTab = 'individual' | 'corporate'
 const activeTab = ref<BookerTab>('individual')
@@ -178,6 +180,12 @@ async function refreshSheetAssignments() {
 
 async function checkInAssignment(a: BookingRoomAssignment) {
   if (!sheetBooking.value) return
+  const confirmed = await confirmDialog.confirm({
+    title: 'Check in guest?',
+    description: `Check in ${attendeeName(a)} to ${a.room_name || 'their room'}?`,
+    confirmText: 'Check In',
+  })
+  if (!confirmed) return
   assignmentActioning.value = a.id
   try {
     await bookingApi.checkInAssignment(sheetBooking.value.id, a.id)
@@ -192,6 +200,12 @@ async function checkInAssignment(a: BookingRoomAssignment) {
 
 async function checkOutAssignment(a: BookingRoomAssignment) {
   if (!sheetBooking.value) return
+  const confirmed = await confirmDialog.confirm({
+    title: 'Check out guest?',
+    description: `Check out ${attendeeName(a)} from ${a.room_name || 'their room'}?`,
+    confirmText: 'Check Out',
+  })
+  if (!confirmed) return
   assignmentActioning.value = a.id
   try {
     await bookingApi.checkOutAssignment(sheetBooking.value.id, a.id)
@@ -290,6 +304,12 @@ async function openEventSheet(b: Booking) {
 
 async function eventCheckIn() {
   if (!eventBooking.value) return
+  const confirmed = await confirmDialog.confirm({
+    title: 'Check in event?',
+    description: `Check in ${eventBooking.value.company_name || eventBooking.value.booker_name || 'this booking'} (${eventBooking.value.booking_number})?`,
+    confirmText: 'Check In',
+  })
+  if (!confirmed) return
   eventActioning.value = true
   try {
     const updated = await bookingApi.checkIn(eventBooking.value.id)
@@ -305,6 +325,12 @@ async function eventCheckIn() {
 
 async function eventCheckOut() {
   if (!eventBooking.value) return
+  const confirmed = await confirmDialog.confirm({
+    title: 'Check out event?',
+    description: `Check out ${eventBooking.value.company_name || eventBooking.value.booker_name || 'this booking'} (${eventBooking.value.booking_number})?`,
+    confirmText: 'Check Out',
+  })
+  if (!confirmed) return
   eventActioning.value = true
   try {
     const updated = await bookingApi.checkOut(eventBooking.value.id)
