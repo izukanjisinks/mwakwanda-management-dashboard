@@ -6,6 +6,7 @@ import { toast } from 'vue-sonner'
 import { getApiError } from '@/utils/errors'
 import { useInvoicesStore } from '@/stores/invoices'
 import { useBranchFilterStore } from '@/stores/branchFilter'
+import { effectiveInvoiceStatus } from '@/utils/invoices'
 import type { Invoice, InvoiceStatus } from '@/types/invoice'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import InvoiceDetailDialog from '@/components/invoices/InvoiceDetailDialog.vue'
@@ -173,10 +174,10 @@ function handleInvoiceUpdated(invoice: Invoice) {
 
 const summary = computed(() => ({
   total: store.total,
-  outstanding: store.invoices.filter(i => i.status === 'issued' || i.status === 'overdue').length,
-  paid: store.invoices.filter(i => i.status === 'paid').length,
-  overdue: store.invoices.filter(i => i.status === 'overdue').length,
-  revenue: store.invoices.filter(i => i.status === 'paid').reduce((s, i) => s + i.total_amount, 0),
+  outstanding: store.invoices.filter(i => effectiveInvoiceStatus(i) === 'issued' || effectiveInvoiceStatus(i) === 'overdue').length,
+  paid: store.invoices.filter(i => effectiveInvoiceStatus(i) === 'paid').length,
+  overdue: store.invoices.filter(i => effectiveInvoiceStatus(i) === 'overdue').length,
+  revenue: store.invoices.filter(i => effectiveInvoiceStatus(i) === 'paid').reduce((s, i) => s + i.total_amount, 0),
 }))
 </script>
 
@@ -294,13 +295,13 @@ const summary = computed(() => ({
               <TableCell v-if="activeTab === 'corporate'" class="font-mono text-sm text-muted-foreground">{{ invoice.client_tpin || '—' }}</TableCell>
               <TableCell class="text-muted-foreground">{{ formatDate(invoice.created_at) }}</TableCell>
               <TableCell>{{ formatDate(invoice.issued_date) }}</TableCell>
-              <TableCell :class="invoice.status === 'overdue' ? 'text-destructive font-medium' : ''">
+              <TableCell :class="effectiveInvoiceStatus(invoice) === 'overdue' ? 'text-destructive font-medium' : ''">
                 {{ formatDate(invoice.due_date) }}
               </TableCell>
               <TableCell class="font-medium">{{ invoice.total_amount.toLocaleString() }}</TableCell>
               <TableCell>
-                <Badge :variant="statusConfig[invoice.status].variant">
-                  {{ statusConfig[invoice.status].label }}
+                <Badge :variant="statusConfig[effectiveInvoiceStatus(invoice)].variant">
+                  {{ statusConfig[effectiveInvoiceStatus(invoice)].label }}
                 </Badge>
               </TableCell>
               <TableCell class="text-right" @click.stop>

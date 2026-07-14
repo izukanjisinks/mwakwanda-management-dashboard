@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { Eye } from 'lucide-vue-next'
 import { useInvoicesStore } from '@/stores/invoices'
+import { effectiveInvoiceStatus } from '@/utils/invoices'
 import type { Invoice, InvoiceStatus } from '@/types/invoice'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import InvoiceDetailDialog from '@/components/invoices/InvoiceDetailDialog.vue'
@@ -45,7 +46,7 @@ function openDetail(invoice: Invoice) {
 
 const totalDue = computed(() =>
   invoices.value
-    .filter(i => i.status === 'issued' || i.status === 'overdue')
+    .filter(i => effectiveInvoiceStatus(i) === 'issued' || effectiveInvoiceStatus(i) === 'overdue')
     .reduce((s, i) => s + i.total_amount, 0)
 )
 </script>
@@ -103,13 +104,13 @@ const totalDue = computed(() =>
             >
               <TableCell class="font-mono text-sm">{{ invoice.invoice_number }}</TableCell>
               <TableCell>{{ formatDate(invoice.issued_date) }}</TableCell>
-              <TableCell :class="invoice.status === 'overdue' ? 'text-destructive font-medium' : ''">
+              <TableCell :class="effectiveInvoiceStatus(invoice) === 'overdue' ? 'text-destructive font-medium' : ''">
                 {{ formatDate(invoice.due_date) }}
               </TableCell>
               <TableCell class="font-medium">{{ invoice.total_amount.toLocaleString() }}</TableCell>
               <TableCell>
-                <Badge :variant="statusConfig[invoice.status].variant">
-                  {{ statusConfig[invoice.status].label }}
+                <Badge :variant="statusConfig[effectiveInvoiceStatus(invoice)].variant">
+                  {{ statusConfig[effectiveInvoiceStatus(invoice)].label }}
                 </Badge>
               </TableCell>
               <TableCell class="text-right" @click.stop>

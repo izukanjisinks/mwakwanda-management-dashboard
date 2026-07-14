@@ -7,8 +7,8 @@ import { getApiError } from '@/utils/errors'
 import { useMenusStore } from '@/stores/menus'
 import { useAuthStore } from '@/stores/auth'
 import { uploadMenuItemImage, deleteMenuItemImage } from '@/services/storage'
-import type { MenuItem, MenuCategory } from '@/types/menu'
-import { MENU_CATEGORIES } from '@/types/menu'
+import type { MenuItem, MenuCategory, ProductionArea } from '@/types/menu'
+import { MENU_CATEGORIES, PRODUCTION_AREAS } from '@/types/menu'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -42,6 +42,9 @@ const store = useMenusStore()
 const authStore = useAuthStore()
 
 const canWrite = ['admin', 'branch_admin', 'manager'].includes(authStore.userRole ?? '')
+
+// Buffet packages are prepared in bulk, not made-to-order — bar/grill don't apply.
+const BUFFET_PRODUCTION_AREAS = PRODUCTION_AREAS.filter(a => a.value === 'kitchen' || a.value === 'bakery')
 
 // ── Load menu + paginated items ────────────────────────────────────────────
 const page = ref(1)
@@ -135,13 +138,14 @@ const itemForm = ref({
   description: '',
   price: '',
   category: '' as MenuCategory | '',
+  production_area: '' as ProductionArea | '',
   is_available: true,
 })
 const savingItem = ref(false)
 const itemFormError = ref('')
 
 function resetItemForm() {
-  itemForm.value = { name: '', description: '', price: '', category: '', is_available: true }
+  itemForm.value = { name: '', description: '', price: '', category: '', production_area: '', is_available: true }
   itemFormError.value = ''
   clearAddImage()
 }
@@ -159,6 +163,7 @@ async function handleAddItem() {
       description: itemForm.value.description.trim() || undefined,
       price: priceNum,
       category: itemForm.value.category || undefined,
+      production_area: itemForm.value.production_area || undefined,
       is_available: itemForm.value.is_available,
     })
 
@@ -188,6 +193,7 @@ const editForm = ref({
   description: '',
   price: '',
   category: '' as MenuCategory | '',
+  production_area: '' as ProductionArea | '',
   is_available: true,
 })
 const editImageFile = ref<File | null>(null)
@@ -225,6 +231,7 @@ function startEdit(item: MenuItem) {
     description: item.description ?? '',
     price: String(item.price),
     category: item.category ?? '',
+    production_area: item.production_area ?? '',
     is_available: item.is_available,
   }
   editImageFile.value = null
@@ -260,6 +267,7 @@ async function handleSaveEdit() {
       description: editForm.value.description.trim() || undefined,
       price: priceNum,
       category: editForm.value.category || undefined,
+      production_area: editForm.value.production_area || undefined,
       image_url,
       is_available: editForm.value.is_available,
     })
@@ -375,6 +383,7 @@ const buffetForm = ref({
   buffet_type: '',
   price: '',
   min_covers: '',
+  production_area: '' as ProductionArea | '',
   is_available: true,
   note: '',
   dishes: [] as BuffetDish[],
@@ -383,7 +392,7 @@ const buffetFormError = ref('')
 const savingBuffet = ref(false)
 
 function resetBuffetForm() {
-  buffetForm.value = { name: '', buffet_type: '', price: '', min_covers: '', is_available: true, note: '', dishes: [] }
+  buffetForm.value = { name: '', buffet_type: '', price: '', min_covers: '', production_area: '', is_available: true, note: '', dishes: [] }
   buffetFormError.value = ''
   clearAddImage()
 }
@@ -412,6 +421,7 @@ async function handleAddBuffet() {
       description:  buffetForm.value.note.trim() || undefined,
       price:        priceNum,
       category:     'buffet',
+      production_area: buffetForm.value.production_area || undefined,
       is_available: buffetForm.value.is_available,
       buffet_data: {
         buffet_type: buffetForm.value.buffet_type,
@@ -448,6 +458,7 @@ const editBuffetForm = ref({
   buffet_type: '',
   price: '',
   min_covers: '',
+  production_area: '' as ProductionArea | '',
   is_available: true,
   note: '',
   dishes: [] as BuffetDish[],
@@ -462,6 +473,7 @@ function startEditBuffet(item: MenuItem) {
     buffet_type: data?.buffet_type ?? '',
     price: String(item.price),
     min_covers: data?.min_covers != null ? String(data.min_covers) : '',
+    production_area: item.production_area ?? '',
     is_available: item.is_available,
     note: item.description ?? '',
     dishes: (data?.dishes ?? []).map(d => ({ id: crypto.randomUUID(), course: d.course, name: d.name })),
@@ -494,6 +506,7 @@ async function handleSaveEditBuffet() {
       description:  editBuffetForm.value.note.trim() || undefined,
       price:        priceNum,
       category:     'buffet',
+      production_area: editBuffetForm.value.production_area || undefined,
       is_available: editBuffetForm.value.is_available,
       buffet_data: {
         buffet_type: editBuffetForm.value.buffet_type,
@@ -613,7 +626,7 @@ async function handleSaveEditBuffet() {
 
               <!-- Right: form fields -->
               <div class="lg:col-span-8 flex flex-col gap-4">
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div class="grid gap-2">
                     <Label>Item Name <span class="text-destructive">*</span></Label>
                     <Input v-model="itemForm.name" placeholder="e.g. Grilled Lemon Herb Chicken" />
@@ -627,6 +640,19 @@ async function handleSaveEditBuffet() {
                       <SelectContent>
                         <SelectItem v-for="cat in MENU_CATEGORIES" :key="cat.value" :value="cat.value">
                           {{ cat.label }}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div class="grid gap-2">
+                    <Label>Production Area</Label>
+                    <Select v-model="itemForm.production_area">
+                      <SelectTrigger class="w-full">
+                        <SelectValue placeholder="Select area" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem v-for="area in PRODUCTION_AREAS" :key="area.value" :value="area.value">
+                          {{ area.label }}
                         </SelectItem>
                       </SelectContent>
                     </Select>
@@ -726,7 +752,7 @@ async function handleSaveEditBuffet() {
 
               <!-- Right: buffet core fields -->
               <div class="lg:col-span-8 flex flex-col gap-4">
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div class="grid gap-2">
                     <Label>Buffet Name <span class="text-destructive">*</span></Label>
                     <Input v-model="buffetForm.name" placeholder="e.g. Executive Breakfast Buffet" />
@@ -740,6 +766,19 @@ async function handleSaveEditBuffet() {
                       <SelectContent>
                         <SelectItem v-for="bt in BUFFET_TYPES" :key="bt.value" :value="bt.value">
                           {{ bt.label }}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div class="grid gap-2">
+                    <Label>Production Area</Label>
+                    <Select v-model="buffetForm.production_area">
+                      <SelectTrigger class="w-full">
+                        <SelectValue placeholder="Select area" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem v-for="area in BUFFET_PRODUCTION_AREAS" :key="area.value" :value="area.value">
+                          {{ area.label }}
                         </SelectItem>
                       </SelectContent>
                     </Select>
@@ -978,16 +1017,28 @@ async function handleSaveEditBuffet() {
                       </div>
                     </TableCell>
                     <TableCell class="pt-3">
-                      <Select v-model="editForm.category">
-                        <SelectTrigger class="h-8 text-sm w-44">
-                          <SelectValue placeholder="Category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem v-for="cat in MENU_CATEGORIES" :key="cat.value" :value="cat.value">
-                            {{ cat.label }}
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <div class="flex flex-col gap-1.5">
+                        <Select v-model="editForm.category">
+                          <SelectTrigger class="h-8 text-sm w-44">
+                            <SelectValue placeholder="Category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem v-for="cat in MENU_CATEGORIES" :key="cat.value" :value="cat.value">
+                              {{ cat.label }}
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Select v-model="editForm.production_area">
+                          <SelectTrigger class="h-8 text-sm w-44">
+                            <SelectValue placeholder="Production area" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem v-for="area in PRODUCTION_AREAS" :key="area.value" :value="area.value">
+                              {{ area.label }}
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </TableCell>
                     <TableCell class="pt-3">
                       <Input v-model="editForm.price" type="number" min="0" step="0.01" class="h-8 text-sm w-28" />
@@ -1101,7 +1152,7 @@ async function handleSaveEditBuffet() {
       </div>
 
       <div class="flex flex-col gap-4">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div class="grid gap-2">
             <Label>Buffet Name <span class="text-destructive">*</span></Label>
             <Input v-model="editBuffetForm.name" placeholder="e.g. Executive Breakfast Buffet" />
@@ -1112,6 +1163,15 @@ async function handleSaveEditBuffet() {
               <SelectTrigger class="w-full"><SelectValue placeholder="Select type" /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="bt in BUFFET_TYPES" :key="bt.value" :value="bt.value">{{ bt.label }}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div class="grid gap-2">
+            <Label>Production Area</Label>
+            <Select v-model="editBuffetForm.production_area">
+              <SelectTrigger class="w-full"><SelectValue placeholder="Select area" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="area in BUFFET_PRODUCTION_AREAS" :key="area.value" :value="area.value">{{ area.label }}</SelectItem>
               </SelectContent>
             </Select>
           </div>

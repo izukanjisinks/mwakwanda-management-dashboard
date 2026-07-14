@@ -19,6 +19,7 @@ import { useInvoicesStore } from '@/stores/invoices'
 import { useAuthStore } from '@/stores/auth'
 import { uploadProofOfPayment } from '@/services/storage'
 import { getApiError } from '@/utils/errors'
+import { effectiveInvoiceStatus } from '@/utils/invoices'
 import type { Invoice, InvoiceStatus } from '@/types/invoice'
 
 const props = defineProps<{
@@ -376,8 +377,8 @@ const invoiceScenario = computed<'accommodation' | 'meals' | 'event' | 'general'
       <DialogHeader>
         <div class="flex items-center justify-between gap-3 pr-6">
           <DialogTitle class="font-mono text-lg">{{ invoice?.invoice_number }}</DialogTitle>
-          <Badge v-if="invoice" :variant="statusConfig[invoice.status].variant">
-            {{ statusConfig[invoice.status].label }}
+          <Badge v-if="invoice" :variant="statusConfig[effectiveInvoiceStatus(invoice)].variant">
+            {{ statusConfig[effectiveInvoiceStatus(invoice)].label }}
           </Badge>
         </div>
         <DialogDescription>
@@ -473,7 +474,7 @@ const invoiceScenario = computed<'accommodation' | 'meals' | 'event' | 'general'
             </div>
             <div class="rounded-lg border bg-muted/20 px-4 py-3">
               <p class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Due Date</p>
-              <p class="text-sm font-semibold" :class="invoice.status === 'overdue' ? 'text-destructive' : ''">
+              <p class="text-sm font-semibold" :class="effectiveInvoiceStatus(invoice) === 'overdue' ? 'text-destructive' : ''">
                 {{ formatDate(invoice.due_date) }}
               </p>
             </div>
@@ -557,7 +558,7 @@ const invoiceScenario = computed<'accommodation' | 'meals' | 'event' | 'general'
             </div>
             <div class="rounded-lg border bg-muted/20 px-4 py-3">
               <p class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Due Date</p>
-              <p class="text-sm font-semibold" :class="invoice.status === 'overdue' ? 'text-destructive' : ''">
+              <p class="text-sm font-semibold" :class="effectiveInvoiceStatus(invoice) === 'overdue' ? 'text-destructive' : ''">
                 {{ formatDate(invoice.due_date) }}
               </p>
             </div>

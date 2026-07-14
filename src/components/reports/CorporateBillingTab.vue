@@ -7,6 +7,7 @@ import {
 import { invoiceApi } from '@/services/api/invoices'
 import { useBranchFilterStore } from '@/stores/branchFilter'
 import { useInvoicesStore } from '@/stores/invoices'
+import { effectiveInvoiceStatus } from '@/utils/invoices'
 import type { Invoice, InvoiceStatus } from '@/types/invoice'
 import InvoiceDetailDialog from '@/components/invoices/InvoiceDetailDialog.vue'
 import InvoicePdfSheet from '@/components/invoices/InvoicePdfSheet.vue'
@@ -114,10 +115,13 @@ const hierarchy = computed<CostCenterNode[]>(() => {
   const ccMap = new Map<string, Map<string, Invoice[]>>()
 
   for (const inv of companyInvoices.value) {
+    // Trim before grouping — source data has inconsistent whitespace (e.g.
+    // gl_code " 1000" vs "1000"), which otherwise splits the same code into
+    // two lookalike groups.
     const cc = inv.cost_center_type === 'internal_order'
-      ? (inv.internal_order || '(No Internal Order)')
-      : (inv.cost_center || '(No Cost Center)')
-    const gl = inv.gl_code || '(No GL Code)'
+      ? ((inv.internal_order ?? '').trim() || '(No Internal Order)')
+      : ((inv.cost_center ?? '').trim() || '(No Cost Center)')
+    const gl = (inv.gl_code ?? '').trim() || '(No GL Code)'
     if (!ccMap.has(cc)) ccMap.set(cc, new Map())
     const glMap = ccMap.get(cc)!
     if (!glMap.has(gl)) glMap.set(gl, [])
@@ -131,13 +135,14 @@ const hierarchy = computed<CostCenterNode[]>(() => {
       const node: GlCodeNode = {
         glCode,
         invoices,
-        paid:          invoices.filter(i => i.status === 'paid').length,
-        pending:       invoices.filter(i => i.status === 'issued' || i.status === 'draft').length,
-        overdue:       invoices.filter(i => i.status === 'overdue').length,
-        paidAmount:    invoices.filter(i => i.status === 'paid').reduce((s, i) => s + i.total_amount, 0),
-        pendingAmount: invoices.filter(i => i.status === 'issued' || i.status === 'draft').reduce((s, i) => s + i.total_amount, 0),
-        overdueAmount: invoices.filter(i => i.status === 'overdue').reduce((s, i) => s + i.total_amount, 0),
-        totalAmount:   invoices.reduce((s, i) => s + i.total_amount, 0),
+        paid:          invoices.filter(i => effectiveInvoiceStatus(i) === 'paid').length,
+        pending:       invoices.filter(i => effectiveInvoiceStatus(i) === 'issued' || effectiveInvoiceStatus(i) === 'draft').length,
+        overdue:       invoices.filter(i => effectiveInvoiceStatus(i) === 'overdue').length,
+        paidAmount:    invoices.filter(i => effectiveInvoiceStatus(i) === 'paid').reduce((s, i) => s + i.total_amount, 0),
+        pendingAmount: invoices.filter(i => effectiveInvoiceStatus(i) === 'issued' || effectiveInvoiceStatus(i) === 'draft').reduce((s, i) => s + i.total_amount, 0),
+        overdueAmount: invoices.filter(i => effectiveInvoiceStatus(i) === 'overdue').reduce((s, i) => s + i.total_amount, 0),
+        // A cancelled invoice was never actually billed — exclude it from the total.
+        totalAmount:   invoices.filter(i => i.status !== 'cancelled').reduce((s, i) => s + i.total_amount, 0),
       }
       glCodes.push(node)
     }
@@ -161,10 +166,11 @@ const companySummary = computed(() => {
   const inv = companyInvoices.value
   return {
     total:         inv.length,
-    totalAmount:   inv.reduce((s, i) => s + i.total_amount, 0),
-    paidAmount:    inv.filter(i => i.status === 'paid').reduce((s, i) => s + i.total_amount, 0),
-    pendingAmount: inv.filter(i => i.status === 'issued' || i.status === 'draft').reduce((s, i) => s + i.total_amount, 0),
-    overdueAmount: inv.filter(i => i.status === 'overdue').reduce((s, i) => s + i.total_amount, 0),
+    // A cancelled invoice was never actually billed — exclude it from the total.
+    totalAmount:   inv.filter(i => i.status !== 'cancelled').reduce((s, i) => s + i.total_amount, 0),
+    paidAmount:    inv.filter(i => effectiveInvoiceStatus(i) === 'paid').reduce((s, i) => s + i.total_amount, 0),
+    pendingAmount: inv.filter(i => effectiveInvoiceStatus(i) === 'issued' || effectiveInvoiceStatus(i) === 'draft').reduce((s, i) => s + i.total_amount, 0),
+    overdueAmount: inv.filter(i => effectiveInvoiceStatus(i) === 'overdue').reduce((s, i) => s + i.total_amount, 0),
   }
 })
 
@@ -410,8 +416,9 @@ function fmtDate(d?: string) {
               <template v-if="expandedGl.has(glKey(ccNode.costCenter, glNode.glCode))">
                 <div class="divide-y border-t bg-background">
                   <div class="grid grid-cols-12 gap-2 px-8 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide bg-muted/20">
-                    <span class="col-span-3">Invoice No.</span>
-                    <span class="col-span-3">Issued</span>
+                    <span class="col-span-2">Invoice No.</span>
+                    <span class="col-span-2">Generated</span>
+                    <span class="col-span-2">Issued</span>
                     <span class="col-span-2">Due</span>
                     <span class="col-span-2 text-right">Amount</span>
                     <span class="col-span-1">Status</span>
@@ -422,23 +429,24 @@ function fmtDate(d?: string) {
                     :key="inv.id"
                     class="grid grid-cols-12 gap-2 items-center px-8 py-2.5 text-sm hover:bg-muted/20 transition-colors"
                   >
-                    <div class="col-span-3 flex flex-col gap-0.5">
+                    <div class="col-span-2 flex flex-col gap-0.5">
                       <span class="font-mono text-xs">{{ inv.invoice_number }}</span>
                       <span v-if="inv.internal_order" class="text-[10px] text-muted-foreground">
                         IO: {{ inv.internal_order }}
                       </span>
                     </div>
-                    <span class="col-span-3 text-muted-foreground text-xs">{{ fmtDate(inv.issued_date) }}</span>
+                    <span class="col-span-2 text-muted-foreground text-xs">{{ fmtDate(inv.created_at) }}</span>
+                    <span class="col-span-2 text-muted-foreground text-xs">{{ fmtDate(inv.issued_date) }}</span>
                     <span
                       class="col-span-2 text-xs"
-                      :class="inv.status === 'overdue' ? 'text-destructive font-medium' : 'text-muted-foreground'"
+                      :class="effectiveInvoiceStatus(inv) === 'overdue' ? 'text-destructive font-medium' : 'text-muted-foreground'"
                     >
                       {{ fmtDate(inv.due_date) }}
                     </span>
                     <span class="col-span-2 text-right font-medium text-xs">{{ fmt(inv.total_amount) }}</span>
                     <span class="col-span-1">
-                      <Badge :variant="statusConfig[inv.status].variant" class="text-[10px] px-1.5 py-0">
-                        {{ statusConfig[inv.status].label }}
+                      <Badge :variant="statusConfig[effectiveInvoiceStatus(inv)].variant" class="text-[10px] px-1.5 py-0">
+                        {{ statusConfig[effectiveInvoiceStatus(inv)].label }}
                       </Badge>
                     </span>
                     <span class="col-span-1 flex justify-end gap-0.5">

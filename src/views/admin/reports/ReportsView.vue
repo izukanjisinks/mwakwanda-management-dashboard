@@ -4,6 +4,7 @@ import { useBookingsStore } from '@/stores/bookings'
 import { useInvoicesStore } from '@/stores/invoices'
 import { useRoomsStore } from '@/stores/rooms'
 import { useIndividualClientsStore, useCorporateClientsStore } from '@/stores/clients'
+import { effectiveInvoiceStatus } from '@/utils/invoices'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -31,8 +32,8 @@ onMounted(() => {
 const kpis = computed(() => {
   const bookings = bookingsStore.bookings
   const invoices = invoicesStore.invoices
-  const totalRevenue = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + i.total_amount, 0)
-  const outstanding = invoices.filter(i => i.status === 'issued' || i.status === 'overdue').reduce((s, i) => s + i.total_amount, 0)
+  const totalRevenue = invoices.filter(i => effectiveInvoiceStatus(i) === 'paid').reduce((s, i) => s + i.total_amount, 0)
+  const outstanding = invoices.filter(i => effectiveInvoiceStatus(i) === 'issued' || effectiveInvoiceStatus(i) === 'overdue').reduce((s, i) => s + i.total_amount, 0)
   const activeBookings = bookings.filter(b => b.status === 'confirmed' || b.status === 'checked_in').length
   const totalClients = individualStore.clients.length + corporateStore.clients.length
 
@@ -59,11 +60,11 @@ const totalBookings = computed(() => bookingSegments.value.reduce((s, x) => s + 
 const invoiceSegments = computed<Seg[]>(() => {
   const inv = invoicesStore.invoices
   return [
-    { label: 'Paid',      value: inv.filter(x => x.status === 'paid').length,      color: 'var(--color-accent)' },
-    { label: 'Issued',    value: inv.filter(x => x.status === 'issued').length,    color: 'var(--color-primary)' },
-    { label: 'Overdue',   value: inv.filter(x => x.status === 'overdue').length,   color: 'var(--color-destructive)' },
-    { label: 'Draft',     value: inv.filter(x => x.status === 'draft').length,     color: 'var(--color-muted-foreground)' },
-    { label: 'Cancelled', value: inv.filter(x => x.status === 'cancelled').length, color: 'var(--color-chart-3)' },
+    { label: 'Paid',      value: inv.filter(x => effectiveInvoiceStatus(x) === 'paid').length,      color: 'var(--color-accent)' },
+    { label: 'Issued',    value: inv.filter(x => effectiveInvoiceStatus(x) === 'issued').length,    color: 'var(--color-primary)' },
+    { label: 'Overdue',   value: inv.filter(x => effectiveInvoiceStatus(x) === 'overdue').length,   color: 'var(--color-destructive)' },
+    { label: 'Draft',     value: inv.filter(x => effectiveInvoiceStatus(x) === 'draft').length,     color: 'var(--color-muted-foreground)' },
+    { label: 'Cancelled', value: inv.filter(x => effectiveInvoiceStatus(x) === 'cancelled').length, color: 'var(--color-chart-3)' },
   ].filter(s => s.value > 0)
 })
 

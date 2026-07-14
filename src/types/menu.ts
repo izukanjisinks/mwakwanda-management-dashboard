@@ -42,6 +42,14 @@ export const MENU_CATEGORIES: { value: MenuCategory; label: string }[] = [
   { value: 'buffet', label: "Executive Buffet" },
 ]
 
+export type ProductionArea = 'kitchen' | 'bakery' | 'bar' | 'grill'
+export const PRODUCTION_AREAS: { value: ProductionArea; label: string }[] = [
+  { value: 'kitchen', label: 'Kitchen' },
+  { value: 'bakery', label: 'Bakery' },
+  { value: 'bar', label: 'Bar' },
+  { value: 'grill', label: 'Grill' },
+]
+
 // Course groupings used within a buffet package.
 export type BuffetCourse = 'starters' | 'mains' | 'sides' | 'desserts' | 'drinks'
 
@@ -64,6 +72,7 @@ export interface MenuItem {
   description?: string
   price: number
   category?: MenuCategory
+  production_area?: ProductionArea
   image_url?: string
   is_available: boolean
   buffet_data?: BuffetData
@@ -159,6 +168,7 @@ export interface MenuItemPayload {
   description?: string
   price: number
   category?: MenuCategory
+  production_area?: ProductionArea
   image_url?: string
   is_available: boolean
   buffet_data?: BuffetData
