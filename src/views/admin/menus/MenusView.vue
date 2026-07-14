@@ -667,10 +667,7 @@ async function handleSaveEditBuffet() {
                   <div class="grid gap-2">
                     <Label>Availability</Label>
                     <div class="flex items-center gap-3 h-9 px-3 rounded-md border bg-muted/20">
-                      <Switch
-                        :checked="itemForm.is_available"
-                        @update:checked="(v) => itemForm.is_available = v"
-                      />
+                      <Switch v-model="itemForm.is_available" />
                       <span class="text-sm text-muted-foreground">{{ itemForm.is_available ? 'Available' : 'Unavailable' }}</span>
                     </div>
                   </div>
@@ -797,10 +794,7 @@ async function handleSaveEditBuffet() {
                   <div class="grid gap-2">
                     <Label>Availability</Label>
                     <div class="flex items-center gap-3 h-9 px-3 rounded-md border bg-muted/20">
-                      <Switch
-                        :checked="buffetForm.is_available"
-                        @update:checked="(v) => buffetForm.is_available = v"
-                      />
+                      <Switch v-model="buffetForm.is_available" />
                       <span class="text-sm text-muted-foreground">{{ buffetForm.is_available ? 'Available' : 'Unavailable' }}</span>
                     </div>
                   </div>
@@ -1189,10 +1183,7 @@ async function handleSaveEditBuffet() {
           <div class="grid gap-2">
             <Label>Availability</Label>
             <div class="flex items-center gap-3 h-9 px-3 rounded-md border bg-muted/20">
-              <Switch
-                :checked="editBuffetForm.is_available"
-                @update:checked="(v) => editBuffetForm.is_available = v"
-              />
+              <Switch v-model="editBuffetForm.is_available" />
               <span class="text-sm text-muted-foreground">{{ editBuffetForm.is_available ? 'Available' : 'Unavailable' }}</span>
             </div>
           </div>
