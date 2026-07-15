@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { toast } from 'vue-sonner'
 import { useBackofficeStore } from '@/stores/backoffice'
+import { consumeSessionExpiredFlag } from '@/services/api/sessionExpiry'
 import { Loader2, Lock } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,6 +14,12 @@ const route = useRoute()
 const store = useBackofficeStore()
 
 const form = ref({ email: '', password: '' })
+
+onMounted(() => {
+  if (consumeSessionExpiredFlag()) {
+    toast.error('Your session has expired. Please sign in again.')
+  }
+})
 
 async function handleSubmit() {
   const ok = await store.login(form.value.email, form.value.password)

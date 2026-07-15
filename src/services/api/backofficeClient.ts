@@ -1,4 +1,5 @@
 import type { ApiError } from '@/types/auth'
+import { handleSessionExpired } from './sessionExpiry'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8081/api/v1'
 const BACKOFFICE_PREFIX = '/backoffice'
@@ -49,10 +50,9 @@ async function request<T>(
     credentials: 'include',
   })
 
-  if (response.status === 401 && path !== '/login') {
-    localStorage.removeItem(TOKEN_KEY)
-    window.location.href = '/backoffice/login'
-    return undefined as T
+  if (response.status === 401 && path !== '/auth/login') {
+    handleSessionExpired(TOKEN_KEY, '/backoffice/login')
+    return new Promise<T>(() => {})
   }
 
   if (!response.ok) {

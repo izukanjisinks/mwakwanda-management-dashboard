@@ -1,7 +1,9 @@
 import type { ApiError } from '@/types/auth'
 import { useForbiddenHandler } from '@/composables/useForbiddenHandler'
+import { handleSessionExpired } from './sessionExpiry'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8081/api/v1'
+const TOKEN_KEY = 'lodge_token'
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
 
@@ -29,7 +31,7 @@ async function request<T>(
   }
 
   if (requiresAuth) {
-    const token = localStorage.getItem('lodge_token')
+    const token = localStorage.getItem(TOKEN_KEY)
     if (token) {
       headers['Authorization'] = `Bearer ${token}`
     }
@@ -56,6 +58,14 @@ async function request<T>(
     body: body !== undefined ? JSON.stringify(body) : undefined,
     credentials: 'include',
   })
+
+  // A 401 on a request that expected to be authenticated means the token
+  // expired or was revoked mid-session — bounce to login rather than let the
+  // caller treat this as a generic failed request.
+  if (response.status === 401 && requiresAuth) {
+    handleSessionExpired(TOKEN_KEY, '/login')
+    return new Promise<T>(() => {})
+  }
 
   if (!response.ok) {
     // Handle 403 Forbidden errors — regardless of HTTP method, so a blocked

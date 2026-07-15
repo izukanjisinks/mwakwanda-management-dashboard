@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { toast } from 'vue-sonner'
 import { useAuthStore } from '@/stores/auth'
+import { consumeSessionExpiredFlag } from '@/services/api/sessionExpiry'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -10,7 +12,19 @@ import OrgPickerDialog from '@/components/auth/OrgPickerDialog.vue'
 import { Trees, Eye, EyeOff, Loader2 } from 'lucide-vue-next'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
+
+onMounted(() => {
+  if (consumeSessionExpiredFlag()) {
+    toast.error('Your session has expired. Please sign in again.')
+  }
+})
+
+function redirectAfterLogin() {
+  const redirect = route.query.redirect as string | undefined
+  router.push(redirect ?? { name: 'dashboard' })
+}
 
 const email = ref('')
 const password = ref('')
@@ -32,7 +46,7 @@ async function handleSubmit() {
       return
     }
 
-    await router.push({ name: 'dashboard' })
+    redirectAfterLogin()
   } finally {
     submitting.value = false
   }
@@ -52,7 +66,7 @@ async function handleOrgSelect(orgId: string) {
       return
     }
 
-    await router.push({ name: 'dashboard' })
+    redirectAfterLogin()
   } finally {
     submitting.value = false
   }
@@ -61,7 +75,7 @@ async function handleOrgSelect(orgId: string) {
 function handlePasswordChanged() {
   showChangePasswordDialog.value = false
   if (authStore.user) authStore.user.change_password = false
-  router.push({ name: 'dashboard' })
+  redirectAfterLogin()
 }
 </script>
 
