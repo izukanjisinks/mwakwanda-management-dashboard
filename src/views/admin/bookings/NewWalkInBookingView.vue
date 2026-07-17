@@ -119,6 +119,11 @@ const company = ref({
 // ── Booked by / lead contact ──────────────────────────────────────────────────
 const booker = ref({ name: '', email: '', phone: '', id_number: '', job_title: '', man_number: '' })
 
+// This TPIN identifies our own organisation's internal bookings — these carry
+// extra required fields (cost tracking) that outside corporate clients don't need.
+const INTERNAL_ORG_TPIN = '1001757365'
+const isInternalOrg = computed(() => company.value.tpin.trim() === INTERNAL_ORG_TPIN)
+
 // ── Approver (corporate) ──────────────────────────────────────────────────────
 const approver = ref({ name: '', title: '', email: '', phone: '' })
 
@@ -654,6 +659,28 @@ const primaryName = computed(() => isCorporate.value ? company.value.name.trim()
 const canSubmit = computed(() => {
   if (!primaryName.value || saving.value) return false
   if (!isCorporate.value && !booker.value.name.trim()) return false
+  if (!isCorporate.value && !booker.value.phone.trim()) return false
+  if (isCorporate.value) {
+    if (!company.value.tpin.trim()) return false
+    if (!company.value.industry) return false
+    if (!company.value.email.trim()) return false
+    if (!company.value.phone.trim()) return false
+    if (!company.value.country.trim()) return false
+    if (!booker.value.email.trim()) return false
+    if (!booker.value.phone.trim()) return false
+    if (!approver.value.name.trim()) return false
+    if (!approver.value.title.trim()) return false
+    if (!approver.value.email.trim()) return false
+    if (!approver.value.phone.trim()) return false
+    if (isInternalOrg.value) {
+      if (!company.value.branch.trim()) return false
+      if (!company.value.department.trim()) return false
+      if (!company.value.cost_center.trim()) return false
+      if (!company.value.gl_code.trim()) return false
+      if (!booker.value.job_title.trim()) return false
+      if (!booker.value.man_number.trim()) return false
+    }
+  }
   if (hasAttendantDuplicates.value) return false
   if (bookingType.value === 'accommodation') {
     if (acc.value.check_in === '' || acc.value.check_out === '' || acc.value.check_out <= acc.value.check_in) return false
@@ -669,6 +696,8 @@ const canSubmit = computed(() => {
       (m0.service_type !== 'buffet' || m0.buffet_item_id !== '') &&
       meal.value.start_date !== '' && meal.value.end_date !== '' &&
       meal.value.end_date >= meal.value.start_date &&
+      (isCorporate.value || m0.name.trim() !== '') &&
+      (isCorporate.value || meal.value.reason.trim() !== '') &&
       (isCorporate.value || (participantMode.value === 'detailed'
         ? attendants.value.some(a => a.name.trim())
         : Number(evt.value.pax_count) > 0))
@@ -680,6 +709,7 @@ const canSubmit = computed(() => {
     s0.start_time !== '' && s0.end_time !== '' &&
     evt.value.start_date !== '' && evt.value.end_date !== '' &&
     evt.value.end_date >= evt.value.start_date &&
+    (isCorporate.value || s0.name.trim() !== '') &&
     (isCorporate.value || (participantMode.value === 'detailed'
       ? attendants.value.some(a => a.name.trim())
       : Number(evt.value.pax_count) > 0))
@@ -1226,11 +1256,11 @@ async function handleSubmit() {
                 <Input v-model="company.name" placeholder="e.g. Acme Corporation Ltd" class="mt-1.5" />
               </div>
               <div>
-                <Label class="text-xs">TPIN</Label>
+                <Label class="text-xs">TPIN <span class="text-destructive">*</span></Label>
                 <Input v-model="company.tpin" placeholder="e.g. 1234567890" class="mt-1.5" />
               </div>
               <div>
-                <Label class="text-xs">Industry</Label>
+                <Label class="text-xs">Industry <span class="text-destructive">*</span></Label>
                 <Select v-model="company.industry">
                   <SelectTrigger class="mt-1.5">
                     <SelectValue placeholder="Select industry…" />
@@ -1241,24 +1271,25 @@ async function handleSubmit() {
                 </Select>
               </div>
               <div>
-                <Label class="text-xs">Billing Email</Label>
+                <Label class="text-xs">Billing Email <span class="text-destructive">*</span></Label>
                 <Input v-model="company.email" type="email" placeholder="accounts@company.com" class="mt-1.5" />
               </div>
               <div>
-                <Label class="text-xs">Company Phone</Label>
+                <Label class="text-xs">Company Phone <span class="text-destructive">*</span></Label>
                 <Input v-model="company.phone" placeholder="e.g. +260 211 000000" class="mt-1.5" />
               </div>
               <div>
-                <Label class="text-xs">Branch</Label>
+                <Label class="text-xs">Branch <span v-if="isInternalOrg" class="text-destructive">*</span></Label>
                 <Input v-model="company.branch" placeholder="e.g. Lusaka North" class="mt-1.5" />
               </div>
               <div>
-                <Label class="text-xs">Department</Label>
+                <Label class="text-xs">Department <span v-if="isInternalOrg" class="text-destructive">*</span></Label>
                 <Input v-model="company.department" placeholder="e.g. Finance" class="mt-1.5" />
               </div>
               <div class="flex flex-col gap-2">
                 <Label class="text-xs">
                   {{ company.cost_center_type === 'internal_order' ? 'Internal Order No.' : 'Cost Centre' }}
+                  <span v-if="isInternalOrg" class="text-destructive">*</span>
                 </Label>
                 <div class="flex rounded-lg border overflow-hidden text-xs font-medium">
                   <button type="button"
@@ -1273,11 +1304,11 @@ async function handleSubmit() {
                 <Input v-model="company.cost_center" :placeholder="company.cost_center_type === 'cost_center' ? 'e.g. CC-1234' : 'e.g. IO-5678'" />
               </div>
               <div>
-                <Label class="text-xs">GL Code</Label>
+                <Label class="text-xs">GL Code <span v-if="isInternalOrg" class="text-destructive">*</span></Label>
                 <Input v-model="company.gl_code" placeholder="e.g. GL-4000" class="mt-1.5" />
               </div>
               <div>
-                <Label class="text-xs">Country</Label>
+                <Label class="text-xs">Country <span class="text-destructive">*</span></Label>
                 <Input v-model="company.country" placeholder="e.g. Zambia" class="mt-1.5" />
               </div>
             </div>
@@ -1298,19 +1329,19 @@ async function handleSubmit() {
                 <Input v-model="booker.name" placeholder="e.g. John Banda" class="mt-1.5" />
               </div>
               <div>
-                <Label class="text-xs">Email</Label>
+                <Label class="text-xs">Email <span class="text-destructive">*</span></Label>
                 <Input v-model="booker.email" type="email" placeholder="john.banda@company.com" class="mt-1.5" />
               </div>
               <div>
-                <Label class="text-xs">Phone</Label>
+                <Label class="text-xs">Phone <span class="text-destructive">*</span></Label>
                 <Input v-model="booker.phone" placeholder="e.g. 0977 000 000" class="mt-1.5" />
               </div>
               <div>
-                <Label class="text-xs">Job Title</Label>
+                <Label class="text-xs">Job Title <span v-if="isInternalOrg" class="text-destructive">*</span></Label>
                 <Input v-model="booker.job_title" placeholder="e.g. HR Manager" class="mt-1.5" />
               </div>
               <div>
-                <Label class="text-xs">Employee / Man Number</Label>
+                <Label class="text-xs">Employee / Man Number <span v-if="isInternalOrg" class="text-destructive">*</span></Label>
                 <Input v-model="booker.man_number" placeholder="e.g. EMP-00123" class="mt-1.5" />
               </div>
             </div>
@@ -1327,19 +1358,19 @@ async function handleSubmit() {
             </div>
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <Label class="text-xs">Full Name</Label>
+                <Label class="text-xs">Full Name <span class="text-destructive">*</span></Label>
                 <Input v-model="approver.name" placeholder="e.g. Mary Phiri" class="mt-1.5" />
               </div>
               <div>
-                <Label class="text-xs">Job Title</Label>
+                <Label class="text-xs">Job Title <span class="text-destructive">*</span></Label>
                 <Input v-model="approver.title" placeholder="e.g. Finance Manager" class="mt-1.5" />
               </div>
               <div>
-                <Label class="text-xs">Email</Label>
+                <Label class="text-xs">Email <span class="text-destructive">*</span></Label>
                 <Input v-model="approver.email" type="email" placeholder="approver@company.com" class="mt-1.5" />
               </div>
               <div>
-                <Label class="text-xs">Phone</Label>
+                <Label class="text-xs">Phone <span class="text-destructive">*</span></Label>
                 <Input v-model="approver.phone" placeholder="e.g. +260 97 0000000" class="mt-1.5" />
               </div>
             </div>
@@ -1369,7 +1400,7 @@ async function handleSubmit() {
                 <Input v-model="booker.email" type="email" placeholder="guest@email.com" class="mt-1.5" />
               </div>
               <div>
-                <Label class="text-xs">Phone Number</Label>
+                <Label class="text-xs">Phone Number <span class="text-destructive">*</span></Label>
                 <Input v-model="booker.phone" placeholder="e.g. 0977 000 000" class="mt-1.5" />
               </div>
             </div>
@@ -1992,7 +2023,7 @@ async function handleSubmit() {
               <div class="p-4 flex flex-col gap-3">
                 <div class="grid grid-cols-2 gap-3">
                   <div class="col-span-2">
-                    <Label class="text-xs">Session Name</Label>
+                    <Label class="text-xs">Session Name <span v-if="si === 0 && !isCorporate" class="text-destructive">*</span></Label>
                     <Input v-model="session.name" placeholder="e.g. Plenary, Workshop A, Closing Ceremony" class="mt-1.5" />
                   </div>
                   <div>
@@ -2347,7 +2378,7 @@ async function handleSubmit() {
             </div>
 
             <div>
-              <Label class="text-xs">Reason / Occasion</Label>
+              <Label class="text-xs">Reason / Occasion <span v-if="!isCorporate" class="text-destructive">*</span></Label>
               <Input v-model="meal.reason" placeholder="e.g. Conference catering, gala dinner, working lunch" class="mt-1.5" />
             </div>
 
@@ -2469,7 +2500,7 @@ async function handleSubmit() {
               <div class="p-4 flex flex-col gap-3">
                 <div class="grid grid-cols-2 gap-3">
                   <div class="col-span-2">
-                    <Label class="text-xs">Session Name</Label>
+                    <Label class="text-xs">Session Name <span v-if="si === 0 && !isCorporate" class="text-destructive">*</span></Label>
                     <Input v-model="session.name" placeholder="e.g. Morning Tea, Working Lunch, Networking Dinner" class="mt-1.5" />
                   </div>
                   <div>

@@ -3,7 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { Loader2, Minus, Plus, Search, ShoppingCart, Lock } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { getApiError } from '@/utils/errors'
-import { isCategoryLocked } from '@/utils/orders'
+import { isAreaLocked } from '@/utils/orders'
 import { useMenusStore } from '@/stores/menus'
 import { menusApi } from '@/services/api/menus'
 import type { MenuItem, Order } from '@/types/menu'
@@ -61,11 +61,11 @@ watch(
 
 // ── Cart helpers ────────────────────────────────────────────────────────────
 
-// Once a category's station (kitchen or bar) has marked its side of this
-// order ready, new items of that category shouldn't be folded in — the
+// Once a production area's station (kitchen or bar) has marked its side of
+// this order ready, new items for that area shouldn't be folded in — the
 // other station's items stay addable independently. See utils/orders.ts.
 function isLocked(item: MenuItem): boolean {
-  return isCategoryLocked(props.order, item.category)
+  return isAreaLocked(props.order, item.production_area)
 }
 
 function addToCart(item: MenuItem) {

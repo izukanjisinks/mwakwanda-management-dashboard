@@ -102,6 +102,11 @@ function formatDate(d?: string) {
   return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
+function formatDateTime(d?: string) {
+  if (!d) return '—'
+  return new Date(d).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
 function openDetail(invoice: Invoice) {
   selectedInvoice.value = invoice
   detailOpen.value = true
@@ -293,7 +298,7 @@ const summary = computed(() => ({
               <TableCell class="font-mono text-sm">{{ invoice.invoice_number }}</TableCell>
               <TableCell class="font-medium">{{ invoice.client_name || '—' }}</TableCell>
               <TableCell v-if="activeTab === 'corporate'" class="font-mono text-sm text-muted-foreground">{{ invoice.client_tpin || '—' }}</TableCell>
-              <TableCell class="text-muted-foreground">{{ formatDate(invoice.created_at) }}</TableCell>
+              <TableCell class="text-muted-foreground">{{ formatDateTime(invoice.created_at) }}</TableCell>
               <TableCell>{{ formatDate(invoice.issued_date) }}</TableCell>
               <TableCell :class="effectiveInvoiceStatus(invoice) === 'overdue' ? 'text-destructive font-medium' : ''">
                 {{ formatDate(invoice.due_date) }}

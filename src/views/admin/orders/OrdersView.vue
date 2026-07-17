@@ -3,7 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { Plus, Minus, ChevronLeft, ChevronRight, ShoppingBag, Trash2, X, FileText, User, AlertTriangle, Clock } from 'lucide-vue-next'
 import { useMenusStore } from '@/stores/menus'
 import { useBranchFilterStore } from '@/stores/branchFilter'
-import { isCategoryLocked, canAddAnyItems, isCategoryRemovalLocked } from '@/utils/orders'
+import { isAreaLocked, canAddAnyItems, isAreaRemovalLocked, itemProductionArea } from '@/utils/orders'
 import type { Order } from '@/types/menu'
 import type { Invoice } from '@/types/invoice'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
@@ -528,8 +528,8 @@ async function updateQuantity(itemId: string, newQty: number) {
                       <button
                         type="button"
                         class="size-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30"
-                        :disabled="oi.quantity <= 1 || updatingItemId === oi.id || removingItemId === oi.id || isCategoryRemovalLocked(sheetOrder, oi.category)"
-                        :title="isCategoryRemovalLocked(sheetOrder, oi.category) ? 'That station has already started preparing this order.' : undefined"
+                        :disabled="oi.quantity <= 1 || updatingItemId === oi.id || removingItemId === oi.id || isAreaRemovalLocked(sheetOrder, itemProductionArea(oi))"
+                        :title="isAreaRemovalLocked(sheetOrder, itemProductionArea(oi)) ? 'That station has already started preparing this order.' : undefined"
                         @click.stop="updateQuantity(oi.id, oi.quantity - 1)"
                       >
                         <Minus class="size-3" />
@@ -544,8 +544,8 @@ async function updateQuantity(itemId: string, newQty: number) {
                       <button
                         type="button"
                         class="size-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30"
-                        :disabled="updatingItemId === oi.id || removingItemId === oi.id || isCategoryLocked(sheetOrder, oi.category)"
-                        :title="isCategoryLocked(sheetOrder, oi.category) ? 'That station has already marked this order ready.' : undefined"
+                        :disabled="updatingItemId === oi.id || removingItemId === oi.id || isAreaLocked(sheetOrder, itemProductionArea(oi))"
+                        :title="isAreaLocked(sheetOrder, itemProductionArea(oi)) ? 'That station has already marked this order ready.' : undefined"
                         @click.stop="updateQuantity(oi.id, oi.quantity + 1)"
                       >
                         <Plus class="size-3" />
@@ -556,8 +556,8 @@ async function updateQuantity(itemId: string, newQty: number) {
                     <button
                       type="button"
                       class="shrink-0 size-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-30 disabled:hover:text-muted-foreground disabled:hover:bg-transparent"
-                      :disabled="removingItemId === oi.id || updatingItemId === oi.id || isCategoryRemovalLocked(sheetOrder, oi.category)"
-                      :title="isCategoryRemovalLocked(sheetOrder, oi.category) ? 'That station has already started preparing this order.' : undefined"
+                      :disabled="removingItemId === oi.id || updatingItemId === oi.id || isAreaRemovalLocked(sheetOrder, itemProductionArea(oi))"
+                      :title="isAreaRemovalLocked(sheetOrder, itemProductionArea(oi)) ? 'That station has already started preparing this order.' : undefined"
                       @click.stop="removeItem(oi.id, oi.quantity)"
                     >
                       <Trash2 v-if="removingItemId !== oi.id" class="size-3.5" />

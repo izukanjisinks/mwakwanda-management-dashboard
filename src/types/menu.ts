@@ -92,6 +92,9 @@ export interface OrderItem {
   // backend now — no need to fall back to menu_item?.category or a
   // separately-fetched category map.
   category?: MenuCategory
+  // The linked menu item's production area — drives kitchen vs. bar routing.
+  // Falls back to menu_item?.production_area if not sent directly.
+  production_area?: ProductionArea
   quantity: number
   unit_price?: number
   subtotal?: number

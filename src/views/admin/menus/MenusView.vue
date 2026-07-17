@@ -154,6 +154,8 @@ async function handleAddItem() {
   itemFormError.value = ''
   const priceNum = parseFloat(itemForm.value.price)
   if (!itemForm.value.name.trim()) { itemFormError.value = 'Name is required.'; return }
+  if (!itemForm.value.category) { itemFormError.value = 'Category is required.'; return }
+  if (!itemForm.value.production_area) { itemFormError.value = 'Production area is required.'; return }
   if (isNaN(priceNum) || priceNum < 0) { itemFormError.value = 'Enter a valid price.'; return }
 
   savingItem.value = true
@@ -249,6 +251,8 @@ async function handleSaveEdit() {
   if (!editingItem.value) return
   const priceNum = parseFloat(editForm.value.price)
   if (isNaN(priceNum) || priceNum < 0) { toast.error('Enter a valid price.'); return }
+
+  if (!editForm.value.production_area) { toast.error('Production area is required.'); return }
 
   savingEdit.value = true
   try {
@@ -408,9 +412,12 @@ function removeDish(id: string) {
 async function handleAddBuffet() {
   buffetFormError.value = ''
   const priceNum = parseFloat(buffetForm.value.price)
+  const minCoversNum = parseInt(buffetForm.value.min_covers)
   if (!buffetForm.value.name.trim())   { buffetFormError.value = 'Buffet name is required.'; return }
   if (!buffetForm.value.buffet_type)   { buffetFormError.value = 'Select a buffet type.'; return }
+  if (!buffetForm.value.production_area) { buffetFormError.value = 'Production area is required.'; return }
   if (isNaN(priceNum) || priceNum < 0) { buffetFormError.value = 'Enter a valid price per person.'; return }
+  if (isNaN(minCoversNum) || minCoversNum < 1) { buffetFormError.value = 'Enter a valid minimum covers.'; return }
   if (!buffetForm.value.dishes.length) { buffetFormError.value = 'Add at least one dish.'; return }
   if (buffetForm.value.dishes.some(d => !d.name.trim())) { buffetFormError.value = 'All dish names must be filled in.'; return }
 
@@ -425,7 +432,7 @@ async function handleAddBuffet() {
       is_available: buffetForm.value.is_available,
       buffet_data: {
         buffet_type: buffetForm.value.buffet_type,
-        min_covers:  buffetForm.value.min_covers ? parseInt(buffetForm.value.min_covers) : undefined,
+        min_covers:  minCoversNum,
         dishes:      buffetForm.value.dishes.map(d => ({ course: d.course, name: d.name.trim() })),
       },
     })
@@ -632,7 +639,7 @@ async function handleSaveEditBuffet() {
                     <Input v-model="itemForm.name" placeholder="e.g. Grilled Lemon Herb Chicken" />
                   </div>
                   <div class="grid gap-2">
-                    <Label>Category</Label>
+                    <Label>Category <span class="text-destructive">*</span></Label>
                     <Select v-model="itemForm.category">
                       <SelectTrigger class="w-full">
                         <SelectValue placeholder="Select category" />
@@ -645,7 +652,7 @@ async function handleSaveEditBuffet() {
                     </Select>
                   </div>
                   <div class="grid gap-2">
-                    <Label>Production Area</Label>
+                    <Label>Production Area <span class="text-destructive">*</span></Label>
                     <Select v-model="itemForm.production_area">
                       <SelectTrigger class="w-full">
                         <SelectValue placeholder="Select area" />
@@ -687,7 +694,7 @@ async function handleSaveEditBuffet() {
                   <Button variant="outline" :disabled="savingItem" @click="resetItemForm">
                     Discard
                   </Button>
-                  <Button :disabled="savingItem || !itemForm.name.trim() || !itemForm.price" @click="handleAddItem">
+                  <Button :disabled="savingItem || !itemForm.name.trim() || !itemForm.price || !itemForm.category || !itemForm.production_area" @click="handleAddItem">
                     <Loader2 v-if="savingItem" class="size-4 mr-2 animate-spin" />
                     <Plus v-else class="size-4 mr-2" />
                     Add Item to Menu
@@ -768,7 +775,7 @@ async function handleSaveEditBuffet() {
                     </Select>
                   </div>
                   <div class="grid gap-2">
-                    <Label>Production Area</Label>
+                    <Label>Production Area <span class="text-destructive">*</span></Label>
                     <Select v-model="buffetForm.production_area">
                       <SelectTrigger class="w-full">
                         <SelectValue placeholder="Select area" />
@@ -788,7 +795,7 @@ async function handleSaveEditBuffet() {
                     <Input v-model="buffetForm.price" type="number" min="0" step="0.01" placeholder="0.00" />
                   </div>
                   <div class="grid gap-2">
-                    <Label>Min. Covers <span class="text-muted-foreground text-xs font-normal">(optional)</span></Label>
+                    <Label>Min. Covers <span class="text-destructive">*</span></Label>
                     <Input v-model="buffetForm.min_covers" type="number" min="1" placeholder="e.g. 10" />
                   </div>
                   <div class="grid gap-2">
@@ -862,7 +869,7 @@ async function handleSaveEditBuffet() {
             <div class="flex items-center justify-end gap-3 pt-6 mt-4 border-t">
               <Button variant="outline" :disabled="savingBuffet" @click="resetBuffetForm">Discard</Button>
               <Button
-                :disabled="savingBuffet || !buffetForm.name.trim() || !buffetForm.price || !buffetForm.buffet_type || !buffetForm.dishes.length"
+                :disabled="savingBuffet || !buffetForm.name.trim() || !buffetForm.price || !buffetForm.buffet_type || !buffetForm.production_area || !buffetForm.min_covers || !buffetForm.dishes.length"
                 @click="handleAddBuffet"
               >
                 <Loader2 v-if="savingBuffet" class="size-4 mr-2 animate-spin" />
@@ -1048,7 +1055,7 @@ async function handleSaveEditBuffet() {
                     </TableCell>
                     <TableCell class="text-right pt-3">
                       <div class="flex items-center justify-end gap-1">
-                        <Button size="sm" :disabled="savingEdit" @click="handleSaveEdit">
+                        <Button size="sm" :disabled="savingEdit || !editForm.production_area" @click="handleSaveEdit">
                           <Loader2 v-if="savingEdit" class="size-3.5 animate-spin" />
                           <span v-else>Save</span>
                         </Button>
