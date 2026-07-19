@@ -443,6 +443,7 @@ function syncRowStatus(id: string, status: BookingStatus) {
             <TableHead>Booking #</TableHead>
             <TableHead>Guest</TableHead>
             <TableHead>Type</TableHead>
+            <TableHead>Created</TableHead>
             <TableHead>Total (ZMW)</TableHead>
             <TableHead>Status</TableHead>
             <TableHead class="text-right">Details</TableHead>
@@ -451,12 +452,12 @@ function syncRowStatus(id: string, status: BookingStatus) {
         <TableBody>
           <template v-if="store.loading">
             <TableRow v-for="i in 5" :key="i">
-              <TableCell colspan="6"><div class="h-4 rounded bg-muted animate-pulse" /></TableCell>
+              <TableCell colspan="7"><div class="h-4 rounded bg-muted animate-pulse" /></TableCell>
             </TableRow>
           </template>
           <template v-else-if="visibleBookings.length === 0">
             <TableRow>
-              <TableCell colspan="6" class="py-16 text-center text-muted-foreground">
+              <TableCell colspan="7" class="py-16 text-center text-muted-foreground">
                 No individual bookings found.
               </TableCell>
             </TableRow>
@@ -474,6 +475,7 @@ function syncRowStatus(id: string, status: BookingStatus) {
                 <div v-if="b.booker_email" class="text-xs text-muted-foreground">{{ b.booker_email }}</div>
               </TableCell>
               <TableCell class="capitalize">{{ b.booking_type || 'accommodation' }}</TableCell>
+              <TableCell class="text-sm text-muted-foreground">{{ fmtDateTime(b.created_at) }}</TableCell>
               <TableCell class="font-medium">{{ b.total_amount?.toLocaleString() }}</TableCell>
               <TableCell>
                 <Badge :variant="statusMeta(b.status).variant" class="text-xs">
@@ -511,6 +513,7 @@ function syncRowStatus(id: string, status: BookingStatus) {
             <TableHead>Company</TableHead>
             <TableHead>Booked By</TableHead>
             <TableHead>Type</TableHead>
+            <TableHead>Created</TableHead>
             <TableHead>Total (ZMW)</TableHead>
             <TableHead>Status</TableHead>
             <TableHead class="text-right">Details</TableHead>
@@ -519,12 +522,12 @@ function syncRowStatus(id: string, status: BookingStatus) {
         <TableBody>
           <template v-if="store.loading">
             <TableRow v-for="i in 5" :key="i">
-              <TableCell colspan="7"><div class="h-4 rounded bg-muted animate-pulse" /></TableCell>
+              <TableCell colspan="8"><div class="h-4 rounded bg-muted animate-pulse" /></TableCell>
             </TableRow>
           </template>
           <template v-else-if="visibleBookings.length === 0">
             <TableRow>
-              <TableCell colspan="7" class="py-16 text-center text-muted-foreground">
+              <TableCell colspan="8" class="py-16 text-center text-muted-foreground">
                 No corporate bookings found.
               </TableCell>
             </TableRow>
@@ -540,6 +543,7 @@ function syncRowStatus(id: string, status: BookingStatus) {
               <TableCell class="font-medium">{{ b.company_name || '—' }}</TableCell>
               <TableCell>{{ b.booker_name || b.profile_name || '—' }}</TableCell>
               <TableCell class="capitalize">{{ b.booking_type }}</TableCell>
+              <TableCell class="text-sm text-muted-foreground">{{ fmtDateTime(b.created_at) }}</TableCell>
               <TableCell class="font-medium">{{ b.total_amount?.toLocaleString() }}</TableCell>
               <TableCell>
                 <Badge :variant="statusMeta(b.status).variant" class="text-xs">

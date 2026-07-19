@@ -322,10 +322,10 @@ const indRoomSelection = ref<Record<number, string>>({})
 const indAvailableRooms = ref<Record<number, Room[]>>({})
 const indRoomsLoading = ref(false)
 
-// Prevent the same room being picked for two attendants whose stays overlap.
-// If their date ranges don't overlap, the room is free for both.
-function indRoomTakenByOther(attendantIdx: number, roomId: string): boolean {
-  return Object.entries(indRoomSelection.value).some(([idx, rid]) => {
+// Other attendants already sharing this room whose stays overlap with this
+// attendant's — dates that don't overlap free the room up again.
+function indRoomOccupancy(attendantIdx: number, roomId: string): number {
+  return Object.entries(indRoomSelection.value).filter(([idx, rid]) => {
     if (Number(idx) === attendantIdx || rid !== roomId) return false
     const otherCi = indAttendantCheckIn.value[Number(idx)]
     const otherCo = indAttendantCheckOut.value[Number(idx)]
@@ -335,7 +335,11 @@ function indRoomTakenByOther(attendantIdx: number, roomId: string): boolean {
     if (!otherCi || !otherCo || !selfCi || !selfCo) return true
     // Overlap: A starts before B ends AND B starts before A ends
     return otherCi < selfCo && selfCi < otherCo
-  })
+  }).length
+}
+// A room stays pickable as long as sharing it wouldn't exceed its capacity.
+function indRoomTakenByOther(attendantIdx: number, roomId: string, capacity: number): boolean {
+  return indRoomOccupancy(attendantIdx, roomId) >= capacity
 }
 
 async function loadIndAvailableRooms(attendantIdx?: number) {
@@ -385,10 +389,10 @@ const allGuestsAssigned = computed(() => {
   return indAllGuestsAssigned.value
 })
 
-// Prevent the same room being picked for two corporate guests whose stays overlap.
-// If their date ranges don't overlap, the room is free for both.
-function roomTakenByOther(guestIndex: number, roomId: string): boolean {
-  return Object.entries(guestRoomSelection.value).some(([idx, rid]) => {
+// Other corporate guests already sharing this room whose stays overlap with
+// this guest's — dates that don't overlap free the room up again.
+function roomOccupancy(guestIndex: number, roomId: string): number {
+  return Object.entries(guestRoomSelection.value).filter(([idx, rid]) => {
     if (Number(idx) === guestIndex || rid !== roomId) return false
     const other = corporateGuests.value[Number(idx)]
     const self  = corporateGuests.value[guestIndex]
@@ -396,7 +400,11 @@ function roomTakenByOther(guestIndex: number, roomId: string): boolean {
     if (!other?.check_in || !other?.check_out || !self?.check_in || !self?.check_out) return true
     // Overlap: A starts before B ends AND B starts before A ends
     return other.check_in < self.check_out && self.check_in < other.check_out
-  })
+  }).length
+}
+// A room stays pickable as long as sharing it wouldn't exceed its capacity.
+function roomTakenByOther(guestIndex: number, roomId: string, capacity: number): boolean {
+  return roomOccupancy(guestIndex, roomId) >= capacity
 }
 
 // ─── Event booking — session venue assignment ──────────────────────────────────
@@ -1186,9 +1194,9 @@ onMounted(async () => {
                         v-for="room in (indAvailableRooms[i] ?? [])"
                         :key="room.id"
                         :value="room.id"
-                        :disabled="indRoomTakenByOther(i, room.id)"
+                        :disabled="indRoomTakenByOther(i, room.id, room.capacity)"
                       >
-                        {{ room.name }} ({{ room.type }}) — ZMW {{ room.price_per_night?.toLocaleString() }}{{ indRoomTakenByOther(i, room.id) ? ' · taken' : '' }}
+                        {{ room.name }} ({{ room.type }}) — ZMW {{ room.price_per_night?.toLocaleString() }} · {{ indRoomOccupancy(i, room.id) }}/{{ room.capacity }}{{ indRoomTakenByOther(i, room.id, room.capacity) ? ' · full' : '' }}
                       </option>
                     </select>
                     <div v-else class="text-xs">
@@ -1433,9 +1441,9 @@ onMounted(async () => {
                           v-for="room in guestAvailableRooms[i]"
                           :key="room.id"
                           :value="room.id"
-                          :disabled="roomTakenByOther(i, room.id)"
+                          :disabled="roomTakenByOther(i, room.id, room.capacity)"
                         >
-                          {{ room.name }} ({{ room.type }}) — ZMW {{ room.price_per_night?.toLocaleString() }}{{ roomTakenByOther(i, room.id) ? ' · taken' : '' }}
+                          {{ room.name }} ({{ room.type }}) — ZMW {{ room.price_per_night?.toLocaleString() }} · {{ roomOccupancy(i, room.id) }}/{{ room.capacity }}{{ roomTakenByOther(i, room.id, room.capacity) ? ' · full' : '' }}
                         </option>
                       </select>
                       <!-- Completed: show preference -->

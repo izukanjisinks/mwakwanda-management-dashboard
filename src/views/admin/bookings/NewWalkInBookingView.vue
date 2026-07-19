@@ -128,15 +128,13 @@ const isInternalOrg = computed(() => company.value.tpin.trim() === INTERNAL_ORG_
 const approver = ref({ name: '', title: '', email: '', phone: '' })
 
 // ── Attendants / Delegates / Guests ──────────────────────────────────────────
-// For individual: always starts with 1 lead contact (index 0, can't be removed).
-// For corporate:  starts empty; delegates added as needed.
-type Attendant = { name: string; email: string; phone: string; id_number: string; job_title: string; dietary_notes: string }
+// Both individual and corporate always start with 1 lead contact/delegate
+// (index 0, can't be removed) — more are added as needed via "Add".
+type Attendant = { name: string; email: string; phone: string; id_number: string; dietary_notes: string }
 function blankAttendant(): Attendant {
-  return { name: '', email: '', phone: '', id_number: '', job_title: '', dietary_notes: '' }
+  return { name: '', email: '', phone: '', id_number: '', dietary_notes: '' }
 }
-const attendants = ref<Attendant[]>(
-  isCorporate.value ? [] : [blankAttendant()],
-)
+const attendants = ref<Attendant[]>([blankAttendant()])
 const attendantsExpanded = ref(!isCorporate.value)
 
 function addAttendant() {
@@ -144,7 +142,7 @@ function addAttendant() {
   attendantsExpanded.value = true
 }
 function removeAttendant(i: number) {
-  if (!isCorporate.value && i === 0) return  // lead contact cannot be removed for individual
+  if (i === 0) return  // lead contact/delegate cannot be removed
   attendants.value.splice(i, 1)
   if (attendants.value.length === 0) attendantsExpanded.value = false
   // Reindex delegate room assignments to follow the shifted attendant indices
@@ -202,13 +200,8 @@ const delegateMode = ref<'headcount' | 'detailed'>('headcount')
 
 // Re-initialise attendants when context switches
 watch(context, (ctx) => {
-  if (ctx === 'individual') {
-    attendants.value = [blankAttendant()]
-    attendantsExpanded.value = true
-  } else {
-    attendants.value = []
-    attendantsExpanded.value = false
-  }
+  attendants.value = [blankAttendant()]
+  attendantsExpanded.value = ctx === 'individual'
   participantMode.value = 'headcount'
   delegateMode.value    = 'headcount'
 })
@@ -246,14 +239,22 @@ function setDelegateRoom(i: number, room: Room) {
 function clearDelegateRoom(i: number) {
   delete delegateRooms.value[i]
 }
-// Rooms already assigned to other delegates are hidden from this delegate's picker
+// How many OTHER delegates already share this room (all delegates use the same
+// check-in/check-out here, so no date-overlap check is needed like Task Detail's).
+function roomOccupantCount(roomId: string, excludeIdx: number) {
+  return Object.entries(delegateRooms.value).filter(
+    ([k, r]) => Number(k) !== excludeIdx && r.room_id === roomId,
+  ).length
+}
+// A room stays pickable for this delegate as long as it hasn't reached capacity
+// from other delegates already sharing it.
 function availableRoomsForDelegate(i: number) {
-  const takenByOthers = new Set(
-    Object.entries(delegateRooms.value)
-      .filter(([k]) => Number(k) !== i)
-      .map(([, r]) => r.room_id),
-  )
-  return rooms.value.filter(r => !takenByOthers.has(r.id))
+  return rooms.value.filter(r => roomOccupantCount(r.id, i) < r.capacity)
+}
+// Delegates already sharing this delegate's assigned room, for the "shared with…" hint.
+function delegateRoomShareCount(i: number) {
+  const room = delegateRooms.value[i]
+  return room ? roomOccupantCount(room.room_id, i) : 0
 }
 
 watch([() => acc.value.check_in, () => acc.value.check_out], async ([ci, co]) => {
@@ -279,8 +280,15 @@ const nights = computed(() => {
   ))
 })
 const accTotal = computed(() => (selectedRoom.value?.price_per_night ?? 0) * nights.value)
+// Unique rooms actually assigned — a shared room is billed once per night, not
+// once per occupant, so this dedupes by room_id before summing/counting.
+const uniqueDelegateRooms = computed(() => {
+  const byRoomId = new Map<string, number>()
+  Object.values(delegateRooms.value).forEach(r => byRoomId.set(r.room_id, r.rate_per_night))
+  return byRoomId
+})
 const delegateRoomTotal = computed(() =>
-  Object.values(delegateRooms.value).reduce((sum, r) => sum + r.rate_per_night, 0) * nights.value,
+  [...uniqueDelegateRooms.value.values()].reduce((sum, rate) => sum + rate, 0) * nights.value,
 )
 
 // ── Event form ────────────────────────────────────────────────────────────────
@@ -767,7 +775,7 @@ function buildNotes(baseNotes: string) {
     lines.push(`\nDelegates (${validDelegates.length}):`)
     validDelegates.forEach((d, i) => {
       const room = bookingType.value === 'accommodation' ? getDelegateRoom(d._idx) : null
-      lines.push(`  ${i + 1}. ${d.name}${d.job_title ? ` — ${d.job_title}` : ''}${d.id_number ? ` (ID: ${d.id_number})` : ''}${d.phone ? ` · ${d.phone}` : ''}${room ? ` · Room: ${room.room_name}` : ''}`)
+      lines.push(`  ${i + 1}. ${d.name}${d.id_number ? ` (ID: ${d.id_number})` : ''}${d.phone ? ` · ${d.phone}` : ''}${room ? ` · Room: ${room.room_name}` : ''}`)
     })
   } else if (bookingType.value !== 'accommodation' && delegateMode.value === 'headcount' && Number(evt.value.pax_count) > 0) {
     lines.push(`\nDelegates: ${evt.value.pax_count} (headcount only)`)
@@ -1090,12 +1098,22 @@ function buildAccommodationEnvelope(): import('@/types/booking').WalkInAccommoda
 }
 
 function buildIndividualAccommodationEnvelope(): import('@/types/booking').WalkInIndividualAccommodationPayload {
-  // Each named guest gets a room. rooms[] slots map to the guest by attendant_idx.
+  // Each named guest gets a room slot — multiple guests may share a room_id.
+  // rate_per_night is only sent on a room's first slot so a shared room bills
+  // once, not once per occupant.
   const named = attendants.value.filter(a => a.name.trim())
   const rooms: import('@/types/booking').WalkInIndivRoomSlot[] = []
+  const billedRoomIds = new Set<string>()
   named.forEach((_, i) => {
     const room = delegateRooms.value[i]
-    if (room) rooms.push({ slot_index: rooms.length, attendant_idx: i, room_id: room.room_id, room_name: room.room_name, room_type: room.room_type, rate_per_night: room.rate_per_night })
+    if (!room) return
+    const alreadyBilled = billedRoomIds.has(room.room_id)
+    rooms.push({
+      slot_index: rooms.length, attendant_idx: i, room_id: room.room_id,
+      room_name: room.room_name, room_type: room.room_type,
+      rate_per_night: alreadyBilled ? undefined : room.rate_per_night,
+    })
+    billedRoomIds.add(room.room_id)
   })
 
   const attendantsList: import('@/types/booking').WalkInAttendant[] = named.map((a, i) => ({
@@ -1616,9 +1634,7 @@ async function handleSubmit() {
                   <p class="text-xs text-muted-foreground">
                     {{ bookingType !== 'accommodation' && delegateMode === 'headcount'
                       ? `${Number(evt.pax_count) || 0} delegate${Number(evt.pax_count) !== 1 ? 's' : ''} — headcount only`
-                      : attendants.length === 0
-                        ? 'No delegates added — click to register'
-                        : `${attendants.length} delegate${attendants.length !== 1 ? 's' : ''} registered` }}
+                      : `${attendants.length} delegate${attendants.length !== 1 ? 's' : ''} registered` }}
                   </p>
                 </div>
               </div>
@@ -1677,49 +1693,52 @@ async function handleSubmit() {
                   Register each delegate attending. Lead delegate receives all booking communications.
                 </p>
 
-                <div v-for="(att, i) in attendants" :key="i" class="rounded-lg border bg-muted/20 p-4 flex flex-col gap-3">
+                <div v-for="(att, i) in attendants" :key="i" class="rounded-lg border bg-muted/20 p-4 flex flex-col gap-2.5">
                   <div class="flex items-center justify-between">
                     <div class="flex items-center gap-2">
-                      <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-muted text-muted-foreground text-xs font-bold">
+                      <span class="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold"
+                        :class="i === 0 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'">
                         {{ i + 1 }}
                       </span>
-                      <span class="text-sm font-medium text-muted-foreground">{{ att.name || `Delegate ${i + 1}` }}</span>
+                      <span class="text-sm font-medium" :class="i === 0 ? 'text-primary' : 'text-muted-foreground'">
+                        {{ i === 0 ? 'Lead Delegate' : (att.name || `Delegate ${i + 1}`) }}
+                      </span>
                     </div>
                     <button type="button"
-                      class="text-muted-foreground hover:text-destructive transition-colors rounded p-1"
+                      class="rounded p-1 transition-colors"
+                      :class="i === 0 ? 'text-muted-foreground/30 cursor-not-allowed' : 'text-muted-foreground hover:text-destructive'"
+                      :disabled="i === 0"
                       @click="removeAttendant(i)">
                       <Trash2 class="size-3.5" />
                     </button>
                   </div>
-                  <div class="grid grid-cols-2 gap-2.5">
-                    <div class="col-span-2">
-                      <Label class="text-xs">Full Name <span class="text-destructive">*</span></Label>
+
+                  <!-- Fields: 4-column single row -->
+                  <div class="grid grid-cols-4 gap-2.5">
+                    <div>
+                      <Label class="text-xs uppercase tracking-wide">Full Name <span class="text-destructive">*</span></Label>
                       <Input v-model="att.name" placeholder="Full name" class="mt-1 h-8 text-sm" />
                     </div>
                     <div>
-                      <Label class="text-xs">Email</Label>
+                      <Label class="text-xs uppercase tracking-wide">Email</Label>
                       <Input v-model="att.email" type="email" placeholder="Email" class="mt-1 h-8 text-sm"
                         :class="attendantError(i, 'email') && 'border-destructive'" />
                       <p v-if="attendantError(i, 'email')" class="text-xs text-destructive mt-0.5">{{ attendantError(i, 'email') }}</p>
                     </div>
                     <div>
-                      <Label class="text-xs">Phone</Label>
+                      <Label class="text-xs uppercase tracking-wide">Phone</Label>
                       <Input v-model="att.phone" placeholder="Phone" class="mt-1 h-8 text-sm"
                         :class="attendantError(i, 'phone') && 'border-destructive'" />
                       <p v-if="attendantError(i, 'phone')" class="text-xs text-destructive mt-0.5">{{ attendantError(i, 'phone') }}</p>
                     </div>
                     <div>
-                      <Label class="text-xs">Passport / NRC <span class="text-destructive">*</span></Label>
+                      <Label class="text-xs uppercase tracking-wide">Passport / NRC <span class="text-destructive">*</span></Label>
                       <Input v-model="att.id_number" placeholder="ID number" class="mt-1 h-8 text-sm"
                         :class="attendantError(i, 'id_number') && 'border-destructive'" />
                       <p v-if="attendantError(i, 'id_number')" class="text-xs text-destructive mt-0.5">{{ attendantError(i, 'id_number') }}</p>
                     </div>
-                    <div>
-                      <Label class="text-xs">Job Title</Label>
-                      <Input v-model="att.job_title" placeholder="e.g. Engineer" class="mt-1 h-8 text-sm" />
-                    </div>
-                    <div v-if="bookingType === 'meals'" class="col-span-2">
-                      <Label class="text-xs">Dietary Notes</Label>
+                    <div v-if="bookingType === 'meals'" class="col-span-4">
+                      <Label class="text-xs uppercase tracking-wide">Dietary Notes</Label>
                       <Input v-model="att.dietary_notes" placeholder="e.g. Vegetarian, halal, nut allergy" class="mt-1 h-8 text-sm" />
                     </div>
                   </div>
@@ -1817,7 +1836,12 @@ async function handleSubmit() {
                       <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-muted text-muted-foreground text-xs font-bold shrink-0">{{ i + 1 }}</span>
                       <div class="min-w-0">
                         <p class="text-sm font-medium truncate">{{ delegate.name || `Delegate ${i + 1}` }}</p>
-                        <p v-if="getDelegateRoom(i)" class="text-xs text-primary">{{ getDelegateRoom(i)?.room_name }}</p>
+                        <p v-if="getDelegateRoom(i)" class="text-xs text-primary">
+                          {{ getDelegateRoom(i)?.room_name }}
+                          <span v-if="delegateRoomShareCount(i) > 0" class="text-muted-foreground">
+                            · shared with {{ delegateRoomShareCount(i) }} other{{ delegateRoomShareCount(i) !== 1 ? 's' : '' }}
+                          </span>
+                        </p>
                         <p v-else class="text-xs text-muted-foreground">No room assigned</p>
                       </div>
                     </div>
@@ -1835,7 +1859,7 @@ async function handleSubmit() {
                   </div>
                   <div v-if="expandedDelegateRoomPicker === i" class="border-t p-3 flex flex-col gap-2 max-h-52 overflow-y-auto">
                     <p v-if="availableRoomsForDelegate(i).length === 0" class="text-xs text-muted-foreground text-center py-2">
-                      All available rooms are already assigned to other delegates.
+                      All available rooms are at full capacity.
                     </p>
                     <button v-for="room in availableRoomsForDelegate(i)" :key="room.id" type="button"
                       class="flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors"
@@ -1845,7 +1869,7 @@ async function handleSubmit() {
                         <BedDouble class="size-4 text-muted-foreground shrink-0" />
                         <div>
                           <p class="font-semibold">{{ room.name }}</p>
-                          <p class="text-xs text-muted-foreground capitalize">{{ room.type }} · Capacity {{ room.capacity }}</p>
+                          <p class="text-xs text-muted-foreground capitalize">{{ room.type }} · {{ roomOccupantCount(room.id, i) }}/{{ room.capacity }} assigned</p>
                         </div>
                       </div>
                       <span class="text-xs font-semibold shrink-0">
@@ -1874,10 +1898,10 @@ async function handleSubmit() {
             <span class="text-muted-foreground">{{ nights }} night{{ nights !== 1 ? 's' : '' }} × ZMW {{ selectedRoom.price_per_night.toLocaleString() }}/night</span>
             <span class="font-semibold">ZMW {{ accTotal.toLocaleString() }}</span>
           </div>
-          <div v-else-if="isCorporate && Object.keys(delegateRooms).length > 0 && nights > 0"
+          <div v-else-if="uniqueDelegateRooms.size > 0 && nights > 0"
             class="rounded-xl bg-muted/40 border px-5 py-3.5 flex items-center justify-between text-sm">
             <span class="text-muted-foreground">
-              {{ nights }} night{{ nights !== 1 ? 's' : '' }} × {{ Object.keys(delegateRooms).length }} room{{ Object.keys(delegateRooms).length !== 1 ? 's' : '' }}
+              {{ nights }} night{{ nights !== 1 ? 's' : '' }} × {{ uniqueDelegateRooms.size }} room{{ uniqueDelegateRooms.size !== 1 ? 's' : '' }}
             </span>
             <span class="font-semibold">ZMW {{ delegateRoomTotal.toLocaleString() }}</span>
           </div>
