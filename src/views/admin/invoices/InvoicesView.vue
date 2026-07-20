@@ -6,7 +6,8 @@ import { toast } from 'vue-sonner'
 import { getApiError } from '@/utils/errors'
 import { useInvoicesStore } from '@/stores/invoices'
 import { useBranchFilterStore } from '@/stores/branchFilter'
-import { effectiveInvoiceStatus } from '@/utils/invoices'
+import { effectiveInvoiceStatus, fetchLogoBase64 } from '@/utils/invoices'
+import { useAuthStore } from '@/stores/auth'
 import type { Invoice, InvoiceStatus } from '@/types/invoice'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import InvoiceDetailDialog from '@/components/invoices/InvoiceDetailDialog.vue'
@@ -41,6 +42,7 @@ import {
 
 const store = useInvoicesStore()
 const branchFilterStore = useBranchFilterStore()
+const authStore = useAuthStore()
 
 type ClientTab = 'individual' | 'corporate'
 const activeTab = ref<ClientTab>('individual')
@@ -135,7 +137,10 @@ async function applyStatusChange(status: InvoiceStatus) {
 
 // Render the invoice document to a base64-encoded PDF string (no data-URL prefix).
 async function invoiceToBase64(invoice: Invoice): Promise<string> {
-  const { blob, execute } = usePdf(() => h(InvoiceDocument, { invoice }), { reactive: false })
+  // Resolved up front — usePdf renders a one-shot snapshot, so a logo fetched
+  // from inside the component would race the render and lose almost every time.
+  const logoBase64 = await fetchLogoBase64(authStore.user?.org_logo_url)
+  const { blob, execute } = usePdf(() => h(InvoiceDocument, { invoice, logoBase64 }), { reactive: false })
   await execute(true)
   if (!blob.value) throw new Error('Failed to render invoice PDF')
   const buffer = await blob.value.arrayBuffer()

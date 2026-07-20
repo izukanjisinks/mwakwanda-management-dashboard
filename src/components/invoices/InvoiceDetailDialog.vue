@@ -394,7 +394,18 @@ const invoiceScenario = computed<'accommodation' | 'meals' | 'event' | 'general'
 
             <!-- Bill From -->
             <div class="rounded-lg bg-stone-900 dark:bg-stone-950 p-4 flex flex-col gap-1.5">
-              <p class="text-[10px] font-semibold uppercase tracking-widest text-amber-500 border-b border-stone-700 pb-2 mb-1">Bill From</p>
+              <div class="flex items-center gap-2 border-b border-stone-700 pb-2 mb-1">
+                <div class="size-8 rounded-md bg-primary text-primary-foreground overflow-hidden flex items-center justify-center shrink-0">
+                  <img
+                    v-if="authStore.user?.org_logo_url"
+                    :src="authStore.user.org_logo_url"
+                    :alt="orgName"
+                    class="size-full object-cover"
+                  />
+                  <span v-else class="font-bold text-xs">{{ orgName.charAt(0).toUpperCase() }}</span>
+                </div>
+                <p class="text-[10px] font-semibold uppercase tracking-widest text-amber-500">Bill From</p>
+              </div>
               <div class="flex gap-2 text-xs">
                 <span class="w-20 shrink-0 text-stone-400">Organisation</span>
                 <span class="font-medium text-white">{{ orgName }}</span>
@@ -495,7 +506,18 @@ const invoiceScenario = computed<'accommodation' | 'meals' | 'event' | 'general'
 
             <!-- Bill From -->
             <div class="rounded-lg bg-stone-900 dark:bg-stone-950 p-4 flex flex-col gap-1.5">
-              <p class="text-[10px] font-semibold uppercase tracking-widest text-amber-500 border-b border-stone-700 pb-2 mb-1">Bill From</p>
+              <div class="flex items-center gap-2 border-b border-stone-700 pb-2 mb-1">
+                <div class="size-8 rounded-md bg-primary text-primary-foreground overflow-hidden flex items-center justify-center shrink-0">
+                  <img
+                    v-if="authStore.user?.org_logo_url"
+                    :src="authStore.user.org_logo_url"
+                    :alt="orgName"
+                    class="size-full object-cover"
+                  />
+                  <span v-else class="font-bold text-xs">{{ orgName.charAt(0).toUpperCase() }}</span>
+                </div>
+                <p class="text-[10px] font-semibold uppercase tracking-widest text-amber-500">Bill From</p>
+              </div>
               <div class="flex gap-2 text-xs">
                 <span class="w-20 shrink-0 text-stone-400">Organisation</span>
                 <span class="font-medium text-white">{{ orgName }}</span>

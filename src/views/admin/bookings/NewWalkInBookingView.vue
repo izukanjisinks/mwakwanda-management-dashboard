@@ -5,7 +5,7 @@ import { CalendarDate, type DateValue } from '@internationalized/date'
 import {
   CalendarIcon, Loader2, BedDouble, MapPin, Users, Clock,
   User, UserPlus, Trash2, ChevronDown, List, Building2, ShieldCheck,
-  ArrowLeft, StickyNote, CalendarRange, CalendarClock, Ban, RotateCcw, UtensilsCrossed,
+  ArrowLeft, StickyNote, CalendarRange, CalendarClock, Ban, RotateCcw, UtensilsCrossed, Tag,
 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { bookingApi } from '@/services/api/bookings'
@@ -76,13 +76,6 @@ const SETUP_TYPES = [
   { value: 'u_shape',   label: 'U-Shape' },
   { value: 'banquet',   label: 'Banquet' },
   { value: 'cocktail',  label: 'Cocktail' },
-]
-
-const PRICING_BASIS = [
-  { value: 'half_day',  label: 'Half Day' },
-  { value: 'full_day',  label: 'Full Day' },
-  { value: 'hourly',    label: 'Hourly' },
-  { value: 'flat_rate', label: 'Flat Rate' },
 ]
 
 const VENUE_TYPE_LABELS: Record<string, string> = {
@@ -327,7 +320,7 @@ type Session = {
 function emptySession(): Session {
   return {
     name: '', event_type: '', venue_id: '', start_time: '', end_time: '',
-    setup_type: '', pricing_basis: 'full_day', special_requirements: '',
+    setup_type: '', pricing_basis: '', special_requirements: '',
   }
 }
 const sessions = ref<Session[]>([emptySession()])
@@ -345,12 +338,21 @@ function removeSession(i: number) {
 function venueById(id: string) {
   return venues.value.find(v => v.id === id)
 }
+// Pricing basis is never chosen by staff — it always mirrors the picked
+// venue's own rate type, so billing can't drift out of sync with the venue.
 function selectVenueForSession(s: Session, venue: Venue) {
   s.venue_id = venue.id
+  s.pricing_basis = venue.rate_type
   expandedVenueSession.value = null
 }
 function clearVenueFromSession(s: Session) {
   s.venue_id = ''
+  s.pricing_basis = ''
+}
+function pricingBasisLabel(s: Session): string {
+  const v = venueById(s.venue_id)
+  if (!v) return 'Select a venue'
+  return v.rate_type === 'daily' ? 'Per Day' : 'Per Hour'
 }
 function sessionLabel(s: Session, i: number) {
   return s.name.trim() || (s.event_type ? `${EVENT_TYPES.find(t => t.value === s.event_type)?.label} Session` : `Session ${i + 1}`)
@@ -424,6 +426,7 @@ function removeOverrideSession(date: string, i: number) {
 }
 function selectVenueForOverrideSession(s: Session, venue: Venue) {
   s.venue_id = venue.id
+  s.pricing_basis = venue.rate_type
   expandedOverrideVenue.value = null
 }
 function overrideSessions(date: string): Session[] {
@@ -792,7 +795,7 @@ function sessionSummaryLine(s: Session, i: number, indent: string) {
     venueById(s.venue_id)?.name,
     s.start_time && s.end_time ? `${s.start_time}–${s.end_time}` : null,
     SETUP_TYPES.find(t => t.value === s.setup_type)?.label,
-    PRICING_BASIS.find(p => p.value === s.pricing_basis)?.label,
+    venueById(s.venue_id) ? pricingBasisLabel(s) : null,
   ].filter(Boolean).join(' · ')
   const lines = [`${indent}${i + 1}. ${label}${parts ? ` — ${parts}` : ''}`]
   if (s.special_requirements.trim()) lines.push(`${indent}   Requirements: ${s.special_requirements.trim()}`)
@@ -2074,14 +2077,13 @@ async function handleSubmit() {
                   </div>
                   <div>
                     <Label class="text-xs">Pricing Basis</Label>
-                    <Select v-model="session.pricing_basis">
-                      <SelectTrigger class="mt-1.5">
-                        <SelectValue placeholder="Select pricing basis…" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem v-for="p in PRICING_BASIS" :key="p.value" :value="p.value">{{ p.label }}</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div class="mt-1.5 h-9 rounded-md border border-input bg-muted/30 px-3 flex items-center gap-2">
+                      <Tag class="size-3.5 text-primary shrink-0" />
+                      <p class="text-sm truncate">
+                        <span class="font-semibold" :class="!venueById(session.venue_id) && 'text-muted-foreground font-normal'">{{ pricingBasisLabel(session) }}</span>
+                        <span v-if="venueById(session.venue_id)" class="text-muted-foreground"> · ZMW {{ venueById(session.venue_id)!.base_rate.toLocaleString() }}</span>
+                      </p>
+                    </div>
                   </div>
                   <div>
                     <Label class="text-xs flex items-center gap-1"><Clock class="size-3" /> Start Time <span v-if="si === 0" class="text-destructive">*</span></Label>
@@ -2277,14 +2279,13 @@ async function handleSubmit() {
                           </div>
                           <div>
                             <Label class="text-xs">Pricing Basis</Label>
-                            <Select v-model="s.pricing_basis">
-                              <SelectTrigger class="mt-1.5">
-                                <SelectValue placeholder="Select pricing basis…" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem v-for="p in PRICING_BASIS" :key="p.value" :value="p.value">{{ p.label }}</SelectItem>
-                              </SelectContent>
-                            </Select>
+                            <div class="mt-1.5 h-9 rounded-md border border-input bg-muted/30 px-3 flex items-center gap-2">
+                              <Tag class="size-3.5 text-primary shrink-0" />
+                              <p class="text-sm truncate">
+                                <span class="font-semibold" :class="!venueById(s.venue_id) && 'text-muted-foreground font-normal'">{{ pricingBasisLabel(s) }}</span>
+                                <span v-if="venueById(s.venue_id)" class="text-muted-foreground"> · ZMW {{ venueById(s.venue_id)!.base_rate.toLocaleString() }}</span>
+                              </p>
+                            </div>
                           </div>
                           <div>
                             <Label class="text-xs">Start Time</Label>

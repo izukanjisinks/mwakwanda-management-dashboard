@@ -18,3 +18,23 @@ export function isInvoiceOverdue(inv: Invoice): boolean {
 export function effectiveInvoiceStatus(inv: Invoice): InvoiceStatus {
   return isInvoiceOverdue(inv) ? 'overdue' : inv.status
 }
+
+// Fetches an image URL and resolves it to a base64 data URI. The PDF renderer
+// takes a one-shot snapshot of its component tree, so a logo fetched
+// reactively *after* that snapshot (e.g. inside the rendered component) never
+// makes it in — this must be awaited before rendering starts instead.
+export async function fetchLogoBase64(url?: string): Promise<string | undefined> {
+  if (!url) return undefined
+  try {
+    const res = await fetch(url)
+    const blob = await res.blob()
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(reader.result as string)
+      reader.onerror = reject
+      reader.readAsDataURL(blob)
+    })
+  } catch {
+    return undefined
+  }
+}

@@ -7,6 +7,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { Download, Loader2 } from 'lucide-vue-next'
 import InvoiceDocument from './InvoiceDocument.vue'
+import { useAuthStore } from '@/stores/auth'
+import { fetchLogoBase64 } from '@/utils/invoices'
 import type { Invoice } from '@/types/invoice'
 
 const props = defineProps<{
@@ -18,12 +20,17 @@ const emit = defineEmits<{
   'update:open': [value: boolean]
 }>()
 
+const authStore = useAuthStore()
 const pdfReady = ref(false)
+const logoBase64 = ref<string | undefined>(undefined)
 
-// Give the PDF viewer a moment to render after the sheet opens
+// Give the PDF viewer a moment to render after the sheet opens — the logo must
+// be resolved first, since the renderer snapshots its children and won't pick
+// up an image fetched after the fact (see InvoiceDocument.vue).
 watch(() => props.open, async (open) => {
   if (open) {
     pdfReady.value = false
+    logoBase64.value = await fetchLogoBase64(authStore.user?.org_logo_url)
     await nextTick()
     setTimeout(() => { pdfReady.value = true }, 300)
   }
@@ -48,7 +55,7 @@ function fileName() {
         <!-- Download button -->
         <PDFDownloadLink v-if="invoice && pdfReady" :file-name="fileName()">
           <template #default>
-            <InvoiceDocument :invoice="invoice" />
+            <InvoiceDocument :invoice="invoice" :logo-base64="logoBase64" />
           </template>
           <template #label>
             <Button size="sm">
@@ -72,7 +79,7 @@ function fileName() {
           :show-toolbar="false"
           class="w-full h-full"
         >
-          <InvoiceDocument :invoice="invoice" />
+          <InvoiceDocument :invoice="invoice" :logo-base64="logoBase64" />
         </PDFViewer>
       </div>
 

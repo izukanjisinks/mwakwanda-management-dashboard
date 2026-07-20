@@ -1,32 +1,18 @@
 <script setup lang="ts">
-import { computed, ref, watchEffect } from 'vue'
+import { computed } from 'vue'
 import { Document, Page, View, Text, Image } from '@ceereals/vue-pdf'
 import type { Style } from '@ceereals/vue-pdf'
 import type { Invoice } from '@/types/invoice'
 import { useAuthStore } from '@/stores/auth'
 
-const props = defineProps<{ invoice: Invoice }>()
+// logoBase64 must already be resolved by the caller before this renders — the
+// PDF renderer takes a one-shot snapshot, so an async fetch kicked off from
+// inside this component would race the render and lose almost every time.
+// See utils/invoices.ts#fetchLogoBase64.
+const props = defineProps<{ invoice: Invoice; logoBase64?: string }>()
 
 const authStore = useAuthStore()
 
-// Prefetch the logo as base64 so the PDF renderer can embed it without CORS issues
-const logoBase64 = ref<string | undefined>(undefined)
-watchEffect(async () => {
-  const url = authStore.user?.org_logo_url
-  if (!url) { logoBase64.value = undefined; return }
-  try {
-    const res = await fetch(url)
-    const blob = await res.blob()
-    logoBase64.value = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onloadend = () => resolve(reader.result as string)
-      reader.onerror = reject
-      reader.readAsDataURL(blob)
-    })
-  } catch {
-    logoBase64.value = undefined
-  }
-})
 const isCorporate = computed(() => props.invoice.client_type === 'corporate')
 
 // ── Bill From (org) ───────────────────────────────────────────────────────────
