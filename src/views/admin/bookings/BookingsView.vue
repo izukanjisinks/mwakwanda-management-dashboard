@@ -4,16 +4,19 @@ import { useRouter } from 'vue-router'
 import {
   Eye, Search, ChevronLeft, ChevronRight, Building2, User, UserCheck,
   BedDouble, CalendarDays, LogIn, LogOut, Loader2, Plus, MapPin, Users,
-  Clock, UtensilsCrossed, Download,
+  Clock, UtensilsCrossed, Download, FileText,
 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { useBookingsStore } from '@/stores/bookings'
 import { useBranchFilterStore } from '@/stores/branchFilter'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { bookingApi } from '@/services/api/bookings'
+import { invoiceApi } from '@/services/api/invoices'
 import { getApiError } from '@/utils/errors'
 import type { Booking, BookingStatus, BookingRoomAssignment, BookingAttendee, BookingEvent } from '@/types/booking'
+import type { Invoice } from '@/types/invoice'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
+import InvoiceDetailDialog from '@/components/invoices/InvoiceDetailDialog.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -143,6 +146,23 @@ const sheetAssignments = ref<BookingRoomAssignment[]>([])
 const sheetAttendees = ref<BookingAttendee[]>([])
 const sheetLoading = ref(false)
 const assignmentActioning = ref<string | null>(null)
+
+// Invoice dialog — shared by both the accommodation/corporate sheet and the event sheet.
+const invoiceDetailOpen = ref(false)
+const selectedInvoice = ref<Invoice | null>(null)
+const invoiceLoading = ref(false)
+
+async function showInvoice(bookingId: string) {
+  invoiceLoading.value = true
+  try {
+    selectedInvoice.value = await invoiceApi.getByBookingId(bookingId)
+    invoiceDetailOpen.value = true
+  } catch (err) {
+    toast.error(getApiError(err, 'No invoice found for this booking yet.'))
+  } finally {
+    invoiceLoading.value = false
+  }
+}
 
 async function openCorporateSheet(b: Booking) {
   sheetBooking.value = b
@@ -899,6 +919,18 @@ function syncRowStatus(id: string, status: BookingStatus) {
           </template>
         </div>
       </div>
+
+      <div v-if="sheetBooking" class="border-t px-6 py-4">
+        <Button
+          variant="outline" class="w-full"
+          :disabled="invoiceLoading"
+          @click="showInvoice(sheetBooking.id)"
+        >
+          <Loader2 v-if="invoiceLoading" class="size-4 mr-2 animate-spin" />
+          <FileText v-else class="size-4 mr-2" />
+          Show Invoice
+        </Button>
+      </div>
     </SheetContent>
   </Sheet>
 
@@ -1049,7 +1081,21 @@ function syncRowStatus(id: string, status: BookingStatus) {
           </div>
         </template>
       </div>
+
+      <div v-if="eventBooking" class="border-t px-6 py-4">
+        <Button
+          variant="outline" class="w-full"
+          :disabled="invoiceLoading"
+          @click="showInvoice(eventBooking.id)"
+        >
+          <Loader2 v-if="invoiceLoading" class="size-4 mr-2 animate-spin" />
+          <FileText v-else class="size-4 mr-2" />
+          Show Invoice
+        </Button>
+      </div>
     </SheetContent>
   </Sheet>
+
+  <InvoiceDetailDialog v-model:open="invoiceDetailOpen" :invoice="selectedInvoice" />
   </div>
 </template>
