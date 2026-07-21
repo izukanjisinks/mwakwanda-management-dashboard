@@ -9,6 +9,7 @@ const ROUTE_PERMISSIONS: Record<string, UserRole[]> = {
   dashboard:            ['admin', 'branch_admin', 'manager', 'receptionist', 'cleaner'],
   'cleaner-dashboard':  ['cleaner'],
   rooms:                ['admin', 'branch_admin', 'manager', 'receptionist', 'cleaner'],
+  'room-status':        ['admin', 'branch_admin', 'manager', 'receptionist'],
 
   // Management
   'admin-bookings':     ['admin', 'branch_admin', 'manager', 'receptionist'],
