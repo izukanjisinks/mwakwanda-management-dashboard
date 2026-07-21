@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { BedDouble, Phone, CalendarDays, AlertTriangle, RefreshCw, Search, Users, FileText } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { roomApi } from '@/services/api/room'
@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 
 const router = useRouter()
+const route = useRoute()
 const branchFilterStore = useBranchFilterStore()
 
 function goToBooking(bookingId: string) {
@@ -159,7 +160,17 @@ const outOfServiceCount = computed(() => roomCards.value.filter(isOutOfService).
 const overstayCount     = computed(() => roomCards.value.reduce((n, c) => n + c.occupants.filter(o => o.isOverstaying).length, 0))
 
 type ViewFilter = 'all' | 'occupied' | 'free' | 'overstaying'
-const filter = ref<ViewFilter>('all')
+const VALID_FILTERS: ViewFilter[] = ['all', 'occupied', 'free', 'overstaying']
+
+// Lets dashboard tiles (e.g. "Overstaying Guests") deep-link straight into a
+// pre-filtered board via ?filter=overstaying, same pattern as the bookingId
+// deep-link on the Bookings page.
+function initialFilter(): ViewFilter {
+  const q = route.query.filter
+  return typeof q === 'string' && VALID_FILTERS.includes(q as ViewFilter) ? (q as ViewFilter) : 'all'
+}
+
+const filter = ref<ViewFilter>(initialFilter())
 const search = ref('')
 
 const filterOptions: { value: ViewFilter; label: string }[] = [

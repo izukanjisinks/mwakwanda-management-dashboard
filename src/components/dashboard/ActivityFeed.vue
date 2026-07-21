@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { CalendarClock, UtensilsCrossed } from 'lucide-vue-next'
+import { CalendarClock, UtensilsCrossed, Activity } from 'lucide-vue-next'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { auditLogsApi } from '@/services/api/audit-logs'
 import type { AuditLog, OverstayedPayload, OrdersClosedPayload } from '@/types/audit-log'
@@ -37,16 +37,16 @@ function asOrdersClosed(log: AuditLog): OrdersClosedPayload {
 <template>
   <Card class="flex flex-col flex-1">
     <CardHeader class="pb-2">
-      <CardTitle class="text-base font-medium">Recent Activity</CardTitle>
+      <CardTitle class="text-base font-medium">Activity</CardTitle>
     </CardHeader>
-    <CardContent class="flex-1">
+    <CardContent class="flex-1 px-0">
       <!-- Loading -->
-      <div v-if="loading" class="flex flex-col gap-4">
-        <div v-for="i in 4" :key="i" class="flex gap-3 pl-6">
-          <div class="h-4 w-4 rounded-full bg-muted animate-pulse shrink-0" />
-          <div class="flex flex-col gap-1.5 flex-1">
-            <div class="h-3 w-24 bg-muted animate-pulse rounded" />
+      <div v-if="loading" class="flex flex-col gap-4 px-6">
+        <div v-for="i in 4" :key="i" class="flex gap-2.5">
+          <div class="size-7 rounded-lg bg-muted animate-pulse shrink-0" />
+          <div class="flex flex-col gap-1.5 flex-1 pt-0.5">
             <div class="h-3 w-full bg-muted animate-pulse rounded" />
+            <div class="h-2.5 w-16 bg-muted animate-pulse rounded" />
           </div>
         </div>
       </div>
@@ -57,59 +57,54 @@ function asOrdersClosed(log: AuditLog): OrdersClosedPayload {
       </div>
 
       <!-- Feed -->
-      <div v-else class="relative space-y-6">
-        <!-- Timeline line -->
-        <div class="absolute left-[7px] top-2 h-[calc(100%-16px)] w-0.5 bg-border" />
-
+      <div v-else class="flex flex-col">
         <div
           v-for="log in logs"
           :key="log.id"
-          class="relative flex gap-3 pl-6"
+          class="flex gap-2.5 px-6 py-2.5 border-b last:border-b-0"
         >
-          <!-- Dot -->
-          <div
-            :class="[
-              'absolute left-0 top-1 size-4 rounded-full border-2 border-background flex items-center justify-center',
-              log.action === 'booking.overstayed' ? 'bg-amber-500' : 'bg-primary',
-            ]"
-          />
-
-          <div class="flex flex-col gap-0.5">
-            <span class="text-xs text-muted-foreground">{{ formatTime(log.created_at) }}</span>
-
-            <!-- booking.overstayed -->
-            <template v-if="log.action === 'booking.overstayed'">
-              <div class="flex items-center gap-1.5">
-                <CalendarClock class="size-3.5 text-amber-500 shrink-0" />
-                <span class="text-sm font-medium">Overstay detected</span>
-              </div>
-              <p class="text-xs text-muted-foreground leading-relaxed">
-                <span class="font-medium text-foreground">{{ asOverstayed(log).client_name }}</span>
-                in {{ asOverstayed(log).room_name }}
-                ({{ asOverstayed(log).booking_number }}) —
-                was due {{ asOverstayed(log).original_check_out }},
-                extended to {{ asOverstayed(log).extended_to }}.
+          <!-- booking.overstayed -->
+          <template v-if="log.action === 'booking.overstayed'">
+            <div class="flex size-7 items-center justify-center rounded-lg bg-chart-3/10 text-chart-3 shrink-0">
+              <CalendarClock class="size-3.5" />
+            </div>
+            <div class="flex flex-col gap-0.5 min-w-0">
+              <p class="text-xs leading-snug">
+                <span class="font-medium">{{ asOverstayed(log).client_name }}</span>
+                in {{ asOverstayed(log).room_name }} ({{ asOverstayed(log).booking_number }}) marked overstayed —
+                checkout auto-extended to {{ asOverstayed(log).extended_to }}
               </p>
-            </template>
+              <span class="text-[11px] text-muted-foreground">{{ formatTime(log.created_at) }}</span>
+            </div>
+          </template>
 
-            <!-- orders.closed -->
-            <template v-else-if="log.action === 'orders.closed'">
-              <div class="flex items-center gap-1.5">
-                <UtensilsCrossed class="size-3.5 text-primary shrink-0" />
-                <span class="text-sm font-medium">Orders closed</span>
-              </div>
-              <p class="text-xs text-muted-foreground leading-relaxed">
-                <span class="font-medium text-foreground">{{ asOrdersClosed(log).orders_closed }}</span>
-                order{{ asOrdersClosed(log).orders_closed !== 1 ? 's' : '' }} automatically closed for the day.
+          <!-- orders.closed -->
+          <template v-else-if="log.action === 'orders.closed'">
+            <div class="flex size-7 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0">
+              <UtensilsCrossed class="size-3.5" />
+            </div>
+            <div class="flex flex-col gap-0.5 min-w-0">
+              <p class="text-xs leading-snug">
+                <span class="font-medium">{{ asOrdersClosed(log).orders_closed }}</span>
+                order{{ asOrdersClosed(log).orders_closed !== 1 ? 's' : '' }} automatically closed for the day
               </p>
-            </template>
+              <span class="text-[11px] text-muted-foreground">{{ formatTime(log.created_at) }}</span>
+            </div>
+          </template>
 
-            <!-- fallback -->
-            <template v-else>
-              <span class="text-sm font-medium">{{ log.action }}</span>
-              <p class="text-xs text-muted-foreground">{{ log.actor_name }}</p>
-            </template>
-          </div>
+          <!-- fallback -->
+          <template v-else>
+            <div class="flex size-7 items-center justify-center rounded-lg bg-muted text-muted-foreground shrink-0">
+              <Activity class="size-3.5" />
+            </div>
+            <div class="flex flex-col gap-0.5 min-w-0">
+              <p class="text-xs leading-snug">
+                <span class="font-medium">{{ log.action }}</span>
+                <span v-if="log.actor_name"> — {{ log.actor_name }}</span>
+              </p>
+              <span class="text-[11px] text-muted-foreground">{{ formatTime(log.created_at) }}</span>
+            </div>
+          </template>
         </div>
       </div>
     </CardContent>

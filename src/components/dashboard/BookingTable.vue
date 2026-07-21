@@ -1,11 +1,8 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { Search, ArrowRight } from 'lucide-vue-next'
-import { Card, CardContent, CardHeader, CardTitle, CardAction, CardFooter } from '@/components/ui/card'
+import { computed } from 'vue'
+import { ArrowRight } from 'lucide-vue-next'
+import { Card, CardContent, CardHeader, CardTitle, CardAction } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 
 import type { DashboardRecentBooking } from '@/types/dashboard'
@@ -14,36 +11,47 @@ const props = defineProps<{
   bookings: DashboardRecentBooking[]
 }>()
 
-const statusColors: Record<string, string> = {
-  'confirmed':   'bg-accent/20 text-accent border-accent/30',
-  'checked_in':  'bg-accent/20 text-accent border-accent/30',
-  'pending':     'bg-chart-3/20 text-chart-3 border-chart-3/30',
-  'checked_out': 'bg-muted text-muted-foreground border-border',
-  'cancelled':   'bg-destructive/20 text-destructive border-destructive/30',
+// The dashboard's recent-bookings summary has no per-booking overstay flag,
+// unlike the full Booking type — approximated the same way as the rest of
+// this redesign (check_out date passed while still checked in). This misses
+// a booking whose checkout the nightly auto-extend job has already pushed
+// forward, same caveat as the Needs Attention / Room Status overstay counts.
+function effectiveStatus(b: DashboardRecentBooking): string {
+  if (b.status === 'checked_in' && new Date(b.check_out) < new Date(new Date().toDateString())) {
+    return 'overstaying'
+  }
+  return b.status
 }
 
-const search = ref('')
+const statusMeta: Record<string, { label: string; classes: string }> = {
+  confirmed:    { label: 'Confirmed',   classes: 'bg-primary/10 text-primary' },
+  checked_in:   { label: 'Checked In',  classes: 'bg-accent/10 text-accent' },
+  checked_out:  { label: 'Checked Out', classes: 'bg-muted text-muted-foreground' },
+  pending:      { label: 'Pending',     classes: 'bg-chart-3/10 text-chart-3' },
+  cancelled:    { label: 'Cancelled',   classes: 'bg-destructive/10 text-destructive' },
+  overstaying:  { label: 'Overstaying', classes: 'bg-destructive/10 text-destructive' },
+}
 
-const filtered = computed(() => props.bookings.filter(b => {
-  return search.value === '' ||
-    b.client_name.toLowerCase().includes(search.value.toLowerCase()) ||
-    b.booking_number?.toLowerCase().includes(search.value.toLowerCase())
-}))
+function fmtDate(d: string) {
+  if (!d) return '—'
+  return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
+}
+
+const rows = computed(() => props.bookings)
 </script>
 
 <template>
   <Card class="flex flex-col">
     <CardHeader class="pb-2">
-      <CardTitle class="text-base font-medium">Booking List</CardTitle>
-      <CardAction class="flex items-center gap-2">
-        <div class="relative">
-          <Search class="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            v-model="search"
-            placeholder="Search guest, booking..."
-            class="h-8 w-[200px] pl-8 text-xs"
-          />
-        </div>
+      <CardTitle class="text-base font-medium">Recent Bookings</CardTitle>
+      <CardAction>
+        <RouterLink
+          :to="{ name: 'admin-bookings' }"
+          class="flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+        >
+          View all
+          <ArrowRight class="size-3.5" />
+        </RouterLink>
       </CardAction>
     </CardHeader>
 
@@ -51,56 +59,45 @@ const filtered = computed(() => props.bookings.filter(b => {
       <Table>
         <TableHeader>
           <TableRow class="hover:bg-transparent">
-            <TableHead class="pl-6">Booking #</TableHead>
+            <TableHead class="pl-6">Booking</TableHead>
             <TableHead>Guest</TableHead>
-            <TableHead>Type</TableHead>
-            <TableHead>Room Type</TableHead>
-            <TableHead>Room</TableHead>
-            <TableHead>Check-In / Check-Out</TableHead>
+            <TableHead>Rooms/Venues</TableHead>
+            <TableHead>Stay</TableHead>
             <TableHead class="pr-6">Status</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          <TableRow v-for="booking in filtered" :key="booking.id">
-            <TableCell class="pl-6 font-mono font-medium">{{ booking.booking_number }}</TableCell>
-            <TableCell>{{ booking.client_name }}</TableCell>
+          <TableRow v-for="booking in rows" :key="booking.id">
+            <TableCell class="pl-6 font-mono text-sm text-muted-foreground">{{ booking.booking_number }}</TableCell>
             <TableCell>
-              <Badge :variant="booking.booker_type === 'corporate' ? 'default' : 'outline'" class="text-xs capitalize">
-                {{ booking.booker_type }}
-              </Badge>
+              <div class="font-medium">{{ booking.client_name }}</div>
+              <div class="text-xs text-muted-foreground capitalize">{{ booking.booker_type }}</div>
             </TableCell>
-            <TableCell>
-              <Badge variant="secondary" class="text-xs capitalize">
-                {{ booking.room_type }}
-              </Badge>
+            <TableCell class="text-sm text-muted-foreground capitalize">
+              {{ booking.venue_name || `${booking.room_type} · ${booking.room_name}` }}
             </TableCell>
-            <TableCell>{{ booking.room_name }}</TableCell>
             <TableCell class="text-sm text-muted-foreground">
-              {{ booking.check_in }} — {{ booking.check_out }}
+              {{ fmtDate(booking.check_in) }} → {{ fmtDate(booking.check_out) }}
             </TableCell>
             <TableCell class="pr-6">
-              <Badge variant="outline" :class="cn('text-xs capitalize', statusColors[booking.status] ?? '')">
-                {{ booking.status.replace('_', ' ') }}
-              </Badge>
+              <span
+                :class="cn(
+                  'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide',
+                  statusMeta[effectiveStatus(booking)]?.classes ?? 'bg-muted text-muted-foreground',
+                )"
+              >
+                <span class="size-1.5 rounded-full bg-current" />
+                {{ statusMeta[effectiveStatus(booking)]?.label ?? booking.status.replace('_', ' ') }}
+              </span>
             </TableCell>
           </TableRow>
-          <TableRow v-if="filtered.length === 0">
-            <TableCell colspan="7" class="h-24 text-center text-muted-foreground">
+          <TableRow v-if="rows.length === 0">
+            <TableCell colspan="5" class="h-24 text-center text-muted-foreground">
               No bookings found.
             </TableCell>
           </TableRow>
         </TableBody>
       </Table>
     </CardContent>
-
-    <CardFooter class="p-0 shrink-0">
-      <Button
-        variant="ghost"
-        class="w-full rounded-t-none border-t h-10 text-sm text-muted-foreground hover:text-foreground gap-2"
-      >
-        View All Bookings
-        <ArrowRight class="size-4" />
-      </Button>
-    </CardFooter>
   </Card>
 </template>

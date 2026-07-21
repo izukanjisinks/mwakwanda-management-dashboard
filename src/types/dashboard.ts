@@ -29,6 +29,11 @@ export interface DashboardRecentBooking {
   booker_type: 'individual' | 'corporate'
   room_name: string
   room_type: string
+  // Present on event/venue bookings — absent (undefined) on plain room
+  // bookings. Not yet confirmed whether the backend's /dashboard/stats
+  // endpoint actually populates this on recent_bookings; falls back to
+  // room_type/room_name in the UI if it's missing.
+  venue_name?: string
   check_in: string
   check_out: string
   status: string
@@ -40,4 +45,16 @@ export interface DashboardStats {
   revenue_by_month: DashboardRevenuePoint[]
   reservations_by_day: DashboardReservationPoint[]
   recent_bookings: DashboardRecentBooking[]
+}
+
+// Frontend-only summary — no single backend endpoint provides this, it's
+// assembled client-side from four existing list endpoints (see
+// stores/dashboard.ts#fetchNeedsAttention).
+export interface DashboardNeedsAttention {
+  overstayingGuests: number
+  pendingApprovals: number
+  kitchenBacklog: number
+  barBacklog: number
+  invoicesOverdueCount: number
+  invoicesOverdueAmount: number
 }

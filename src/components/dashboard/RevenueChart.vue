@@ -1,13 +1,17 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { VisXYContainer, VisArea, VisAxis, VisLine, VisCrosshair, VisTooltip } from '@unovis/vue'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardAction } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
 type DataPoint = { month: string; revenue: number }
 
 const props = defineProps<{
   data: DataPoint[]
 }>()
+
+const showTable = ref(false)
 
 function fmtMonth(m: string) {
   const parts = m.split('-')
@@ -48,6 +52,11 @@ const tooltipTemplate = (d: DataPoint) => `<div class="text-xs font-medium">${fm
   <Card>
     <CardHeader class="pb-2">
       <CardTitle class="text-base font-medium">Revenue</CardTitle>
+      <CardAction>
+        <Button variant="outline" size="sm" class="h-7 text-xs" @click="showTable = !showTable">
+          {{ showTable ? 'Chart view' : 'Table view' }}
+        </Button>
+      </CardAction>
     </CardHeader>
     <CardContent>
       <div class="mb-2 flex items-baseline gap-2">
@@ -56,6 +65,22 @@ const tooltipTemplate = (d: DataPoint) => `<div class="text-xs font-medium">${fm
       </div>
       <div v-if="data.length === 0" class="flex items-center justify-center h-50 text-sm text-muted-foreground">
         No revenue data available.
+      </div>
+      <div v-else-if="showTable" class="max-h-50 overflow-y-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Month</TableHead>
+              <TableHead class="text-right">Revenue (ZMW)</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow v-for="d in props.data" :key="d.month">
+              <TableCell>{{ fmtMonth(d.month) }}</TableCell>
+              <TableCell class="text-right">{{ d.revenue.toLocaleString() }}</TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
       </div>
       <VisXYContainer v-else :data="data" :height="200">
         <VisArea :x="x" :y="y" color="var(--color-primary)" :opacity="0.15" />

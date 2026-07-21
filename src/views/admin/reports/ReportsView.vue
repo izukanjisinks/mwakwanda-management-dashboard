@@ -1,10 +1,15 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { useBookingsStore } from '@/stores/bookings'
-import { useInvoicesStore } from '@/stores/invoices'
-import { useRoomsStore } from '@/stores/rooms'
-import { useIndividualClientsStore, useCorporateClientsStore } from '@/stores/clients'
+import { computed, onMounted, ref, watch } from 'vue'
+import { bookingApi } from '@/services/api/bookings'
+import { invoiceApi } from '@/services/api/invoices'
+import { roomApi } from '@/services/api/room'
+import { individualClientApi, corporateClientApi } from '@/services/api/clients'
+import { useBranchFilterStore } from '@/stores/branchFilter'
 import { effectiveInvoiceStatus } from '@/utils/invoices'
+import type { Booking } from '@/types/booking'
+import type { Invoice } from '@/types/invoice'
+import type { Room } from '@/types/room'
+import type { IndividualClient, CorporateClient } from '@/types/client'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -14,28 +19,61 @@ import CorporateBillingTab from '@/components/reports/CorporateBillingTab.vue'
 type Tab = 'overview' | 'corporate-billing'
 const activeTab = ref<Tab>('overview')
 
-const bookingsStore = useBookingsStore()
-const invoicesStore = useInvoicesStore()
-const roomsStore = useRoomsStore()
-const individualStore = useIndividualClientsStore()
-const corporateStore = useCorporateClientsStore()
+const branchFilterStore = useBranchFilterStore()
 
-onMounted(() => {
-  bookingsStore.fetchBookings()
-  invoicesStore.fetchInvoices()
-  roomsStore.fetchRooms()
-  individualStore.fetchClients()
-  corporateStore.fetchClients()
-})
+// Overview KPIs/charts need the ENTIRE dataset, not one paginated page — the
+// shared bookings/invoices/rooms/clients stores default to small page sizes
+// (10-100) sized for their own table pages, which silently truncated every
+// figure on this tab. Fetch directly here instead, same convention already
+// used by the sibling Corporate Billing tab (page_size: 1000, no store).
+const allBookings = ref<Booking[]>([])
+const allInvoices = ref<Invoice[]>([])
+const allRooms = ref<Room[]>([])
+const allIndividualClients = ref<IndividualClient[]>([])
+const allCorporateClients = ref<CorporateClient[]>([])
+// Room Type Revenue / Top Rooms need each booking's room assignment, which
+// only the single-booking detail endpoint returns — the list endpoint above
+// doesn't include it. Tracked separately since this fan-out is the slow part
+// of the load; the KPIs/status donuts above don't need to wait on it.
+const loadingRoomBreakdown = ref(false)
+
+async function loadOverviewData() {
+  const branch_id = branchFilterStore.apiBranchId
+  const [bookingsRes, invoicesRes, roomsRes, individualRes, corporateRes] = await Promise.all([
+    bookingApi.list({ page: 1, page_size: 1000, branch_id }),
+    invoiceApi.list({ page: 1, page_size: 1000, branch_id }),
+    roomApi.list({ page: 1, page_size: 1000, branch_id }),
+    individualClientApi.list({ page: 1, page_size: 1000 }),
+    corporateClientApi.list({ page: 1, page_size: 1000 }),
+  ])
+  allBookings.value = bookingsRes.data ?? []
+  allInvoices.value = invoicesRes.data ?? []
+  allRooms.value = roomsRes.data ?? []
+  allIndividualClients.value = individualRes.data ?? []
+  allCorporateClients.value = corporateRes.data ?? []
+
+  loadingRoomBreakdown.value = true
+  try {
+    allBookings.value = await Promise.all(allBookings.value.map(b => bookingApi.get(b.id)))
+  } catch {
+    // Keep the list-level bookings already assigned above — KPIs and status
+    // donuts still work fine without per-booking room assignment detail.
+  } finally {
+    loadingRoomBreakdown.value = false
+  }
+}
+
+onMounted(loadOverviewData)
+watch(() => branchFilterStore.selectedBranchId, loadOverviewData)
 
 // ── KPIs ──────────────────────────────────────────────────────────────────────
 const kpis = computed(() => {
-  const bookings = bookingsStore.bookings
-  const invoices = invoicesStore.invoices
+  const bookings = allBookings.value
+  const invoices = allInvoices.value
   const totalRevenue = invoices.filter(i => effectiveInvoiceStatus(i) === 'paid').reduce((s, i) => s + i.total_amount, 0)
   const outstanding = invoices.filter(i => effectiveInvoiceStatus(i) === 'issued' || effectiveInvoiceStatus(i) === 'overdue').reduce((s, i) => s + i.total_amount, 0)
   const activeBookings = bookings.filter(b => b.status === 'confirmed' || b.status === 'checked_in').length
-  const totalClients = individualStore.clients.length + corporateStore.clients.length
+  const totalClients = allIndividualClients.value.length + allCorporateClients.value.length
 
   return { totalRevenue, outstanding, activeBookings, totalClients }
 })
@@ -44,7 +82,7 @@ const kpis = computed(() => {
 type Seg = { label: string; value: number; color: string }
 
 const bookingSegments = computed<Seg[]>(() => {
-  const b = bookingsStore.bookings
+  const b = allBookings.value
   return [
     { label: 'Confirmed',   value: b.filter(x => x.status === 'confirmed').length,   color: 'var(--color-primary)' },
     { label: 'Checked In',  value: b.filter(x => x.status === 'checked_in').length,  color: 'var(--color-accent)' },
@@ -58,7 +96,7 @@ const totalBookings = computed(() => bookingSegments.value.reduce((s, x) => s + 
 
 // ── Invoice status breakdown ──────────────────────────────────────────────────
 const invoiceSegments = computed<Seg[]>(() => {
-  const inv = invoicesStore.invoices
+  const inv = allInvoices.value
   return [
     { label: 'Paid',      value: inv.filter(x => effectiveInvoiceStatus(x) === 'paid').length,      color: 'var(--color-accent)' },
     { label: 'Issued',    value: inv.filter(x => effectiveInvoiceStatus(x) === 'issued').length,    color: 'var(--color-primary)' },
@@ -75,9 +113,9 @@ const totalInvoices = computed(() => invoiceSegments.value.reduce((s, x) => s + 
 // span several rooms); attribute the booking's total to its lead room's type.
 const roomTypeRevenue = computed(() => {
   const map: Record<string, number> = {}
-  bookingsStore.bookings.forEach(b => {
+  allBookings.value.forEach(b => {
     const roomId = b.assignments?.[0]?.room_id
-    const room = roomsStore.rooms.find(r => r.id === roomId)
+    const room = allRooms.value.find(r => r.id === roomId)
     if (!room) return
     map[room.type] = (map[room.type] ?? 0) + b.total_amount
   })
@@ -87,7 +125,7 @@ const roomTypeRevenue = computed(() => {
 // ── Top rooms by bookings ─────────────────────────────────────────────────────
 const topRooms = computed(() => {
   const map: Record<string, { name: string; count: number; revenue: number }> = {}
-  bookingsStore.bookings.forEach(b => {
+  allBookings.value.forEach(b => {
     const roomName = b.assignments?.[0]?.room_name
     if (!roomName) return
     if (!map[roomName]) map[roomName] = { name: roomName, count: 0, revenue: 0 }
@@ -99,8 +137,8 @@ const topRooms = computed(() => {
 
 // ── Client type split ─────────────────────────────────────────────────────────
 const clientSplit = computed(() => ({
-  individual: individualStore.clients.length,
-  corporate: corporateStore.clients.length,
+  individual: allIndividualClients.value.length,
+  corporate: allCorporateClients.value.length,
 }))
 
 // Unovis helpers
@@ -248,7 +286,15 @@ const tickFormat = (_: number, i: number) => {
     </div>
 
     <!-- Revenue by room type bar chart -->
-    <Card v-if="roomTypeRevenue.length > 0">
+    <Card v-if="loadingRoomBreakdown">
+      <CardHeader class="pb-2">
+        <CardTitle class="text-base font-medium">Revenue by Room Type (ZMW)</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div class="h-55 rounded-md bg-muted animate-pulse" />
+      </CardContent>
+    </Card>
+    <Card v-else-if="roomTypeRevenue.length > 0">
       <CardHeader class="pb-2">
         <CardTitle class="text-base font-medium">Revenue by Room Type (ZMW)</CardTitle>
       </CardHeader>
@@ -283,7 +329,15 @@ const tickFormat = (_: number, i: number) => {
     </Card>
 
     <!-- Top rooms table -->
-    <Card v-if="topRooms.length > 0">
+    <Card v-if="loadingRoomBreakdown">
+      <CardHeader class="pb-2">
+        <CardTitle class="text-base font-medium">Top Rooms by Bookings</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div class="h-40 rounded-md bg-muted animate-pulse" />
+      </CardContent>
+    </Card>
+    <Card v-else-if="topRooms.length > 0">
       <CardHeader class="pb-2">
         <CardTitle class="text-base font-medium">Top Rooms by Bookings</CardTitle>
       </CardHeader>
