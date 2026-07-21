@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import {
   Eye, Search, ChevronLeft, ChevronRight, Building2, User, UserCheck,
   BedDouble, CalendarDays, LogIn, LogOut, Loader2, Plus, MapPin, Users,
@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/sheet'
 
 const router = useRouter()
+const route = useRoute()
 const store = useBookingsStore()
 const branchFilterStore = useBranchFilterStore()
 const confirmDialog = useConfirmDialog()
@@ -51,7 +52,10 @@ function loadBookings() {
   store.fetchBookings(page.value, pageSize, activeTab.value, statusVal, typeVal)
 }
 
-onMounted(loadBookings)
+onMounted(() => {
+  loadBookings()
+  openBookingFromQuery()
+})
 watch(page, loadBookings)
 watch(activeTab, () => { page.value = 1; search.value = ''; bookingTypeFilter.value = 'all'; loadBookings() })
 watch(bookingTypeFilter, () => { page.value = 1; loadBookings() })
@@ -319,6 +323,26 @@ async function openEventSheet(b: Booking) {
     toast.error(getApiError(err, 'Failed to load event details.'))
   } finally {
     eventSheetLoading.value = false
+  }
+}
+
+// Deep-link entry point (e.g. from the Room Status board's occupant links) —
+// opens a specific booking's sheet directly by id, independent of whatever
+// page/tab/filter the table currently has loaded.
+async function openBookingFromQuery() {
+  const bookingId = route.query.bookingId
+  if (typeof bookingId !== 'string' || !bookingId) return
+  try {
+    const booking = await bookingApi.get(bookingId)
+    if (booking.booking_type === 'accommodation' || !booking.booking_type) {
+      await openCorporateSheet(booking)
+    } else {
+      await openEventSheet(booking)
+    }
+  } catch (err) {
+    toast.error(getApiError(err, 'Could not find that booking.'))
+  } finally {
+    router.replace({ query: { ...route.query, bookingId: undefined } })
   }
 }
 

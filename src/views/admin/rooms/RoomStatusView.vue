@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { BedDouble, Phone, CalendarDays, AlertTriangle, RefreshCw, Search, Users } from 'lucide-vue-next'
+import { useRouter } from 'vue-router'
+import { BedDouble, Phone, CalendarDays, AlertTriangle, RefreshCw, Search, Users, FileText } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { roomApi } from '@/services/api/room'
 import { bookingApi } from '@/services/api/bookings'
@@ -12,7 +13,12 @@ import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 
+const router = useRouter()
 const branchFilterStore = useBranchFilterStore()
+
+function goToBooking(bookingId: string) {
+  router.push({ name: 'admin-bookings', query: { bookingId } })
+}
 
 const typeLabel: Record<string, string> = {
   single: 'Single',
@@ -342,6 +348,13 @@ onUnmounted(() => {
                 <span v-if="occ.isOverstaying">Due out {{ fmt(occ.checkOut) }} · {{ daysOverdue(occ.checkOut) }} day{{ daysOverdue(occ.checkOut) !== 1 ? 's' : '' }} overdue</span>
                 <span v-else>Checking out {{ fmt(occ.checkOut) }}</span>
               </p>
+              <button
+                type="button"
+                class="text-xs text-primary hover:underline flex items-center gap-1.5 w-fit"
+                @click="goToBooking(occ.bookingId)"
+              >
+                <FileText class="size-3 shrink-0" /> {{ occ.bookingNumber }}
+              </button>
             </div>
           </div>
         </div>
