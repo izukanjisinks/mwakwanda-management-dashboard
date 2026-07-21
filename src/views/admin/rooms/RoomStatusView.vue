@@ -33,6 +33,10 @@ const typeLabel: Record<string, string> = {
 const rooms = ref<Room[]>([])
 const bookings = ref<Booking[]>([]) // full detail (assignments + attendees), post fan-out
 const loading = ref(false)
+// True only until the very first fetch settles — drives the full-page skeleton.
+// Later refreshes just show the "Updating…" indicator instead, on top of the
+// last-known data, rather than blanking the grid every cycle.
+const initialLoading = ref(true)
 
 // Keeps paging through while the server reports more rows than we've collected —
 // a fixed page_size guess would silently drop guests off a live status board.
@@ -63,17 +67,22 @@ async function fetchRoomStatus() {
       fetchAllPages<Booking>((page, page_size) =>
         bookingApi.list({ status: 'checked_in', page, page_size, branch_id: branchFilterStore.apiBranchId })),
     ])
-    rooms.value = roomsData
 
     // No bulk "rooms + current occupants" endpoint exists — fan out to full
     // booking detail (assignments + attendees) for every active booking, same
     // pattern as KitchenView/BarView's Promise.all(getOrder) fan-out.
     const summaries = [...confirmed, ...checkedIn]
-    bookings.value = await Promise.all(summaries.map(b => bookingApi.get(b.id)))
+    const bookingsData = await Promise.all(summaries.map(b => bookingApi.get(b.id)))
+
+    // Commit together — assigning rooms before bookings resolve would briefly
+    // render every room as free while occupancy data is still in flight.
+    rooms.value = roomsData
+    bookings.value = bookingsData
   } catch (err) {
     toast.error(getApiError(err, 'Failed to load room status.'))
   } finally {
     loading.value = false
+    initialLoading.value = false
   }
 }
 
@@ -262,7 +271,10 @@ onUnmounted(() => {
       <div class="h-4 w-px bg-border hidden sm:block" />
       <span class="font-mono tabular-nums text-foreground font-medium">{{ currentTime }}</span>
       <div class="flex items-center gap-1.5">
-        <span class="text-xs">{{ countdown }}s</span>
+        <span v-if="loading" class="flex items-center gap-1.5 text-xs text-primary font-medium">
+          <span class="size-1.5 rounded-full bg-primary animate-pulse" /> Updating…
+        </span>
+        <span v-else class="text-xs">{{ countdown }}s</span>
         <button
           class="size-7 flex items-center justify-center rounded-md hover:bg-muted transition-colors"
           @click="manualRefresh"
@@ -295,7 +307,7 @@ onUnmounted(() => {
 
     <!-- ── Room grid ───────────────────────────────────────────────────────── -->
     <div class="flex-1 overflow-auto px-4 pb-4">
-      <div v-if="loading && rooms.length === 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      <div v-if="initialLoading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         <div v-for="i in 8" :key="i" class="h-40 rounded-xl bg-muted animate-pulse" />
       </div>
 
