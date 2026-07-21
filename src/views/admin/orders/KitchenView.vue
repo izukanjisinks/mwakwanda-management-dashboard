@@ -32,6 +32,10 @@ const branchFilter = useBranchFilterStore()
 
 const orders = ref<Order[]>([])
 const loading = ref(false)
+// True only until the very first fetch settles — drives the column skeletons
+// so the board doesn't render blank (or a misleading "nothing here" message)
+// before data has ever arrived.
+const initialLoading = ref(true)
 
 async function fetchOrders() {
   loading.value = true
@@ -60,6 +64,7 @@ async function fetchOrders() {
     }
   } finally {
     loading.value = false
+    initialLoading.value = false
   }
 }
 
@@ -360,7 +365,11 @@ onUnmounted(() => {
             <span class="ml-auto text-xs text-muted-foreground font-medium tabular-nums">{{ newOrders.length }}</span>
           </div>
 
-          <div v-if="newOrders.length === 0 && !loading" class="flex flex-col items-center justify-center gap-2 py-10 text-muted-foreground/60">
+          <div v-if="initialLoading" class="flex flex-col gap-3">
+            <div v-for="i in 2" :key="i" class="h-32 rounded-xl bg-muted animate-pulse" />
+          </div>
+
+          <div v-else-if="newOrders.length === 0 && !loading" class="flex flex-col items-center justify-center gap-2 py-10 text-muted-foreground/60">
             <CheckCircle2 class="size-8" />
             <p class="text-xs">No new orders</p>
           </div>
@@ -457,7 +466,11 @@ onUnmounted(() => {
             <span class="ml-auto text-xs text-muted-foreground font-medium tabular-nums">{{ preparingOrders.length }}</span>
           </div>
 
-          <div v-if="preparingOrders.length === 0" class="flex flex-col items-center justify-center gap-2 py-10 text-muted-foreground/60">
+          <div v-if="initialLoading" class="flex flex-col gap-3">
+            <div v-for="i in 2" :key="i" class="h-32 rounded-xl bg-muted animate-pulse" />
+          </div>
+
+          <div v-else-if="preparingOrders.length === 0" class="flex flex-col items-center justify-center gap-2 py-10 text-muted-foreground/60">
             <Flame class="size-8" />
             <p class="text-xs">Nothing in progress</p>
           </div>
@@ -548,7 +561,11 @@ onUnmounted(() => {
             <span class="ml-auto text-xs text-muted-foreground font-medium tabular-nums">{{ readyOrders.length }}</span>
           </div>
 
-          <div v-if="readyOrders.length === 0" class="flex flex-col items-center justify-center gap-2 py-10 text-muted-foreground/60">
+          <div v-if="initialLoading" class="flex flex-col gap-3">
+            <div v-for="i in 2" :key="i" class="h-32 rounded-xl bg-muted animate-pulse" />
+          </div>
+
+          <div v-else-if="readyOrders.length === 0" class="flex flex-col items-center justify-center gap-2 py-10 text-muted-foreground/60">
             <CheckCircle2 class="size-8" />
             <p class="text-xs">Nothing ready to serve</p>
           </div>
