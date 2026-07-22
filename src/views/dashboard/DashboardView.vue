@@ -72,7 +72,7 @@ const needsAttention = computed(() => dashboardStore.needsAttention)
               detail="Past checkout"
               :icon="AlarmClock"
               severity="critical"
-              :to="{ name: 'room-status', query: { filter: 'overstaying' } }"
+              :to="{ name: 'rooms', query: { filter: 'overstaying' } }"
             />
             <AttentionTile
               label="Pending Approvals"

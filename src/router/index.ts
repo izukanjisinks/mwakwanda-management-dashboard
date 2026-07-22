@@ -79,12 +79,6 @@ const router = createRouter({
           meta: { roles: ['admin', 'branch_admin', 'manager', 'receptionist', 'cleaner'] },
         },
         {
-          path: 'room-status',
-          name: 'room-status',
-          component: () => import('@/views/admin/rooms/RoomStatusView.vue'),
-          meta: { roles: ['admin', 'branch_admin', 'manager', 'receptionist'] },
-        },
-        {
           path: 'venues',
           name: 'venues',
           component: () => import('@/views/admin/venues/VenuesView.vue'),
