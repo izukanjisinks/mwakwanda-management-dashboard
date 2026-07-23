@@ -2,18 +2,19 @@
 import { computed } from 'vue'
 import { VisSingleContainer, VisDonut, VisTooltip } from '@unovis/vue'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import type { DashboardReservationsBreakdown } from '@/types/dashboard'
+import type { DashboardOrdersByStation } from '@/types/dashboard'
 
 type Segment = { label: string; value: number; color: string }
 
 const props = defineProps<{
-  data: DashboardReservationsBreakdown
+  data: DashboardOrdersByStation
 }>()
 
 const chartData = computed<Segment[]>(() => [
-  { label: 'Booked', value: props.data.booked, color: 'var(--color-primary)' },
-  { label: 'Pending Approval', value: props.data.pending, color: 'var(--color-chart-3)' },
-  { label: 'Cancelled', value: props.data.cancelled, color: 'var(--color-muted-foreground)' },
+  { label: 'Kitchen', value: props.data.kitchen, color: 'var(--color-primary)' },
+  { label: 'Bar', value: props.data.bar, color: 'var(--color-chart-3)' },
+  { label: 'Bakery', value: props.data.bakery, color: 'var(--color-accent)' },
+  { label: 'Grill', value: props.data.grill, color: 'var(--color-muted-foreground)' },
 ])
 
 const total = computed(() => chartData.value.reduce((sum, s) => sum + s.value, 0))
@@ -29,11 +30,11 @@ function pct(v: number) {
 <template>
   <Card>
     <CardHeader class="pb-2">
-      <CardTitle class="text-base font-medium">Reservations</CardTitle>
+      <CardTitle class="text-base font-medium">Orders by Station</CardTitle>
     </CardHeader>
     <CardContent>
       <div v-if="total === 0" class="flex items-center justify-center h-45 text-sm text-muted-foreground">
-        No reservation data available.
+        No open orders.
       </div>
       <div v-else class="flex flex-col items-center gap-6">
         <!-- Donut chart -->
@@ -45,7 +46,7 @@ function pct(v: number) {
           <!-- Center total -->
           <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
             <span class="text-2xl font-semibold tracking-tight">{{ total }}</span>
-            <span class="text-xs text-muted-foreground">Total</span>
+            <span class="text-xs text-muted-foreground">Orders</span>
           </div>
         </div>
 

@@ -1,19 +1,15 @@
 <script setup lang="ts">
-import { computed, onMounted, watch } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useDashboardStore } from '@/stores/dashboard'
 import { useBranchFilterStore } from '@/stores/branchFilter'
-import { CalendarCheck, LogIn, LogOut, DollarSign, AlarmClock, Inbox, ChefHat, Martini, ReceiptText, BedDouble } from 'lucide-vue-next'
+import { CalendarCheck, LogIn, LogOut, DollarSign } from 'lucide-vue-next'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import StatCard from '@/components/dashboard/StatCard.vue'
-import AttentionTile from '@/components/dashboard/AttentionTile.vue'
-import { Card, CardContent } from '@/components/ui/card'
-import RevenueChart from '@/components/dashboard/RevenueChart.vue'
-import ReservationsChart from '@/components/dashboard/ReservationsChart.vue'
-import BookingTable from '@/components/dashboard/BookingTable.vue'
-// import OverallRating from '@/components/dashboard/OverallRating.vue'
-import ActivityFeed from '@/components/dashboard/ActivityFeed.vue'
+import BookingsPanel from '@/components/dashboard/panels/BookingsPanel.vue'
+import OrdersPanel from '@/components/dashboard/panels/OrdersPanel.vue'
+import InvoicesPanel from '@/components/dashboard/panels/InvoicesPanel.vue'
 
 const authStore = useAuthStore()
 const dashboardStore = useDashboardStore()
@@ -22,10 +18,32 @@ const router = useRouter()
 
 const STAFF_ROLES = ['admin', 'branch_admin', 'manager', 'receptionist']
 
+// Tabs under "Today's Operations" — each fetches its own data only when
+// selected (or on first load, for the default tab), instead of every panel's
+// data being fetched simultaneously on mount.
+const opsTabs = [
+  { value: 'bookings', label: 'Bookings' },
+  { value: 'orders', label: 'Orders' },
+  { value: 'invoices', label: 'Invoices' },
+] as const
+type OpsTab = (typeof opsTabs)[number]['value']
+const activeOpsTab = ref<OpsTab>('bookings')
+
+function fetchForTab(tab: OpsTab) {
+  if (tab === 'bookings') dashboardStore.fetchBookings()
+  else if (tab === 'orders') dashboardStore.fetchOrders()
+  else if (tab === 'invoices') dashboardStore.fetchInvoices()
+}
+
+function selectTab(tab: OpsTab) {
+  activeOpsTab.value = tab
+  fetchForTab(tab)
+}
+
 function loadDashboard() {
   if (!STAFF_ROLES.includes(authStore.userRole ?? '')) return
-  dashboardStore.fetchStats()
-  dashboardStore.fetchNeedsAttention()
+  dashboardStore.fetchSummary()
+  fetchForTab(activeOpsTab.value)
 }
 
 onMounted(() => {
@@ -37,20 +55,6 @@ onMounted(() => {
 })
 
 watch(() => branchFilterStore.selectedBranchId, loadDashboard)
-
-const roomSummary = computed(() => dashboardStore.stats?.room_summary)
-const roomTotal = computed(() => {
-  const r = roomSummary.value
-  return (r?.occupied ?? 0) + (r?.reserved ?? 0) + (r?.available ?? 0) + (r?.not_ready ?? 0)
-})
-function roomPct(n: number) {
-  return roomTotal.value > 0 ? (n / roomTotal.value) * 100 : 0
-}
-const statCards = computed(() => dashboardStore.stats?.stat_cards)
-const revenueData = computed(() => dashboardStore.stats?.revenue_by_month ?? [])
-const reservationsData = computed(() => dashboardStore.stats?.reservations_by_day ?? [])
-const recentBookings = computed(() => dashboardStore.stats?.recent_bookings ?? [])
-const needsAttention = computed(() => dashboardStore.needsAttention)
 </script>
 
 <template>
@@ -60,112 +64,37 @@ const needsAttention = computed(() => dashboardStore.needsAttention)
 
     <div class="flex flex-1 gap-6 p-6">
       <!-- Main content -->
-      <div class="flex flex-1 flex-col gap-6 min-w-0">
+      <div class="flex flex-1 flex-col gap-6 min-w-0 w-full">
 
-        <!-- Needs Attention -->
-        <div>
-          <h2 class="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Needs Attention</h2>
-          <div class="grid gap-4" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
-            <AttentionTile
-              label="Overstaying Guests"
-              :value="needsAttention?.overstayingGuests ?? 0"
-              detail="Past checkout"
-              :icon="AlarmClock"
-              severity="critical"
-              :to="{ name: 'rooms', query: { filter: 'overstaying' } }"
-            />
-            <AttentionTile
-              label="Pending Approvals"
-              :value="needsAttention?.pendingApprovals ?? 0"
-              detail="Booking requests awaiting review"
-              :icon="Inbox"
-              severity="warning"
-              :to="{ name: 'workflow-tasks' }"
-            />
-            <AttentionTile
-              label="Kitchen Backlog"
-              :value="needsAttention?.kitchenBacklog ?? 0"
-              detail="Open kitchen orders"
-              :icon="ChefHat"
-              severity="warning"
-              :to="{ name: 'kitchen' }"
-            />
-            <AttentionTile
-              label="Bar Backlog"
-              :value="needsAttention?.barBacklog ?? 0"
-              detail="Open bar orders"
-              :icon="Martini"
-              severity="warning"
-              :to="{ name: 'bar' }"
-            />
-            <AttentionTile
-              label="Invoices Overdue"
-              :value="needsAttention?.invoicesOverdueCount ?? 0"
-              :detail="needsAttention ? `ZMW ${needsAttention.invoicesOverdueAmount.toLocaleString()} outstanding` : undefined"
-              :icon="ReceiptText"
-              severity="critical"
-              :to="{ name: 'admin-invoices' }"
-            />
-          </div>
-        </div>
-
-        <!-- Today's Operations -->
+        <!-- Always-loaded summary -->
         <div>
           <h2 class="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Today's Operations</h2>
-          <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard title="Check-In Today" :value="statCards?.checkins_today ?? 0" :icon="LogIn" icon-color="bg-accent/10 text-accent" />
-            <StatCard title="Check-Out Today" :value="statCards?.checkouts_today ?? 0" :icon="LogOut" icon-color="bg-chart-3/10 text-chart-3" />
 
-            <Card class="py-4">
-              <CardContent class="px-4 flex flex-col gap-2">
-                <div class="flex items-start justify-between">
-                  <div class="flex flex-col gap-1">
-                    <span class="text-sm text-muted-foreground">Rooms Occupied</span>
-                    <span class="text-2xl font-semibold tracking-tight">
-                      {{ roomSummary?.occupied ?? 0 }}<span class="text-sm font-normal text-muted-foreground">/{{ roomTotal }}</span>
-                    </span>
-                  </div>
-                  <div class="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    <BedDouble class="size-5" />
-                  </div>
-                </div>
-                <div class="flex h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                  <span class="h-full bg-primary" :style="{ width: roomPct(roomSummary?.occupied ?? 0) + '%' }" />
-                  <span class="h-full bg-chart-3" :style="{ width: roomPct(roomSummary?.reserved ?? 0) + '%' }" />
-                  <span class="h-full bg-accent" :style="{ width: roomPct(roomSummary?.available ?? 0) + '%' }" />
-                  <span class="h-full bg-muted-foreground" :style="{ width: roomPct(roomSummary?.not_ready ?? 0) + '%' }" />
-                </div>
-                <div class="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-                  <span class="flex items-center gap-1"><span class="size-1.5 rounded-full bg-primary inline-block" />Occupied</span>
-                  <span class="flex items-center gap-1"><span class="size-1.5 rounded-full bg-chart-3 inline-block" />Reserved</span>
-                  <span class="flex items-center gap-1"><span class="size-1.5 rounded-full bg-accent inline-block" />Available</span>
-                  <span class="flex items-center gap-1"><span class="size-1.5 rounded-full bg-muted-foreground inline-block" />Not Ready</span>
-                </div>
-              </CardContent>
-            </Card>
+          <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <StatCard size="lg" title="Check-In Today" :value="dashboardStore.summary?.checkins_today ?? 0" :icon="LogIn" icon-color="bg-accent/10 text-accent" />
+            <StatCard size="lg" title="Check-Out Today" :value="dashboardStore.summary?.checkouts_today ?? 0" :icon="LogOut" icon-color="bg-chart-3/10 text-chart-3" />
+            <StatCard size="lg" title="New Bookings (Month)" :value="dashboardStore.summary?.new_bookings_this_month ?? 0" :icon="CalendarCheck" />
+          </div>
 
-            <StatCard title="New Bookings (Month)" :value="statCards?.new_bookings_this_month ?? 0" :icon="CalendarCheck" />
+          <!-- Tabs -->
+          <div class="flex items-center gap-1 bg-muted rounded-lg p-1 w-full mt-4">
+            <button
+              v-for="tab in opsTabs"
+              :key="tab.value"
+              class="flex-1 flex items-center justify-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-colors"
+              :class="activeOpsTab === tab.value ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'"
+              @click="selectTab(tab.value)"
+            >
+              {{ tab.label }}
+            </button>
           </div>
         </div>
 
-        <!-- Trends -->
-        <div>
-          <h2 class="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Trends</h2>
-          <div class="grid gap-6 lg:grid-cols-2">
-            <RevenueChart :data="revenueData" />
-            <ReservationsChart :data="reservationsData" />
-          </div>
-        </div>
-
-        <!-- Booking table -->
-        <BookingTable :bookings="recentBookings" />
+        <!-- Tab panels — each fetches only when selected -->
+        <BookingsPanel v-if="activeOpsTab === 'bookings'" :data="dashboardStore.bookings" :loading="dashboardStore.bookingsLoading" />
+        <OrdersPanel v-else-if="activeOpsTab === 'orders'" :data="dashboardStore.orders" :loading="dashboardStore.ordersLoading" />
+        <InvoicesPanel v-else-if="activeOpsTab === 'invoices'" :data="dashboardStore.invoices" :loading="dashboardStore.invoicesLoading" />
       </div>
-
-      <!-- Right sidebar -->
-      <aside class="hidden w-80 shrink-0 flex-col gap-6 xl:flex self-stretch">
-        <!-- <OverallRating /> -->
-        <ActivityFeed />
-      </aside>
     </div>
   </template>
 
