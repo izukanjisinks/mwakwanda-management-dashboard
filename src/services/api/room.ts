@@ -1,5 +1,5 @@
 import { apiClient } from './client'
-import type { Room, RoomPayload, PaginatedRooms } from '@/types/room'
+import type { Room, RoomPayload, PaginatedRooms, RoomStatus } from '@/types/room'
 
 export interface RoomListParams extends Record<string, string | number | boolean | undefined> {
   page?: number
@@ -23,6 +23,9 @@ export const roomApi = {
 
   listAvailable: (params: AvailableRoomsParams) =>
     apiClient.get<Room[]>('/rooms/available', { params }),
+
+  status: (params?: { branch_id?: string }) =>
+    apiClient.get<RoomStatus[]>('/rooms/status', { params }),
 
   get: (id: string) =>
     apiClient.get<Room>(`/rooms/${id}`),

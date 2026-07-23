@@ -11,9 +11,7 @@ import { useRoomsStore } from '@/stores/rooms'
 import { useAuthStore } from '@/stores/auth'
 import { useBranchFilterStore } from '@/stores/branchFilter'
 import { roomApi } from '@/services/api/room'
-import { bookingApi } from '@/services/api/bookings'
-import type { Room } from '@/types/room'
-import type { Booking } from '@/types/booking'
+import type { Room, RoomStatus } from '@/types/room'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import RoomDialog from '@/components/rooms/RoomDialog.vue'
 import RoomCleaningSheet from '@/components/rooms/RoomCleaningSheet.vue'
@@ -71,7 +69,7 @@ function initialTab(): RoomsTab {
 const activeTab = ref<RoomsTab>(initialTab())
 
 watch(activeTab, (tab) => {
-  if (tab === 'status' && roomCards.value.length === 0) fetchRoomStatus()
+  if (tab === 'status' && roomStatuses.value.length === 0) fetchRoomStatus()
 })
 
 // ── Rooms tab ────────────────────────────────────────────────────────────────
@@ -146,54 +144,19 @@ function goToBooking(bookingId: string) {
   router.push({ name: 'admin-bookings', query: { bookingId } })
 }
 
-const statusRooms = ref<Room[]>([])
-const statusBookings = ref<Booking[]>([]) // full detail (assignments + attendees), post fan-out
+const roomStatuses = ref<RoomStatus[]>([])
 const statusLoading = ref(false)
 // True only until the very first fetch settles — drives the full-page skeleton.
 // Later refreshes just show the "Updating…" indicator instead, on top of the
 // last-known data, rather than blanking the grid every cycle.
 const statusInitialLoading = ref(true)
 
-// Keeps paging through while the server reports more rows than we've collected —
-// a fixed page_size guess would silently drop guests off a live status board.
-async function fetchAllPages<T>(
-  fetchPage: (page: number, pageSize: number) => Promise<{ data: T[] | null; total: number }>,
-): Promise<T[]> {
-  const pageSize = 100
-  let page = 1
-  let all: T[] = []
-  for (;;) {
-    const res = await fetchPage(page, pageSize)
-    const batch = res.data ?? []
-    all = all.concat(batch)
-    if (batch.length === 0 || all.length >= res.total) break
-    page++
-  }
-  return all
-}
-
 async function fetchRoomStatus() {
   statusLoading.value = true
   try {
-    const [roomsData, confirmed, checkedIn] = await Promise.all([
-      fetchAllPages<Room>((page, page_size) =>
-        roomApi.list({ page, page_size, branch_id: branchFilterStore.apiBranchId })),
-      fetchAllPages<Booking>((page, page_size) =>
-        bookingApi.list({ status: 'confirmed', page, page_size, branch_id: branchFilterStore.apiBranchId })),
-      fetchAllPages<Booking>((page, page_size) =>
-        bookingApi.list({ status: 'checked_in', page, page_size, branch_id: branchFilterStore.apiBranchId })),
-    ])
-
-    // No bulk "rooms + current occupants" endpoint exists — fan out to full
-    // booking detail (assignments + attendees) for every active booking, same
-    // pattern as KitchenView/BarView's Promise.all(getOrder) fan-out.
-    const summaries = [...confirmed, ...checkedIn]
-    const bookingsData = await Promise.all(summaries.map(b => bookingApi.get(b.id)))
-
-    // Commit together — assigning rooms before bookings resolve would briefly
-    // render every room as free while occupancy data is still in flight.
-    statusRooms.value = roomsData
-    statusBookings.value = bookingsData
+    // Single call — the backend joins rooms to their currently-checked-in
+    // occupants (and computes the overstay flag) in one query.
+    roomStatuses.value = await roomApi.status({ branch_id: branchFilterStore.apiBranchId })
   } catch (err) {
     toast.error(getApiError(err, 'Failed to load room status.'))
   } finally {
@@ -204,70 +167,18 @@ async function fetchRoomStatus() {
 
 // ── Room roster assembly ─────────────────────────────────────────────────────
 
-function startOfDay(d: Date): Date {
-  d.setHours(0, 0, 0, 0)
-  return d
-}
-const today = computed(() => startOfDay(new Date()))
-
-interface RoomOccupant {
-  assignmentId: string
-  bookingId: string
-  bookingNumber: string
-  name: string
-  phone?: string
-  checkOut: string
-  isOverstaying: boolean
-}
-
-interface RoomCard {
-  room: Room
-  occupants: RoomOccupant[]
-}
-
-const roomCards = computed<RoomCard[]>(() => {
-  const cards = new Map<string, RoomCard>(statusRooms.value.map(r => [r.id, { room: r, occupants: [] }]))
-
-  for (const booking of statusBookings.value) {
-    const attendeeById = new Map((booking.attendees ?? []).map(a => [a.id, a]))
-    for (const a of booking.assignments ?? []) {
-      // 'checked_in' = physically in the room right now — the same status
-      // the Bookings page already branches on to show its own check-out action.
-      if (a.status !== 'checked_in') continue
-      const card = cards.get(a.room_id)
-      if (!card) continue
-
-      const attendee = attendeeById.get(a.attendee_id ?? '')
-      // Overstay has two signals: the assignment's own date (works until the
-      // "Overstay Management" nightly job auto-extends it forward), and the
-      // booking-level flag (durable, but can't pinpoint who in a shared room —
-      // so a booking flagged overstayed marks all its current occupants).
-      const dateOverstay = startOfDay(new Date(a.check_out)) < today.value
-      card.occupants.push({
-        assignmentId: a.id,
-        bookingId: booking.id,
-        bookingNumber: booking.booking_number,
-        name: attendee?.full_name ?? a.attendee_name ?? '—',
-        phone: attendee?.phone,
-        checkOut: a.check_out,
-        isOverstaying: dateOverstay || booking.overstayed,
-      })
-    }
-  }
-  return [...cards.values()]
-})
-
 function daysOverdue(checkOut: string): number {
-  const diff = today.value.getTime() - startOfDay(new Date(checkOut)).getTime()
+  const startOfDay = (d: Date) => { d.setHours(0, 0, 0, 0); return d }
+  const diff = startOfDay(new Date()).getTime() - startOfDay(new Date(checkOut)).getTime()
   return Math.max(0, Math.round(diff / 86400000))
 }
 
 // ── Filtering / summary ──────────────────────────────────────────────────────
 
-const isFree         = (c: RoomCard) => c.occupants.length === 0 && c.room.is_available
-const isOutOfService  = (c: RoomCard) => !c.room.is_available
-const isOccupied      = (c: RoomCard) => c.occupants.length > 0
-const isOverstaying   = (c: RoomCard) => c.occupants.some(o => o.isOverstaying)
+const isFree         = (c: RoomStatus) => c.occupants.length === 0 && c.room.is_available
+const isOutOfService  = (c: RoomStatus) => !c.room.is_available
+const isOccupied      = (c: RoomStatus) => c.occupants.length > 0
+const isOverstaying   = (c: RoomStatus) => c.occupants.some(o => o.overstaying)
 
 type StatusFilter = 'all' | 'occupied' | 'free' | 'overstaying'
 const VALID_FILTERS: StatusFilter[] = ['all', 'occupied', 'free', 'overstaying']
@@ -291,7 +202,7 @@ const statusFilterOptions: { value: StatusFilter; label: string }[] = [
 ]
 
 const visibleCards = computed(() => {
-  let list = roomCards.value
+  let list = roomStatuses.value
   const q = statusSearch.value.toLowerCase().trim()
   if (q) {
     list = list.filter(c =>
@@ -305,7 +216,7 @@ const visibleCards = computed(() => {
   return list
 })
 
-function cardAccentClass(card: RoomCard): string {
+function cardAccentClass(card: RoomStatus): string {
   if (isOverstaying(card)) return 'border-destructive/50 bg-destructive/5'
   if (isOutOfService(card)) return 'border-dashed bg-muted/20'
   if (isOccupied(card)) return 'border-border bg-card'
@@ -532,27 +443,27 @@ onMounted(() => {
 
               <!-- Occupants -->
               <div v-else class="border-t divide-y">
-                <div v-for="occ in card.occupants" :key="occ.assignmentId" class="px-4 py-3 flex flex-col gap-1">
+                <div v-for="occ in card.occupants" :key="occ.assignment_id" class="px-4 py-3 flex flex-col gap-1">
                   <div class="flex items-center justify-between gap-2">
                     <p class="text-sm font-semibold truncate">{{ occ.name }}</p>
-                    <Badge v-if="occ.isOverstaying" variant="destructive" class="text-[10px] gap-1 shrink-0">
+                    <Badge v-if="occ.overstaying" variant="destructive" class="text-[10px] gap-1 shrink-0">
                       <AlertTriangle class="size-2.5" /> Overstaying
                     </Badge>
                   </div>
                   <p class="text-xs text-muted-foreground flex items-center gap-1.5">
                     <Phone class="size-3 shrink-0" /> {{ occ.phone || 'No phone on file' }}
                   </p>
-                  <p class="text-xs flex items-center gap-1.5" :class="occ.isOverstaying ? 'text-destructive font-medium' : 'text-muted-foreground'">
+                  <p class="text-xs flex items-center gap-1.5" :class="occ.overstaying ? 'text-destructive font-medium' : 'text-muted-foreground'">
                     <CalendarDays class="size-3 shrink-0" />
-                    <span v-if="occ.isOverstaying">Due out {{ fmt(occ.checkOut) }} · {{ daysOverdue(occ.checkOut) }} day{{ daysOverdue(occ.checkOut) !== 1 ? 's' : '' }} overdue</span>
-                    <span v-else>Checking out {{ fmt(occ.checkOut) }}</span>
+                    <span v-if="occ.overstaying">Due out {{ fmt(occ.check_out) }} · {{ daysOverdue(occ.check_out) }} day{{ daysOverdue(occ.check_out) !== 1 ? 's' : '' }} overdue</span>
+                    <span v-else>Checking out {{ fmt(occ.check_out) }}</span>
                   </p>
                   <button
                     type="button"
                     class="text-xs text-primary hover:underline flex items-center gap-1.5 w-fit"
-                    @click="goToBooking(occ.bookingId)"
+                    @click="goToBooking(occ.booking_id)"
                   >
-                    <FileText class="size-3 shrink-0" /> {{ occ.bookingNumber }}
+                    <FileText class="size-3 shrink-0" /> {{ occ.booking_number }}
                   </button>
                 </div>
               </div>
