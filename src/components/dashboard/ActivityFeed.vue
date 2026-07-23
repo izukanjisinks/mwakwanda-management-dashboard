@@ -10,7 +10,7 @@ const loading = ref(true)
 
 onMounted(async () => {
   try {
-    const res = await auditLogsApi.list({ page: 1, page_size: 4 })
+    const res = await auditLogsApi.list({ page: 1, page_size: 10 })
     logs.value = Array.isArray(res) ? res : (res as any).data ?? []
   } catch {
     // silently leave empty
@@ -42,7 +42,7 @@ function asOrdersClosed(log: AuditLog): OrdersClosedPayload {
     <CardContent class="flex-1 px-0">
       <!-- Loading -->
       <div v-if="loading" class="flex flex-col gap-4 px-6">
-        <div v-for="i in 4" :key="i" class="flex gap-2.5">
+        <div v-for="i in 10" :key="i" class="flex gap-2.5">
           <div class="size-7 rounded-lg bg-muted animate-pulse shrink-0" />
           <div class="flex flex-col gap-1.5 flex-1 pt-0.5">
             <div class="h-3 w-full bg-muted animate-pulse rounded" />
