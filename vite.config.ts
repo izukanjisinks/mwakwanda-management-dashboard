@@ -18,4 +18,18 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url))
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('firebase'))                return 'firebase'
+            if (id.includes('@ceereals/vue-pdf'))       return 'pdf'
+            if (id.includes('@internationalized/date'))  return 'datefns'
+            if (id.includes('reka-ui'))                 return 'reka-ui'
+          }
+        },
+      },
+    },
+  },
 })

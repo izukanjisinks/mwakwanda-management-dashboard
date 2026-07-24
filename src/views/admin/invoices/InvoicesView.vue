@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, h } from 'vue'
-import { usePdf } from '@ceereals/vue-pdf'
+import { ref, computed, onMounted, watch, h, defineAsyncComponent } from 'vue'
 import { Search, Eye, ChevronLeft, ChevronRight, FileText, User, Building2, Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { getApiError } from '@/utils/errors'
@@ -11,8 +10,10 @@ import { useAuthStore } from '@/stores/auth'
 import type { Invoice, InvoiceStatus } from '@/types/invoice'
 import DashboardHeader from '@/components/dashboard/DashboardHeader.vue'
 import InvoiceDetailDialog from '@/components/invoices/InvoiceDetailDialog.vue'
-import InvoiceDocument from '@/components/invoices/InvoiceDocument.vue'
-import InvoicePdfSheet from '@/components/invoices/InvoicePdfSheet.vue'
+
+// The PDF renderer (@ceereals/vue-pdf) is a ~1.3MB dependency — loaded only
+// when actually needed (viewing/issuing a PDF), not on every Invoices page visit.
+const InvoicePdfSheet = defineAsyncComponent(() => import('@/components/invoices/InvoicePdfSheet.vue'))
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -140,6 +141,12 @@ async function invoiceToBase64(invoice: Invoice): Promise<string> {
   // Resolved up front — usePdf renders a one-shot snapshot, so a logo fetched
   // from inside the component would race the render and lose almost every time.
   const logoBase64 = await fetchLogoBase64(authStore.user?.org_logo_url)
+  // Dynamically imported — the PDF renderer is a ~1.3MB dependency only needed
+  // when an invoice is actually being issued/rendered, not on page load.
+  const [{ usePdf }, { default: InvoiceDocument }] = await Promise.all([
+    import('@ceereals/vue-pdf'),
+    import('@/components/invoices/InvoiceDocument.vue'),
+  ])
   const { blob, execute } = usePdf(() => h(InvoiceDocument, { invoice, logoBase64 }), { reactive: false })
   await execute(true)
   if (!blob.value) throw new Error('Failed to render invoice PDF')
