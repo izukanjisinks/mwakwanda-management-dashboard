@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, defineAsyncComponent } from 'vue'
 import {
   Search, Building2, ChevronDown, ChevronRight as ChevronRightIcon,
   FileText, Eye, Tag, Layers, RefreshCw, X,
@@ -10,7 +10,10 @@ import { useInvoicesStore } from '@/stores/invoices'
 import { effectiveInvoiceStatus } from '@/utils/invoices'
 import type { Invoice, InvoiceStatus } from '@/types/invoice'
 import InvoiceDetailDialog from '@/components/invoices/InvoiceDetailDialog.vue'
-import InvoicePdfSheet from '@/components/invoices/InvoicePdfSheet.vue'
+
+// The PDF renderer (@ceereals/vue-pdf) is a ~1.3MB dependency — loaded only
+// when the PDF sheet is actually opened, not on every reports page visit.
+const InvoicePdfSheet = defineAsyncComponent(() => import('@/components/invoices/InvoicePdfSheet.vue'))
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
