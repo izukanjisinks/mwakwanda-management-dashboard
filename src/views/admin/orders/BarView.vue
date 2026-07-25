@@ -40,21 +40,20 @@ const initialLoading = ref(true)
 async function fetchOrders() {
   loading.value = true
   try {
+    // The list endpoint returns full order detail (including items) directly —
+    // no more per-order fan-out to /orders/{id}.
     const res = await menusApi.listOrders({
       status: 'open',
       page: 1,
       page_size: 200,
       branch_id: branchFilter.apiBranchId,
     })
-    const list = res.data ?? []
-
-    // Fan out to individual order endpoints to get full details including items
-    const detailed = await Promise.all(list.map(o => menusApi.getOrder(o.id)))
-    const incomingMap = new Map(detailed.map(o => [o.id, o]))
+    const incoming = res.data ?? []
+    const incomingMap = new Map(incoming.map(o => [o.id, o]))
 
     orders.value = orders.value.filter(o => incomingMap.has(o.id))
 
-    for (const o of detailed) {
+    for (const o of incoming) {
       const idx = orders.value.findIndex(e => e.id === o.id)
       if (idx !== -1) {
         orders.value[idx] = o
