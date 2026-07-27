@@ -268,7 +268,17 @@ async function testPrinter() {
   if (!effectiveBranchId.value) return
   testingPrinter.value = true
   try {
-    await branchesApi.testPrint(effectiveBranchId.value)
+    if (window.electronAPI) {
+      // Running inside the reception terminal — the API server may have no
+      // network path to the printer, so fetch the pre-rendered job and send
+      // it ourselves over a local TCP socket via the Electron bridge.
+      const job = await branchesApi.testPrintJob(effectiveBranchId.value)
+      await window.electronAPI.print(job.ip, job.port, job.data_base64)
+    } else {
+      // Normal browser — ask the server to dial the printer itself. Only
+      // works if the server has direct network access to it.
+      await branchesApi.testPrint(effectiveBranchId.value)
+    }
     toast.success('Test print sent — check the printer.')
   } catch (err) {
     toast.error(getApiError(err, 'Test print failed.'))

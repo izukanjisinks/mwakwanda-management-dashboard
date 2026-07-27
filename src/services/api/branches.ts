@@ -33,4 +33,10 @@ export const branchesApi = {
 
   testPrint: (id: string) =>
     apiClient.post<{ message: string }>(`/branches/${id}/printer/test`),
+
+  // Returns the printer's ip/port plus a pre-rendered ESC/POS test receipt
+  // (base64) for the Electron terminal app to send itself over a raw TCP
+  // socket — used when the API server has no network path to the printer.
+  testPrintJob: (id: string) =>
+    apiClient.get<{ ip: string; port: number; data_base64: string }>(`/branches/${id}/printer/test-job`),
 }
