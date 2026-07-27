@@ -30,4 +30,7 @@ export const branchesApi = {
 
   delete: (id: string) =>
     apiClient.delete<void>(`/branches/${id}`),
+
+  testPrint: (id: string) =>
+    apiClient.post<{ message: string }>(`/branches/${id}/printer/test`),
 }

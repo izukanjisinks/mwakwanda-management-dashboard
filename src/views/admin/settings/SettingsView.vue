@@ -2,7 +2,7 @@
 import { ref, watch, computed, onMounted } from 'vue'
 import {
   CalendarClock, UtensilsCrossed, ShieldCheck, ChevronRight,
-  ScrollText, Settings2, Database, Loader2, Info,
+  ScrollText, Settings2, Database, Loader2, Info, Printer,
 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { getApiError } from '@/utils/errors'
@@ -112,6 +112,9 @@ interface BranchForm {
   parking: boolean
   restaurant: boolean
   is_active: boolean
+  printer_ip: string
+  printer_port: number
+  printer_name: string
 }
 
 function emptyBranchForm(): BranchForm {
@@ -120,6 +123,7 @@ function emptyBranchForm(): BranchForm {
     location: null, phone: '', email: '',
     check_in_time: '14:00', check_out_time: '11:00',
     parking: false, restaurant: false, is_active: true,
+    printer_ip: '', printer_port: 9100, printer_name: '',
   }
 }
 
@@ -168,6 +172,9 @@ function syncBranchForm(b: Branch) {
     parking:        b.parking    ?? false,
     restaurant:     b.restaurant ?? false,
     is_active:      b.is_active  ?? true,
+    printer_ip:     b.printer_ip   ?? '',
+    printer_port:   b.printer_port || 9100,
+    printer_name:   b.printer_name ?? '',
   }
 }
 
@@ -209,23 +216,25 @@ async function saveProfile() {
     }
 
     // Branch selected: save org name/logo (admin only) + branch physical data in parallel
-    const saves: Promise<unknown>[] = [
-      branchesStore.updateBranch(id, {
-        branch_code:    currentBranch.value?.branch_code ?? '',
-        name:           currentBranch.value?.name        ?? '',
-        street_address: branchForm.value.street_address.trim(),
-        city:           branchForm.value.city.trim(),
-        country:        branchForm.value.country.trim(),
-        location:       branchForm.value.location        ?? null,
-        phone:          branchForm.value.phone?.trim()   || undefined,
-        email:          branchForm.value.email?.trim()   || undefined,
-        check_in_time:  parseTime(branchForm.value.check_in_time)  || null,
-        check_out_time: parseTime(branchForm.value.check_out_time) || null,
-        parking:        branchForm.value.parking,
-        restaurant:     branchForm.value.restaurant,
-        is_active:      branchForm.value.is_active,
-      }),
-    ]
+    const branchSave = branchesStore.updateBranch(id, {
+      branch_code:    currentBranch.value?.branch_code ?? '',
+      name:           currentBranch.value?.name        ?? '',
+      street_address: branchForm.value.street_address.trim(),
+      city:           branchForm.value.city.trim(),
+      country:        branchForm.value.country.trim(),
+      location:       branchForm.value.location        ?? null,
+      phone:          branchForm.value.phone?.trim()   || undefined,
+      email:          branchForm.value.email?.trim()   || undefined,
+      check_in_time:  parseTime(branchForm.value.check_in_time)  || null,
+      check_out_time: parseTime(branchForm.value.check_out_time) || null,
+      parking:        branchForm.value.parking,
+      restaurant:     branchForm.value.restaurant,
+      is_active:      branchForm.value.is_active,
+      printer_ip:     branchForm.value.printer_ip.trim()   || null,
+      printer_port:   branchForm.value.printer_port || 9100,
+      printer_name:   branchForm.value.printer_name.trim() || null,
+    })
+    const saves: Promise<unknown>[] = [branchSave]
 
     if (isAdmin.value) {
       saves.push(store.updateLodgeProfile({
@@ -235,12 +244,36 @@ async function saveProfile() {
     }
 
     await Promise.all(saves)
+    // Refresh currentBranch from the save result so the Test Print button
+    // enables immediately once a printer_ip has been saved, no reload needed.
+    currentBranch.value = await branchSave
     toast.success('Settings saved.')
   } catch (err) {
     profileError.value = getApiError(err, 'Failed to save.')
     toast.error(profileError.value)
   } finally {
     profileSaving.value = false
+  }
+}
+
+// ── Printer test ──────────────────────────────────────────────────────────────
+// Only enabled once a printer IP is actually saved on the branch (currentBranch),
+// not just typed into the unsaved form — the test dials whatever the backend has
+// on record, so testing an unsaved edit would be misleading.
+const testingPrinter = ref(false)
+
+const canTestPrinter = computed(() => !!currentBranch.value?.printer_ip)
+
+async function testPrinter() {
+  if (!effectiveBranchId.value) return
+  testingPrinter.value = true
+  try {
+    await branchesApi.testPrint(effectiveBranchId.value)
+    toast.success('Test print sent — check the printer.')
+  } catch (err) {
+    toast.error(getApiError(err, 'Test print failed.'))
+  } finally {
+    testingPrinter.value = false
   }
 }
 
@@ -414,6 +447,42 @@ onMounted(async () => {
             <div class="grid gap-2">
               <Label for="org_checkout">Check-out Time</Label>
               <Input id="org_checkout" v-model="branchForm.check_out_time" type="time" />
+            </div>
+          </div>
+
+          <!-- ── Receipt printer ─────────────────────────────────────────────── -->
+          <div class="grid gap-3 rounded-lg border p-4">
+            <div>
+              <p class="text-sm font-medium">Receipt Printer</p>
+              <p class="text-xs text-muted-foreground">Network printer for this branch (e.g. Epson TM-T88VI over Ethernet)</p>
+            </div>
+            <div class="grid grid-cols-3 gap-4">
+              <div class="grid gap-2 col-span-2">
+                <Label for="printer_ip">Printer IP Address</Label>
+                <Input id="printer_ip" v-model="branchForm.printer_ip" placeholder="e.g. 192.168.1.50" />
+              </div>
+              <div class="grid gap-2">
+                <Label for="printer_port">Port</Label>
+                <Input id="printer_port" v-model.number="branchForm.printer_port" type="number" placeholder="9100" />
+              </div>
+            </div>
+            <div class="grid gap-2">
+              <Label for="printer_name">Label <span class="text-muted-foreground font-normal">(optional)</span></Label>
+              <Input id="printer_name" v-model="branchForm.printer_name" placeholder="e.g. Front Desk Receipt Printer" />
+            </div>
+            <div class="flex items-center justify-between gap-3 pt-1">
+              <p class="text-xs text-muted-foreground">
+                {{ canTestPrinter ? 'Sends a short test receipt to the saved printer.' : 'Save a printer IP first to enable testing.' }}
+              </p>
+              <Button
+                type="button" variant="outline" size="sm"
+                :disabled="!canTestPrinter || testingPrinter"
+                @click="testPrinter"
+              >
+                <Loader2 v-if="testingPrinter" class="size-3.5 mr-1.5 animate-spin" />
+                <Printer v-else class="size-3.5 mr-1.5" />
+                Test Print
+              </Button>
             </div>
           </div>
 
