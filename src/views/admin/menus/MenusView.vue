@@ -151,6 +151,8 @@ function resetItemForm() {
 }
 
 async function handleAddItem() {
+  if (isDefaultMenu.value) { createMenuOpen.value = true; return }
+
   itemFormError.value = ''
   const priceNum = parseFloat(itemForm.value.price)
   if (!itemForm.value.name.trim()) { itemFormError.value = 'Name is required.'; return }
@@ -293,12 +295,6 @@ const isDefaultMenu = computed(() =>
   !store.menu?.org_id || store.menu.org_id === '00000000-0000-0000-0000-000000000000'
 )
 
-watch(() => store.menuLoading, (loading) => {
-  if (!loading && isDefaultMenu.value && canWrite) {
-    createMenuOpen.value = true
-  }
-})
-
 async function handleCreateMenu() {
   if (!createMenuName.value.trim()) return
   creatingMenu.value = true
@@ -410,6 +406,8 @@ function removeDish(id: string) {
 }
 
 async function handleAddBuffet() {
+  if (isDefaultMenu.value) { createMenuOpen.value = true; return }
+
   buffetFormError.value = ''
   const priceNum = parseFloat(buffetForm.value.price)
   const minCoversNum = parseInt(buffetForm.value.min_covers)
@@ -1087,7 +1085,7 @@ async function handleSaveEditBuffet() {
   </div>
 
   <!-- Create Menu Dialog -->
-  <Dialog :open="createMenuOpen" @update:open="() => {}">
+  <Dialog v-model:open="createMenuOpen">
     <DialogContent class="max-w-sm">
       <DialogHeader>
         <div class="flex items-center gap-3 mb-1">
@@ -1109,6 +1107,9 @@ async function handleSaveEditBuffet() {
         />
       </div>
       <DialogFooter class="gap-2">
+        <Button variant="outline" :disabled="creatingMenu" @click="createMenuOpen = false">
+          Cancel
+        </Button>
         <Button :disabled="creatingMenu || !createMenuName.trim()" @click="handleCreateMenu">
           <Loader2 v-if="creatingMenu" class="size-4 mr-2 animate-spin" />
           Create Menu
